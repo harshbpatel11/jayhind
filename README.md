@@ -154,7 +154,21 @@ first person to open it wins, so do this promptly after DNS/TLS are live).
 
 ## Mac setup (local development)
 
-Prerequisites: [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+Prerequisites: [Docker Desktop](https://www.docker.com/products/docker-desktop/),
+and an SSH key on this Mac added to your GitHub account (Settings → SSH and
+GPG keys) — the six sub-repos below are private, so plain HTTPS won't
+authenticate. Quickest check: `ssh -T git@github.com` should greet you by
+username; if it says `Permission denied (publickey)`, generate one first:
+
+```bash
+ssh-keygen -t ed25519 -C "you@example.com"   # accept the default file location
+eval "$(ssh-agent -s)"
+ssh-add --apple-use-keychain ~/.ssh/id_ed25519
+pbcopy < ~/.ssh/id_ed25519.pub               # paste into GitHub → New SSH key
+```
+
+(Alternative: skip SSH entirely — `gh auth login`, then use `https://github.com/...`
+clone URLs instead of the `git@github.com:...` ones below.)
 
 ```bash
 mkdir -p ~/projects && cd ~/projects
