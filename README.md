@@ -118,9 +118,9 @@ The seeders provision a full demo company end-to-end (chart of accounts,
 roles, tax slabs, HR reference data, one admin user —
 `admin@yopmail.com` / `Admin@123`).
 
-Set `UPLOAD_ROOT` in `.env` to a path on this machine, e.g.
-`UPLOAD_ROOT=/Users/you/projects/jayhind/client-uploads` (the default in
-`.env.example` is a server path and won't exist locally).
+`UPLOAD_ROOT` in `.env.example` defaults to a relative `uploads` folder
+(created under this project's directory on first run) — override it with an
+absolute path if you'd rather store uploads elsewhere.
 
 ### jayhind-admin-front / jayhindi-client-front
 

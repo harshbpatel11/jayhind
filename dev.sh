@@ -113,8 +113,8 @@ start_one_bg() {
     return 0
   fi
   if is_running "$name"; then
-    echo "‣ $name: already running (pid $(cat "$(pidfile_for "$name")"))"
-    return 0
+    echo "‣ $name: already running (pid $(cat "$(pidfile_for "$name")")) — restarting"
+    stop_one "$name"
   fi
   ( cd "$DIR" && exec $RUNCMD ) >"$(logfile_for "$name")" 2>&1 &
   local pid=$!
