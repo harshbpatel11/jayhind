@@ -157,12 +157,25 @@ npm install
 
 ## Running everything
 
-Each service runs in its own terminal (or tmux pane/window) with its own
-`npm start`. There isn't a single command that starts all five — run the
-ones you need for what you're working on. A typical full-stack session is
-four terminals: `jayhind-admin-back`, `jayhind-client-back`,
-`jayhind-admin-front`, `jayhindi-client-front` (skip the OCR sidecar unless
-you need it).
+`./dev.sh` starts every project that's already set up (`npm install` /
+`.venv` present), with combined, color-prefixed live logs in one terminal —
+Ctrl+C stops all of them cleanly. Works on macOS and Linux directly; on
+Windows, run it from Git Bash or WSL.
+
+```bash
+./dev.sh                        # start everything set up so far, foreground
+./dev.sh start admin-back client-back   # just the two backends
+./dev.sh start -d                # same, but detached (background)
+./dev.sh status                  # what's set up / running / listening
+./dev.sh logs client-back        # tail one service's log
+./dev.sh stop                    # stop everything dev.sh started
+```
+
+A typical full-stack session only needs `admin-back`, `client-back`,
+`admin-front`, `client-front` — skip the OCR sidecar unless you're working
+on OCR specifically (see below). Each project can still be run the old way
+too — its own `npm start` (or the OCR service's `serve.sh`) in its own
+terminal.
 
 ## Keeping submodules in sync
 
