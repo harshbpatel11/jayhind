@@ -1,0 +1,57 @@
+# Auto-applied on top of docker-compose.yml whenever you run a plain
+# `docker compose ...` with no -f flags — this is the Mac / local-dev
+# shape: source is bind-mounted for hot reload, and every service publishes
+# to localhost so you can hit it straight from a browser.
+#
+# The server never uses this file — it runs
+# `docker compose -f docker-compose.yml -f docker-compose.server.yml ...`
+# explicitly instead (see docker.sh).
+services:
+  mysql:
+    ports:
+      - "3306:3306"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  admin-back:
+    command: ["npm", "run", "start:dev"]
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./jayhind-admin-back:/app
+      - admin_back_node_modules:/app/node_modules
+    ports:
+      - "3100:3100"
+
+  client-back:
+    command: ["npm", "run", "start:dev"]
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./jayhind-client-back:/app
+      - client_back_node_modules:/app/node_modules
+      - ./client-uploads:/app/uploads
+    ports:
+      - "3000:3000"
+
+  admin-front:
+    volumes:
+      - ./jayhind-admin-front:/app
+      - admin_front_node_modules:/app/node_modules
+    ports:
+      - "4500:4500"
+
+  client-front:
+    volumes:
+      - ./jayhindi-client-front:/app
+      - client_front_node_modules:/app/node_modules
+    ports:
+      - "4300:4300"
+
+volumes:
+  admin_back_node_modules:
+  client_back_node_modules:
+  admin_front_node_modules:
+  client_front_node_modules:

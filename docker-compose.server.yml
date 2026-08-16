@@ -1,0 +1,68 @@
+# Server overlay — adds the OCR sidecar + Portainer, and publishes every
+# app port to 127.0.0.1 at the exact same port nginx already proxies to
+# today, so the existing nginx site configs need no changes at all.
+#
+# Usage: docker compose -f docker-compose.yml -f docker-compose.server.yml up -d
+# (or just `./docker.sh up`, which does the same thing).
+services:
+  mysql:
+    restart: always
+
+  redis:
+    restart: always
+
+  admin-back:
+    restart: always
+    environment:
+      OCR_SERVICE_URL: http://ocr:8100
+    # Matches the host GID that owns ./uploads (ubuntu, gid 1001) so the
+    # container (uid 1000, the image's built-in "node" user) can write into
+    # that bind-mounted, otherwise host-owned directory.
+    user: "1000:1001"
+    ports:
+      - "127.0.0.1:3100:3100"
+
+  client-back:
+    restart: always
+    # Matches the host GID that owns ./client-uploads (ubuntu, gid 1001) so
+    # the container (uid 1000, the image's built-in "node" user) can write
+    # new uploads into that bind-mounted, otherwise host-owned directory.
+    user: "1000:1001"
+    ports:
+      - "127.0.0.1:3000:3000"
+
+  admin-front:
+    restart: always
+    ports:
+      - "127.0.0.1:4500:4500"
+
+  client-front:
+    restart: always
+    ports:
+      - "127.0.0.1:4300:4300"
+
+  ocr:
+    build: ./jayhind-ocr-service
+    restart: always
+    env_file: ./jayhind-ocr-service/.env
+    environment:
+      OCR_HOST: 0.0.0.0
+      OCR_WARM_UP: "false"
+    volumes:
+      - ./jayhind-ocr-service/models:/app/models
+    networks: [jayhind]
+    ports:
+      - "127.0.0.1:8100:8100"
+
+  portainer:
+    image: portainer/portainer-ce:lts
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    networks: [jayhind]
+    ports:
+      - "127.0.0.1:9000:9000"
+
+volumes:
+  portainer_data:

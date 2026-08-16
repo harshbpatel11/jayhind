@@ -28,6 +28,8 @@
 /_prod-backups/
 *.sql
 *.sql.gz
+# ...except the Dockerized MySQL's init script, which is infra code, not a dump.
+!/docker/mysql/init/*.sql
 
 # Secrets / keys — never git, regardless of where they land
 *.key

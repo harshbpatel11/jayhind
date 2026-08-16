@@ -1,0 +1,100 @@
+name: jayhind
+
+# Base service graph, shared by every environment. No host ports are
+# published here on purpose — see docker-compose.override.yml (auto-applied
+# locally, e.g. on a Mac) and docker-compose.server.yml (this server) for
+# how each environment exposes things.
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+    networks: [jayhind]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-root}"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    networks: [jayhind]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  admin-back:
+    build: ./jayhind-admin-back
+    restart: unless-stopped
+    env_file: ./jayhind-admin-back/.env
+    environment:
+      NODE_ENV: production
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      UPLOAD_ROOT: /app/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/app/uploads
+    networks: [jayhind]
+    expose: ["3100"]
+
+  client-back:
+    build: ./jayhind-client-back
+    restart: unless-stopped
+    env_file: ./jayhind-client-back/.env
+    environment:
+      NODE_ENV: production
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      MASTER_URL: http://admin-back:3100
+      UPLOAD_ROOT: /app/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      admin-back:
+        condition: service_started
+    volumes:
+      - ./client-uploads:/app/uploads
+    networks: [jayhind]
+    expose: ["3000"]
+
+  admin-front:
+    build: ./jayhind-admin-front
+    restart: unless-stopped
+    depends_on:
+      admin-back:
+        condition: service_started
+    networks: [jayhind]
+    expose: ["4500"]
+
+  client-front:
+    build: ./jayhindi-client-front
+    restart: unless-stopped
+    depends_on:
+      client-back:
+        condition: service_started
+    networks: [jayhind]
+    expose: ["4300"]
+
+networks:
+  jayhind:
+    name: jayhind
+
+volumes:
+  mysql_data:
+  redis_data:
