@@ -6,11 +6,14 @@
 # execute a shell script directly.
 #
 # Usage:
-#   ./dev.sh                    start every set-up project, combined live
-#                                logs in this terminal (Ctrl+C stops all)
+#   ./dev.sh                    start every set-up project; opens a tmux tab
+#                                per project with its live log (needs tmux —
+#                                falls back to one combined terminal log)
 #   ./dev.sh start [name...]    same, but only the named project(s)
 #   ./dev.sh start -d [name...] start in the background instead, and return
 #                                control immediately
+#   ./dev.sh tabs [name...]     (re)open the tmux tab view for already-running
+#                                project(s), without starting anything
 #   ./dev.sh stop [name...]     stop background-started project(s)
 #   ./dev.sh restart [name...]  stop then start (background)
 #   ./dev.sh status             show what's set up / running / listening
@@ -40,6 +43,8 @@ ROOT="$(cd -P "$(dirname "$SRC")" >/dev/null 2>&1 && pwd)"
 LOGDIR="$ROOT/.dev-logs"
 PIDDIR="$ROOT/.dev-pids"
 mkdir -p "$LOGDIR" "$PIDDIR"
+
+TMUX_SESSION="jayhind-dev"
 
 # name | dir (relative to ROOT) | port | start command (run from inside dir)
 PROJECTS=(
@@ -154,6 +159,38 @@ follow_one() { # stream one project's log to stdout, prefixed and colored
   done
 }
 
+tmux_available() { command -v tmux >/dev/null 2>&1; }
+
+open_tabs() { # tmux session, one window per project, click/Ctrl+b<n> to switch
+  local names=("$@") n first=1
+  local session="$TMUX_SESSION"
+  tmux has-session -t "$session" 2>/dev/null && tmux kill-session -t "$session" 2>/dev/null
+  for n in "${names[@]}"; do
+    local lf; lf="$(logfile_for "$n")"
+    if [ "$first" -eq 1 ]; then
+      tmux new-session -d -s "$session" -n "$n" "tail -n +1 -F '$lf'"
+      first=0
+    else
+      tmux new-window -t "$session" -n "$n" "tail -n +1 -F '$lf'"
+    fi
+  done
+  tmux set-option -t "$session" -g mouse on
+  # Narrow terminal panels (VS Code's integrated terminal, small splits) can
+  # truncate the window-tab list because the default status bar spends its
+  # width on the session name and a right-side clock. Strip both so the tabs
+  # themselves get the space.
+  tmux set-option -t "$session" -g status-left ""
+  tmux set-option -t "$session" -g status-right ""
+  tmux set-option -t "$session" -g status-justify left
+  tmux set-option -t "$session" -g window-status-format " #I:#W "
+  tmux set-option -t "$session" -g window-status-current-format " #I:#W "
+  tmux select-window -t "${session}:1"
+  echo
+  echo "Opening tabs (tmux) — click a tab, or Ctrl+b <number>, to switch project logs."
+  echo "Ctrl+b d detaches (services keep running); stop them anytime with: $0 stop"
+  tmux attach -t "$session"
+}
+
 FOLLOW_PIDS=()
 
 stop_watch() {
@@ -205,10 +242,30 @@ cmd_start() {
 
   if [ "$detach" -eq 1 ]; then
     echo
-    echo "Running in background. Use: $0 status | $0 logs <name> | $0 stop"
+    echo "Running in background. Use: $0 status | $0 tabs | $0 logs <name> | $0 stop"
+  elif tmux_available; then
+    open_tabs "${started[@]}"
   else
+    echo
+    echo "(tip: install tmux for a clickable tab per project — brew install tmux)"
     watch_logs "${started[@]}"
   fi
+}
+
+cmd_tabs() {
+  local names=("$@")
+  [ ${#names[@]} -eq 0 ] && names=($(all_names))
+  local n avail=()
+  for n in "${names[@]}"; do
+    lookup "$n" >/dev/null || return 1
+    is_running "$n" && avail+=("$n")
+  done
+  if [ ${#avail[@]} -eq 0 ]; then
+    echo "Nothing is running. Start something first: $0 start -d"
+    return 1
+  fi
+  tmux_available || { echo "tmux not found — install it (brew install tmux) or use: $0 logs <name>"; return 1; }
+  open_tabs "${avail[@]}"
 }
 
 cmd_stop() {
@@ -254,10 +311,13 @@ cmd_help() {
 dev.sh — run every Jayhind ERP service locally, from one command, on any OS.
 
 Usage:
-  ./dev.sh                    start all set-up projects, combined live logs
-                               in this terminal (Ctrl+C stops all)
+  ./dev.sh                    start all set-up projects; opens a tmux tab
+                               per project with its live log (needs tmux —
+                               falls back to one combined terminal log)
   ./dev.sh start [name...]    same, but only the named project(s)
   ./dev.sh start -d [name...] start in the background, return immediately
+  ./dev.sh tabs [name...]     (re)open the tmux tab view for already-running
+                               project(s), without starting anything
   ./dev.sh stop [name...]     stop background-started project(s)
   ./dev.sh restart [name...]  stop then start (background)
   ./dev.sh status             show what's set up / running / listening
@@ -270,12 +330,19 @@ Logs live in .dev-logs/, pid files in .dev-pids/ (both git-ignored). Start
 MySQL (and Redis, if installed) yourself first — this script only manages
 the five app processes, same as README.md's per-project setup does.
 
+Tabs use tmux (install: brew install tmux). Each project gets its own tmux
+window tailing just its log — click a window in the status bar, or press
+Ctrl+b <number>, to switch. Detaching (Ctrl+b d) leaves everything running;
+stop it later with '$0 stop'. Without tmux, dev.sh falls back to one
+combined, color-prefixed log (Ctrl+C stops everything).
+
 Windows: run this from Git Bash or WSL, not cmd.exe/PowerShell directly.
 EOF
 }
 
 case "${1:-}" in
   ""|start)       [ "${1:-}" = "start" ] && shift; cmd_start "$@" ;;
+  tabs)           shift; cmd_tabs "$@" ;;
   stop)           shift; cmd_stop "$@" ;;
   restart)        shift; cmd_restart "$@" ;;
   status|st)      cmd_status ;;
