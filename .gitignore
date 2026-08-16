@@ -1,19 +1,16 @@
 # This repo (jayhind) is orchestration/docs only — dev.sh, README, ops
-# runbooks. Everything below is either an independent sibling git repo
-# (never nested content of this one), or local runtime/data state that must
-# never be committed anywhere.
+# runbooks. Everything below is either an independent git repo cloned INSIDE
+# this one (never nested content of this repo itself), or local runtime/data
+# state that must never be committed anywhere.
 
-# The 6 sub-project repos — each is its own independent git repository
+# The 6 sub-project repos — each is its own independent git repository,
+# cloned inside this one (see README.md "Getting the code")
 /jayhind-admin-back/
 /jayhind-admin-front/
 /jayhind-client-back/
 /jayhindi-client-front/
 /jayhind-ocr-service/
 /qa-artifacts/
-
-# Unrelated projects sharing this box — not part of Jayhind, never touch
-/tb_ai_bid/
-/tender-dock/
 
 # Live runtime data — real/dev DB data, uploaded files, never git
 /database/

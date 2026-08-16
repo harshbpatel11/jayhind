@@ -45,12 +45,13 @@ Feature work targets `main`; deploys are cut from `production`.
 
 ## Getting the code
 
-Clone this repo and all six sub-repos as **siblings** in one parent
-directory — `dev.sh` and every project's own scripts assume this layout:
+Clone this repo, then clone all six sub-repos **inside it** — `dev.sh` and
+every project's own scripts assume this layout:
 
 ```bash
 mkdir -p ~/projects && cd ~/projects
-git clone git@github.com:harshbpatel11/jayhind.git .
+git clone git@github.com:harshbpatel11/jayhind.git
+cd jayhind
 
 git clone git@github.com:harshbpatel11/jayhind-admin-back.git
 git clone git@github.com:harshbpatel11/jayhind-client-back.git
@@ -68,14 +69,20 @@ Resulting layout:
 
 ```
 projects/
-├── dev.sh, README.md, _ops/, _staging/      (this repo)
-├── jayhind-admin-back/
-├── jayhind-client-back/
-├── jayhind-admin-front/
-├── jayhindi-client-front/
-├── jayhind-ocr-service/
-└── qa-artifacts/
+└── jayhind/                                 (this repo)
+    ├── dev.sh, README.md, _ops/, _staging/
+    ├── jayhind-admin-back/
+    ├── jayhind-client-back/
+    ├── jayhind-admin-front/
+    ├── jayhindi-client-front/
+    ├── jayhind-ocr-service/
+    └── qa-artifacts/
 ```
+
+Every sub-repo's runtime data root (`UPLOAD_ROOT` in each backend's `.env`)
+should point inside this same `jayhind/` folder too, e.g.
+`UPLOAD_ROOT=/path/to/projects/jayhind/client-uploads` — see each project's
+`.env.example`.
 
 ## Per-project setup
 

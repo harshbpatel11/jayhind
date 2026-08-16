@@ -11,7 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const CLIENT_BACK = '/home/ubuntu/projects/jayhind-client-back';
+const CLIENT_BACK = '/home/ubuntu/projects/jayhind/jayhind-client-back';
 require(path.join(CLIENT_BACK, 'node_modules/dotenv')).config({ path: path.join(CLIENT_BACK, '.env') });
 const nodemailer = require(path.join(CLIENT_BACK, 'node_modules/nodemailer'));
 

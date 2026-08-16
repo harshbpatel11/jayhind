@@ -5,7 +5,7 @@ After=network.target mysql.service
 [Service]
 Type=simple
 User=ubuntu
-WorkingDirectory=/home/ubuntu/projects/jayhind-client-back
+WorkingDirectory=/home/ubuntu/projects/jayhind/jayhind-client-back
 Environment=PATH=/home/ubuntu/.nvm/versions/node/v26.5.0/bin:/usr/local/bin:/usr/bin:/bin
 # npm start (not `node dist/...`), deliberately: this is the actual dev
 # environment — hot-reload via `nest start --watch` is the whole point, unlike
@@ -15,8 +15,8 @@ Environment=PATH=/home/ubuntu/.nvm/versions/node/v26.5.0/bin:/usr/local/bin:/usr
 ExecStart=/home/ubuntu/.nvm/versions/node/v26.5.0/bin/npm start
 Restart=on-failure
 RestartSec=5
-StandardOutput=append:/home/ubuntu/projects/jayhind-client-back/logs/dev-stdout.log
-StandardError=append:/home/ubuntu/projects/jayhind-client-back/logs/dev-stderr.log
+StandardOutput=append:/home/ubuntu/projects/jayhind/jayhind-client-back/logs/dev-stdout.log
+StandardError=append:/home/ubuntu/projects/jayhind/jayhind-client-back/logs/dev-stderr.log
 
 [Install]
 WantedBy=multi-user.target

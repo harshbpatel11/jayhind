@@ -16,7 +16,7 @@
 set -u
 
 SESSION="dev"
-ROOT="/home/ubuntu/projects"
+ROOT="/home/ubuntu/projects/jayhind"
 
 # name | unit | port | log directory
 PROJECTS=(

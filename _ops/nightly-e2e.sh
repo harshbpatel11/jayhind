@@ -15,7 +15,7 @@
 # job. See CLAUDE.md §9 point 9 for why this class of mistake matters here.
 set -uo pipefail
 
-ROOT=/home/ubuntu/projects
+ROOT=/home/ubuntu/projects/jayhind
 CLIENT_BACK="$ROOT/jayhind-client-back"
 ADMIN_BACK="$ROOT/jayhind-admin-back"
 QA_ARTIFACTS="$ROOT/qa-artifacts"

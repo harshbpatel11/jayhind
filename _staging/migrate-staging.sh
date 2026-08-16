@@ -17,8 +17,8 @@ REPO="${1:?usage: migrate-staging.sh <client-back|admin-back> <up|status|undo>}"
 ACTION="${2:?usage: migrate-staging.sh <client-back|admin-back> <up|status|undo>}"
 
 case "$REPO" in
-  client-back) DIR=/home/ubuntu/projects/jayhind-client-back; DB=jayhind_client_staging ;;
-  admin-back)  DIR=/home/ubuntu/projects/jayhind-admin-back;  DB=master_hub_staging ;;
+  client-back) DIR=/home/ubuntu/projects/jayhind/jayhind-client-back; DB=jayhind_client_staging ;;
+  admin-back)  DIR=/home/ubuntu/projects/jayhind/jayhind-admin-back;  DB=master_hub_staging ;;
   *) echo "Unknown repo '$REPO' — expected client-back or admin-back" >&2; exit 1 ;;
 esac
 

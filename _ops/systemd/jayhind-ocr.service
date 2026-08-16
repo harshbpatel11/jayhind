@@ -5,17 +5,17 @@ After=network.target
 [Service]
 Type=simple
 User=ubuntu
-WorkingDirectory=/home/ubuntu/projects/jayhind-ocr-service
+WorkingDirectory=/home/ubuntu/projects/jayhind/jayhind-ocr-service
 Environment=OCR_WARM_UP=false
 # Loopback only, as documented in dev.sh and workspace CLAUDE.md — no auth of
 # its own, the hub (same box) is its only caller. Not restarted on a code
 # change (no --reload equivalent): reloading a multi-GB model on every save
 # is not wanted; use `systemctl restart jayhind-ocr` after an OCR code change.
-ExecStart=/home/ubuntu/projects/jayhind-ocr-service/.venv/bin/python -m app.main
+ExecStart=/home/ubuntu/projects/jayhind/jayhind-ocr-service/.venv/bin/python -m app.main
 Restart=on-failure
 RestartSec=5
-StandardOutput=append:/home/ubuntu/projects/jayhind-ocr-service/logs/dev-stdout.log
-StandardError=append:/home/ubuntu/projects/jayhind-ocr-service/logs/dev-stderr.log
+StandardOutput=append:/home/ubuntu/projects/jayhind/jayhind-ocr-service/logs/dev-stdout.log
+StandardError=append:/home/ubuntu/projects/jayhind/jayhind-ocr-service/logs/dev-stderr.log
 
 [Install]
 WantedBy=multi-user.target
