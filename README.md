@@ -6,8 +6,9 @@ each with its own Angular frontend, plus a local invoice-OCR sidecar.
 
 This repo (`jayhind`) is the orchestration layer: the Docker Compose setup
 that runs every service, this setup guide, and operational runbooks
-(`_ops/`, `_staging/`). Application code lives in six sibling repositories,
-cloned next to this one.
+(`_ops/`, `_staging/`). Application code lives in six sub-repositories,
+tracked here as git submodules (each pinned to a specific commit — see
+`.gitmodules`).
 
 ## Projects
 
@@ -170,22 +171,21 @@ pbcopy < ~/.ssh/id_ed25519.pub               # paste into GitHub → New SSH key
 (Alternative: skip SSH entirely — `gh auth login`, then use `https://github.com/...`
 clone URLs instead of the `git@github.com:...` ones below.)
 
+The six sub-repos are git submodules of this one, so a single command gets
+everything, already checked out at the exact commits this repo is pinned to:
+
 ```bash
 mkdir -p ~/projects && cd ~/projects
-git clone git@github.com:harshbpatel11/jayhind.git
+git clone --recurse-submodules git@github.com:harshbpatel11/jayhind.git
 cd jayhind
-
-git clone git@github.com:harshbpatel11/jayhind-admin-back.git
-git clone git@github.com:harshbpatel11/jayhind-client-back.git
-git clone git@github.com:harshbpatel11/jayhind-admin-front.git
-git clone git@github.com:harshbpatel11/jayhind-client-front.git jayhindi-client-front
-git clone git@github.com:harshbpatel11/jayhind-ocr-service.git
-git clone git@github.com:harshbpatel11/jayhind-qa-artifacts.git qa-artifacts
 ```
+
+(Already cloned without `--recurse-submodules`? Run `git submodule update
+--init` inside `jayhind/` instead of re-cloning.)
 
 > The client frontend's directory is `jayhindi-client-front` (note the extra
 > "i") — the compose files and other services' CORS config expect that exact
-> name.
+> name. `.gitmodules` already maps it to the right repo.
 
 ```bash
 cp jayhind-admin-back/.env.example jayhind-admin-back/.env
@@ -225,6 +225,21 @@ cd qa-artifacts
 npm install
 # see scripts/ for individual harnesses; expects the stack above running
 ```
+
+## Keeping submodules in sync
+
+Each sub-repo is its own independent git repo — `cd` into one and commit/push
+from there as usual. But this parent repo only stores a *pointer* (a pinned
+commit) to each submodule, so after pushing a sub-repo change, also update
+the pointer here:
+
+```bash
+cd jayhind-client-back && git push   # push the sub-repo's own change first
+cd .. && git add jayhind-client-back && git commit -m "bump jayhind-client-back" && git push
+```
+
+To pull in everyone else's latest sub-repo commits (not just this repo's own
+files): `git pull && git submodule update --init --recursive`.
 
 ## Rolling back to native (if needed)
 

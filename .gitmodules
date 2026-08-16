@@ -1,0 +1,18 @@
+[submodule "jayhind-admin-back"]
+	path = jayhind-admin-back
+	url = git@github.com:harshbpatel11/jayhind-admin-back.git
+[submodule "jayhind-client-back"]
+	path = jayhind-client-back
+	url = git@github.com:harshbpatel11/jayhind-client-back.git
+[submodule "jayhind-admin-front"]
+	path = jayhind-admin-front
+	url = git@github.com:harshbpatel11/jayhind-admin-front.git
+[submodule "jayhindi-client-front"]
+	path = jayhindi-client-front
+	url = git@github.com:harshbpatel11/jayhind-client-front.git
+[submodule "jayhind-ocr-service"]
+	path = jayhind-ocr-service
+	url = git@github.com:harshbpatel11/jayhind-ocr-service.git
+[submodule "qa-artifacts"]
+	path = qa-artifacts
+	url = git@github.com:harshbpatel11/jayhind-qa-artifacts.git
