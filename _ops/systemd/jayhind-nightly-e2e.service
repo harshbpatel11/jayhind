@@ -1,0 +1,12 @@
+[Unit]
+Description=Jayhind nightly E2E run (O1.6)
+After=network.target mysql.service jayhind-client-back.service jayhind-admin-back.service
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/projects
+Environment=PATH=/home/ubuntu/.nvm/versions/node/v26.5.0/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/bash /home/ubuntu/projects/_ops/nightly-e2e.sh
+StandardOutput=append:/home/ubuntu/projects/_ops/nightly-logs/service.log
+StandardError=append:/home/ubuntu/projects/_ops/nightly-logs/service.log

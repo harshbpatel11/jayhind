@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the Jayhind nightly E2E suite at 2am daily (O1.6)
+
+[Timer]
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

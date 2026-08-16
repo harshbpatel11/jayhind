@@ -1,0 +1,17 @@
+[Unit]
+Description=Jayhind Client ERP frontend — STAGING (O1.3)
+After=network.target jayhind-client-back-staging.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/projects/jayhindi-client-front
+Environment=PATH=/home/ubuntu/.nvm/versions/node/v26.5.0/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/ubuntu/.nvm/versions/node/v26.5.0/bin/npx ng serve --configuration staging --port 4301 --host 127.0.0.1
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/home/ubuntu/projects/jayhindi-client-front/logs/staging-stdout.log
+StandardError=append:/home/ubuntu/projects/jayhindi-client-front/logs/staging-stderr.log
+
+[Install]
+WantedBy=multi-user.target

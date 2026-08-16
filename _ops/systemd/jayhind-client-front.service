@@ -1,0 +1,17 @@
+[Unit]
+Description=Jayhind Client ERP frontend — dev (O1.4)
+After=network.target jayhind-client-back.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/projects/jayhindi-client-front
+Environment=PATH=/home/ubuntu/.nvm/versions/node/v26.5.0/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/ubuntu/.nvm/versions/node/v26.5.0/bin/npm start
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/home/ubuntu/projects/jayhindi-client-front/logs/dev-stdout.log
+StandardError=append:/home/ubuntu/projects/jayhindi-client-front/logs/dev-stderr.log
+
+[Install]
+WantedBy=multi-user.target
