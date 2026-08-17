@@ -4,10 +4,11 @@ A multi-tenant, GST-compliant ERP platform for the Indian market, split into
 a licensing/control-plane API (the "Master Hub") and a client-facing ERP API,
 each with its own Angular frontend, plus a local invoice-OCR sidecar.
 
-This repo (`jayhind`) is the orchestration layer: this setup guide and
-operational runbooks (`_ops/`, `_staging/`). Application code lives in six
-sub-repositories, tracked here as git submodules (each pinned to a specific
-commit — see `.gitmodules`).
+This repo (`jayhind`) is the orchestration layer: this setup guide, `dev.sh`,
+the cross-repo guards in `scripts/`, and the architectural map in
+[`CLAUDE.md`](CLAUDE.md). Application code lives in six sub-repositories,
+tracked here as git submodules (each pinned to a specific commit — see
+`.gitmodules`).
 
 ## Projects
 
@@ -219,9 +220,34 @@ cd .. && git add jayhind-client-back && git commit -m "bump jayhind-client-back"
 To pull in everyone else's latest sub-repo commits (not just this repo's own
 files): `git pull && git submodule update --init --recursive`.
 
+## Cross-repo checks
+
+Some constants are duplicated on purpose between `jayhind-client-back` (which
+enforces them) and `jayhindi-client-front` (which mirrors them so the UI never
+offers an action the server will refuse). Each sub-repo is an independent git
+repo, so only this one can see both trees at once:
+
+```bash
+node scripts/check-mirrors.js     # exit 0 = in sync, 1 = drift, with details
+```
+
+Run it after touching module licences, permission keys, or voucher lifecycle
+rules on either side.
+
+## API docs
+
+Both backends publish OpenAPI once running — Swagger UI at `/api/docs`, schema
+JSON at `/api/docs-json` (ERP on :3000, hub on :3100). Generated from the
+`class-validator` DTOs, so it cannot drift from what the API actually accepts.
+On by default outside production; set `API_DOCS_ENABLED=true` to expose it on a
+deployed environment.
+
 ## Further docs
 
-- `_ops/` — nightly E2E runbook, systemd unit files, architecture decision
-  records, review notes.
-- `_staging/` — staging environment rollback runbook and refresh scripts.
+- [`CLAUDE.md`](CLAUDE.md) — the architectural map: service topology, the
+  request/guard pipeline, multi-tenancy, permissions, cross-service flows,
+  coding and UI standards. **Read this before changing anything.**
+- [`_ops/`](_ops/) — decision records, including the frozen status/`code`
+  contracts between the services. See [`_ops/README.md`](_ops/README.md) for a
+  note on which referenced planning documents are missing from this tree.
 - Each sub-repo's own `README.md` has project-specific detail.
