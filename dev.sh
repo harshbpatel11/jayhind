@@ -94,6 +94,55 @@ is_running() {
   [ -f "$pf" ] && kill -0 "$(cat "$pf")" 2>/dev/null
 }
 
+# Best-effort list of PIDs actually listening on a TCP port right now —
+# independent of our pidfiles, so it also catches processes dev.sh never
+# started itself (a manual `npm start` in another terminal, a previous
+# dev.sh run whose shell/session is long gone, a process that survived a
+# laptop sleep, etc). Falls back gracefully if neither tool is installed;
+# callers just won't be able to auto-clear the port in that case.
+pids_on_port() {
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -tiTCP:"$1" -sTCP:LISTEN 2>/dev/null
+  elif command -v fuser >/dev/null 2>&1; then
+    fuser "$1"/tcp 2>/dev/null
+  fi
+}
+
+# Kill one pid, TERM then KILL, trying both the process-group form (for pids
+# we started ourselves under `set -m`, where PGID == PID) and the plain form
+# (for pids started some other way, where it isn't — that mismatch is why a
+# bare `kill -- -$pid` can silently no-op on processes dev.sh didn't spawn).
+kill_pid_hard() {
+  local pid="$1" i
+  kill -- "-$pid" 2>/dev/null
+  kill "$pid" 2>/dev/null
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    kill -0 "$pid" 2>/dev/null || return 0
+    sleep 0.2
+  done
+  kill -9 -- "-$pid" 2>/dev/null
+  kill -9 "$pid" 2>/dev/null
+}
+
+# Make sure nothing — tracked or not — is still holding this port. Run right
+# before we launch a new instance, so a stray/orphaned process from a past
+# session can never collide with the one we're about to start (that's what
+# caused EADDRINUSE: an old, untracked admin-back process had been holding
+# port 3100 since a previous session that was never cleanly stopped).
+free_port() {
+  local name="$1" port="$2"
+  port_up "$port" || return 0
+  echo "‣ $name: port $port is already in use by an untracked process — freeing it"
+  local p
+  for p in $(pids_on_port "$port"); do
+    kill_pid_hard "$p"
+  done
+  if port_up "$port"; then
+    echo "‣ $name: still couldn't free port $port (no lsof/fuser available, or"
+    echo "  it's held by something outside your user) — start may fail below"
+  fi
+}
+
 # Colors, only when attached to a real terminal.
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
   COLORS=(36 35 33 32 34)
@@ -121,6 +170,7 @@ start_one_bg() {
     echo "‣ $name: already running (pid $(cat "$(pidfile_for "$name")")) — restarting"
     stop_one "$name"
   fi
+  free_port "$name" "$PORT"
   # stdin must be /dev/null, not the controlling terminal: some dev servers
   # (Angular's esbuild/vite-based `ng serve`) read stdin for interactive
   # keyboard shortcuts (r/u/o/h/q). A backgrounded job's stdin here would
@@ -149,13 +199,7 @@ stop_one() {
   # Negative PID targets the whole process group (see `set -m` above), so
   # this reaches npm's/serve.sh's child processes (ng serve, nest, node...)
   # too, not just the immediate child we forked.
-  kill -- "-$pid" 2>/dev/null
-  local i
-  for i in 1 2 3 4 5 6 7 8 9 10; do
-    kill -0 "$pid" 2>/dev/null || break
-    sleep 0.2
-  done
-  kill -0 "$pid" 2>/dev/null && kill -9 -- "-$pid" 2>/dev/null
+  kill_pid_hard "$pid"
   rm -f "$pf"
   echo "‣ $name: stopped"
 }

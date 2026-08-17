@@ -23,8 +23,11 @@ commit — see `.gitmodules`).
 The client backend is the only service that talks to the outside world (GST
 portals, e-Way Bill/e-Invoice, the OCR sidecar) and it does so **through**
 the Master Hub — it never calls a government API directly. The two backends
-authenticate to each other with a shared key (`MASTER_API_KEY` /
-`MASTER_PUBLIC_KEY`, see below).
+authenticate every internal call to each other — in **both** directions —
+with one shared secret, `INTERNAL_SERVICE_KEY` (see below): it must be the
+exact same value in `jayhind-admin-back/.env` and `jayhind-client-back/.env`,
+or internal calls in either direction (including the hub's "Create company"
+action) are refused.
 
 Everything runs natively — no Docker anywhere in this stack. Each service is
 started with its own `npm start` (or the OCR service's `serve.sh`) in its own
@@ -87,11 +90,28 @@ Start MySQL (and Redis, if you have it installed) before any of the backends
 below — both `jayhind-admin-back` and `jayhind-client-back` connect to
 `localhost` by default.
 
+**Both backends need the same `INTERNAL_SERVICE_KEY`.** Generate it once,
+before setting up either one, and paste the same value into both `.env`
+files below:
+
+```bash
+openssl rand -hex 64
+```
+
+This is the shared secret the two servers use to authenticate every call
+between them, in both directions — including the hub's "Create company"
+action, which asks the ERP to provision the company rather than writing the
+row itself. If it's missing, unset, or different between the two `.env`
+files, every one of those calls fails closed with a clear error (never a
+silent no-op) — on any environment, not just locally. See each repo's own
+README for the full list of what runs over this credential.
+
 ### jayhind-admin-back (Master Hub API)
 
 ```bash
 cd jayhind-admin-back
-cp .env.example .env        # fill in DB_PASS, JWT_SECRET, etc. — see the
+cp .env.example .env        # fill in DB_PASS, JWT_SECRET, INTERNAL_SERVICE_KEY
+                             # (the value generated above), etc. — see the
                              # comments in .env.example for every value
 npm install
 npx sequelize db:migrate
@@ -106,8 +126,10 @@ Seeds a super-admin login (`admin` / `Admin@123` unless
 
 ```bash
 cd jayhind-client-back
-cp .env.example .env        # DB creds, JWT_SECRET, MASTER_URL (defaults to
-                             # http://localhost:3100, matches the hub above)
+cp .env.example .env        # DB creds, JWT_SECRET, INTERNAL_SERVICE_KEY (the
+                             # SAME value as jayhind-admin-back's above),
+                             # MASTER_URL (defaults to http://localhost:3100,
+                             # matches the hub above)
 npm install
 npx sequelize db:migrate
 npx sequelize db:seed:all
@@ -121,6 +143,11 @@ roles, tax slabs, HR reference data, one admin user —
 `UPLOAD_ROOT` in `.env.example` defaults to a relative `uploads` folder
 (created under this project's directory on first run) — override it with an
 absolute path if you'd rather store uploads elsewhere.
+
+On staging/production, where the two backends run on different hosts, also
+set `jayhind-admin-back`'s `CLIENT_API_URL` to wherever `jayhind-client-back`
+is actually reachable from that host (it defaults to `http://localhost:3000`,
+which is only correct when both run on the same machine).
 
 ### jayhind-admin-front / jayhindi-client-front
 
