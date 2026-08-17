@@ -520,6 +520,61 @@ handed any customer's invoices to anyone who could guess a filename — it is
 Category strings (`scanned-invoices`, `attachments`, …) must match the hub's
 `src/const/storage-key.const.ts` exactly or DTO validation rejects the upload.
 
+### 6.5 Tenant admins, the platform user directory, and hard delete (hub → ERP)
+
+Three more `/internal/*` routes on `InternalCompaniesController`/
+`InternalUsersController` (client-back), all `@Public() + InternalServiceGuard`,
+none of them carrying a tenant context (same doctrine as provisioning):
+
+- **`GET|POST /internal/companies/:id/admins`, `DELETE .../admins/:membershipId`**
+  — `CompanyAdminService` lists/adds/removes a company's administrators after
+  it already exists (provisioning only ever creates the *first* one). Add
+  supports both a direct password (mirrors the first-admin flow) and an
+  invite e-mail (`InvitationService.invite`, extended to accept
+  `inviterUserId: number | null` + an `actorLabel` string for exactly this
+  caller — there is no real `client-back` user behind a Hub operator).
+  Remove sets the membership to `exited` (never a hard delete of the row) and
+  is refused by `UsersService.assertKeepsAnAdmin` if it would leave the
+  company with zero active admins (FR-017). Every write here is audited into
+  the **customer's own** trail, `source: PLATFORM`, `username` = the Hub
+  operator's display name — same visible-not-silent doctrine as impersonation.
+- **`POST /internal/users/list`** — `PlatformUsersService`, the Hub's "Users"
+  screen: every identity across every company, each with its own memberships
+  (company + role + status). Deliberately cross-company — the documented
+  exception in §4.3 rule 1(b) for a genuinely company-agnostic internal read.
+- **`POST /internal/companies/:id/hard-delete`** — `CompanyHardDeleteService`.
+  **Not** `CompanyService.archive()` (admin-back) — archive soft-deletes the
+  `companies` row and reclaims platform-side storage while every ERP row
+  stays put; this instead deletes every one of those rows too, **including
+  posted vouchers, journal entries, GST return filings, e-Invoices and
+  e-Way Bills**, then the `companies` row itself. No undo.
+  - The FK-safe delete order is computed by
+    `src/const/company-hard-delete-order.const.ts` (Kahn's algorithm over a
+    hand-transcribed edge list — `onDelete` behaviour only exists in the raw
+    migration SQL, not in Sequelize's own association metadata), verified by
+    its own `.spec.ts` against every edge. The whole delete runs in one
+    transaction, so a mistake in that order fails loudly and rolls back
+    rather than partially destroying data.
+  - Two rails enforced **server-side**, not just in the console: the company
+    must already be `archived`, and the caller must restate the company's
+    exact current name (`confirmName`). Both `CompanyService.hardDelete`
+    (admin-back) and `CompanyHardDeleteService` (client-back) check the
+    archived state independently.
+  - `user_details` is deliberately excluded from the delete graph — it has no
+    `companyId` (keyed by the global `userId`, D-02) and can be referenced by
+    another company's `trx` rows, so it is left alone even though
+    `trx.supplierUserDetailsId → user_details` is `RESTRICT`.
+  - **Orphaned identities are deleted too, but never someone else's login.**
+    After the table purge, every identity who WAS a member of this company is
+    re-checked: if `company_members` now has zero rows for them anywhere
+    (i.e. they belonged to THIS company exclusively), their `users` row is
+    deleted along with it — `user_details`/`refresh_tokens`/
+    `authentication_token` cascade off `users.id` automatically;
+    `push_subscriptions` (`RESTRICT`) and the self-referencing `users
+    .deletedBy` (`RESTRICT`) are cleared explicitly first. An identity still
+    active in another company keeps their login — only the membership in the
+    deleted company is gone.
+
 ---
 
 ## 7. Frontend architecture (both Angular apps)
