@@ -79,7 +79,12 @@ is_available() { # has this project actually been set up (deps installed)?
 }
 
 # Portable TCP check — no ss/lsof/nc dependency, works via bash's own /dev/tcp.
-port_up() { (exec 3<>"/dev/tcp/127.0.0.1/$1") >/dev/null 2>&1; }
+# Some dev servers (Angular's esbuild/vite builder) bind the IPv6 loopback
+# (::1) rather than 127.0.0.1, so try both before calling a port down.
+port_up() {
+  (exec 3<>"/dev/tcp/127.0.0.1/$1") >/dev/null 2>&1 && return 0
+  (exec 3<>"/dev/tcp/::1/$1") >/dev/null 2>&1
+}
 
 pidfile_for() { echo "$PIDDIR/$1.pid"; }
 logfile_for() { echo "$LOGDIR/$1.log"; }
@@ -116,7 +121,15 @@ start_one_bg() {
     echo "‣ $name: already running (pid $(cat "$(pidfile_for "$name")")) — restarting"
     stop_one "$name"
   fi
-  ( cd "$DIR" && exec $RUNCMD ) >"$(logfile_for "$name")" 2>&1 &
+  # stdin must be /dev/null, not the controlling terminal: some dev servers
+  # (Angular's esbuild/vite-based `ng serve`) read stdin for interactive
+  # keyboard shortcuts (r/u/o/h/q). A backgrounded job's stdin here would
+  # still point at this terminal, and the moment it tries to read from it,
+  # the kernel sends SIGTTIN (background process reading the foreground
+  # terminal) and stops the whole process tree — it hangs forever, still
+  # "running" per its pid but no longer accepting connections. Reading
+  # /dev/null instead just returns EOF immediately, no signal, no stop.
+  ( cd "$DIR" && exec $RUNCMD ) <"/dev/null" >"$(logfile_for "$name")" 2>&1 &
   local pid=$!
   disown 2>/dev/null
   echo "$pid" >"$(pidfile_for "$name")"
