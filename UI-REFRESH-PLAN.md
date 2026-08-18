@@ -38,7 +38,7 @@ needs data the API doesn't serve today (see **Backend-side work** and decision 1
 | P1 | Dashboard (+ app shell) | 1 screen + sidebar/topbar chrome | **signed off 2026-08-18** |
 | P2 | Product & Service | ~14 screens (2 gates) | **P2.1 signed off 2026-08-18**; **P2.2 done, browser-verified 2026-08-19** |
 | **N** | **Two-column nav + KPI strip** | **retrofit across P1 + P2.1, and the shape for P3+** | **signed off 2026-08-18**, after a shell-bug correction (duplicate collapse control, stepped header hairline) |
-| P3 | Transaction | ~45 screens (4 gates) | **P3.1–P3.3 done, browser-verified**; P3.4 not started |
+| P3 | Transaction | ~45 screens (4 gates) | **done — all four gates browser-verified 2026-08-19** |
 | P4 | Chat | 1 screen | not started |
 | P5 | Job Work | ~12 screens | not started |
 | P6 | Human Resources | ~15 screens | not started |
@@ -1090,11 +1090,70 @@ at 480/720/1024/1440 — **258/258 checks green**, en-IN grouping exercised on 1
 real six-figure amounts, no console errors, no failed requests, no horizontal
 overflow. Screenshots in [`_ops/ui-refresh/p3.3/`](_ops/ui-refresh/p3.3/).
 
-### P3.4 — Masters, configuration, data import, invoice scanning
+### P3.4 — Masters, configuration, data import, invoice scanning *(done — browser-verified 2026-08-19)*
 **Files:** `transaction/masters/**` (nature, group, financial year, GST rates),
-`transaction/transaction-config/**`, `data-import/**`, `invoice-scanning/**`
+`transaction/transaction-config/**`, `data-import/**`, `invoice-scanning/**`,
+`scripts/token-guard.js` (new), `styles/design-system/_tokens.scss`
 - Settings shape + the **scan** variant (upload → queue → review), whose chips were
   already folded onto `status-chip` in P0 and get their visual check here.
+- **No backend change.**
+
+**What shipped**
+
+- **A whole class of frozen-colour bug, found and then made impossible.**
+  P3.3 turned up one `var(--ds-primary-soft, #e7efff)` whose token is declared
+  nowhere — so the "fallback" was never a fallback, it was the value, on every
+  render, in both themes. An app-wide audit for the same shape found **19 more
+  across nine modules**, including `--ds-shadow-1` introduced two phases
+  earlier *in this refresh*. All 20 now point at tokens that exist.
+  - The failure mode is nasty precisely because it looks fine: the page
+    renders, the colour is plausible, and nothing in the source says the token
+    is missing. Only the theme switch reveals it, and only if someone looks at
+    that screen in the other theme.
+  - So [`scripts/token-guard.js`](jayhindi-client-front/scripts/token-guard.js)
+    now fails `npm run lint` on any `var(--ds-*, …)` naming a token
+    `src/styles/` does not declare — a sibling of `breakpoint-guard.js`, wired
+    into both `lint` and `lint:ci`, with **no grandfather list**. Scope is the
+    `--ds-*` namespace on purpose: a component may legitimately define and
+    default its own local property (the stat strip's `--strip-cols`, a print
+    template's `--accent`), but a `--ds-*` the design system does not define is
+    always a mistake. Verified to actually fail on injected drift.
+- **The last `--mat-sys-*` fallbacks in this module are gone** — scan review's
+  panel surfaces, the data-import detail's 54 raw values, the mapping and
+  voucher-review dialogs, GST rates' chip.
+- **Scan review's document stage was a literal `#1e293b`.** It is `--surface-3`
+  now: still darker than the app surface in both themes, because a scan is a
+  photo of white paper and needs a surround to read against, but taken from the
+  theme rather than frozen. The page inside it stays `#fff` deliberately — that
+  is the document, not chrome, and it is the one hex left in the module.
+- **Transaction Configuration's own chips fold onto `ds-status-chip`** — the
+  `.tcfg__chip` (ok/info/warn) and `.tcfg__badge--warn` pills, the eighth and
+  ninth copies of that vocabulary.
+- **The config screen keeps its card grid**, deliberately, rather than becoming
+  the `ds-settings` shape P2.2 built. Same reasoning as mismatch 13: each card
+  carries a show/hide toggle, a set of derived state chips *and* a Configure
+  action into a per-voucher editor. Flattening that into label-plus-control
+  rows would delete two of the three.
+- **Test data**: [`qa-artifacts/scripts/seed-data-import-fixture.js`](qa-artifacts/scripts/seed-data-import-fixture.js)
+  uploads the Tally masters fixture this repo already ships, through
+  `POST /import/upload` exactly as the dialog does, and parses it — the Data
+  Import list and detail render nothing at all on a tenant that has never
+  imported. It stops **before committing** the staged rows: the goal is a batch
+  to look at, not a second chart of accounts in the tenant the other fixtures
+  use.
+
+**P3.4 verified:** build clean · lint 0 errors · breakpoint guard OK ·
+**token guard OK** · `check-mirrors` in sync · 8 screens driven in Playwright
+Chromium, light + dark at 480/720/1024/1440 — **105/105 checks green**, every
+screen's card and chip surface proven to resolve differently in the two themes,
+no console errors, no failed requests, no horizontal overflow. Screenshots in
+[`_ops/ui-refresh/p3.4/`](_ops/ui-refresh/p3.4/).
+
+**What the browser pass could NOT exercise:** `scan-review` needs a scanned
+invoice, which needs the OCR sidecar (Qwen3-8B on CPU) running and a real
+document through it — not something a fixture can honestly fake. Its stylesheet
+was rethemed and is covered by the token guard and the build; its rendered
+surfaces are unverified. The scan **queue** was driven (empty).
 
 ---
 
@@ -1207,8 +1266,10 @@ and what the app can actually do; resolving it is a decision, not a bug fix.
 
 ## Verification reference
 
-- `npm run lint` (client-front) — includes `scripts/breakpoint-guard.js`; must stay
-  green (no raw px outside 480/720/1024/1440).
+- `npm run lint` (client-front) — includes `scripts/breakpoint-guard.js` (no raw
+  px outside 480/720/1024/1440) **and, since P3.4, `scripts/token-guard.js`** (no
+  `var(--ds-*, …)` naming a token the design system does not declare). Both must
+  stay green; neither has a grandfather list.
 - `npm run build` — must stay clean.
 - `node scripts/check-mirrors.js` from the `jayhind/` repo root whenever
   `module-licence.ts` or `navigation.config.ts` is touched.
