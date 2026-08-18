@@ -619,12 +619,29 @@ src/
   decision, so it precedes even the Admin bypass), then Admin, then the
   permission map.
 - **Navigation is static** — `core/navigation/navigation.config.ts` is the single
-  source of truth for sidebar, top menu, module tabs, breadcrumbs and the
-  post-login landing resolver. The old runtime `menuMaster.json` / `menu_master`
-  table is gone. Permissions stay dynamic: each `NavItem` carries a
+  source of truth for the nav rail, the module panel, the top menu, breadcrumbs
+  and the post-login landing resolver. The old runtime `menuMaster.json` /
+  `menu_master` table is gone. Permissions stay dynamic: each `NavItem` carries a
   `permissionKey` matching the backend decorator, merged with the role's flat
   permission map at runtime. Containers use an empty `permissionKey` and become
   visible when any child is.
+- **The nav is two columns** (`client-front` only): `app-nav-rail` lists every
+  top-level module as an icon and never collapses; `app-sidemenu` beside it lists
+  the ACTIVE module's own pages, grouped by the config's `sub` nodes. Only the
+  panel collapses (`options.sidenavCollapsed`), so every module stays one click
+  away at any width. `MenuService.activeModule` — the URL's first segment matched
+  against the permission-filtered tree — is what both columns read.
+  - A top-level `NavItem` may declare `subtitle` (panel header caption),
+    `shortName` (the rail's ~10-character label; the tooltip and `aria-label`
+    keep the full name) and, for a module with **no child routes**, `sections`:
+    in-page anchors whose `id` MUST exist on that screen. Two sections that share
+    a vertical band must be **one** entry — see the Dashboard's `dash-queues`.
+  - **The per-module tab bars are gone.** `ModuleLayoutComponent` is now only a
+    `<router-outlet>`; the panel lists the same tree at full width without the
+    horizontal scrolling seven tabs forced. Don't reintroduce them.
+    Transaction's own right-hand rail is the one survivor, because it also
+    carries rules the panel does not (the admin's `hiddenTransactionMenus` and
+    the approval gate) plus Quick Voucher Entry.
 - **Post-login landing** is `menu.getFirstAccessibleRoute()`, never a hardcoded
   dashboard the role may not have.
 - **Unsaved changes**: `canDeactivate: [pendingChangesGuard]` on form screens.
@@ -703,6 +720,18 @@ conventions.
 - **Material global defaults** (`app.config.ts`) — don't override per-component
   without reason: cards `appearance: 'outlined'`, form fields
   `appearance: 'outline'`.
+- **Dashboard KPIs are one divided strip** (`ds-stat-strip`), not a grid of
+  `ds-stat-card`s: the headline figures are read together in one glance, and the
+  queues and charts under them are what the screen is for. Track count follows
+  the strip's **own** width via container queries (the content column is ~288px
+  narrower whenever the nav panel is open, so a viewport query asks the wrong
+  question) — 1 / 2 / 4 / one-per-item at 0 / 480 / 720 / 1024. `ds-stat-card`
+  stays for the dashboards not yet converted.
+- **Numbers are formatted `en-IN`** (`count-up.directive.ts`), not the browser's
+  default locale: Indian grouping is lakh/crore — ₹1,32,400, never ₹132,400.
+- **The shell's own layout thresholds are on the four-value scale too**
+  (`admin.component.ts`): nav is an overlay below 720, a rail-only column to
+  1023, both columns at 1024 and up.
 - **Dates are `dd/MM/yyyy` everywhere**, on native `Date` values, via
   `CustomDateAdapter` + `MAT_DATE_LOCALE: 'en-GB'`. Don't introduce a second date
   format or a parallel date library for display.

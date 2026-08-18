@@ -26,6 +26,7 @@ needs data the API doesn't serve today (see **Backend-side work** and decision 1
 | P0 | Foundation | tokens, fonts, icons, shared primitives | **done, browser-verified, committed** (`84f656c`) |
 | P1 | Dashboard (+ app shell) | 1 screen + sidebar/topbar chrome | **done, browser-verified — awaiting your review** |
 | P2 | Product & Service | ~14 screens (2 gates) | **P2.1 done, browser-verified — awaiting your review**; P2.2 not started |
+| **N** | **Two-column nav + KPI strip** | **retrofit across P1 + P2.1, and the shape for P3+** | **done, browser-verified — awaiting your review** |
 | P3 | Transaction | ~45 screens (4 gates) | not started |
 | P4 | Chat | 1 screen | not started |
 | P5 | Job Work | ~12 screens | not started |
@@ -170,6 +171,26 @@ reference while fixing the concrete mismatches review surfaces along the way.
     needs it (client-back commit + client-front commit + submodule bumps), so a
     phase is never half-landed. Each item is listed as **B-n** below and pulled
     into its phase.
+
+14. **The navigation is two columns, and the KPI row is one strip** (added on
+    your instruction, 2026-08-18, from the Claude Design canvas). An icon rail of
+    modules that never collapses, beside a panel of the active module's pages;
+    and dashboard KPIs as a single divided band instead of a 4-up card grid.
+    Retrofitted into the already-shipped phases (see **Phase N**) and **the
+    default shape for every phase after it** — a new dashboard uses
+    `ds-stat-strip`, a new module needs no tab bar of its own, and a new
+    top-level module declares `subtitle` + `shortName` in
+    `navigation.config.ts`. Four sub-decisions, all yours:
+    - the rail is the **existing top-level nav 1:1** — no nav restructure, so
+      permission keys and `check-mirrors` are untouched;
+    - the panel is **always shown**; a module with no child routes lists its own
+      screen's real in-page sections, and one with none lists its single
+      destination rather than an invented sub-page;
+    - the strip is **one line where it fits, stepping down rather than
+      scrolling**; no KPI is dropped and none hides behind a gesture;
+    - scope was **the shell everywhere + the strip on the two finished
+      dashboards** — Job Work, HR and Party Portal keep `ds-stat-card` until
+      their own phase.
 
 **One product-level call this plan makes** (flagged for review, small and
 reversible): the mockup's voucher **form** screens show compliance status
@@ -388,6 +409,112 @@ submits may not approve. P3.1 inherits the fixture.
   refuse it (**B-9**), and the voucher grid's unformatted Amount column. The
   first two are global/pre-existing and want a decision from you rather than a
   quiet fix inside a dashboard phase; the third belongs to P3.1.
+
+# Phase N — Two-column navigation + KPI strip *(done — awaiting review)*
+
+Out of band with the module ordering on purpose: this is a **shape** change, not
+a module. It landed after P2.1 because the two finished phases had to be brought
+onto it before P3 copies the pattern into 45 more screens.
+
+## What shipped
+
+**The navigation is now two columns.**
+- `app-nav-rail` — every top-level module as an icon with a short label, 1:1 with
+  `navigation.config.ts` and filtered by exactly the same permission + licence
+  rules the old single column used. It never collapses.
+- `app-sidemenu` — rewritten from "a flat list of the 12 modules" into "the
+  ACTIVE module's own pages", grouped by the config's `sub` nodes (`Overview`
+  first, then one heading per group, in the config's own order — nothing is
+  re-sorted). `MenuService.activeModule` resolves it from the URL's first
+  segment against the permission-filtered tree, so a module the role cannot see
+  can never become active.
+- **Only the panel collapses.** That is what made the split worth doing: the old
+  column had to choose between showing every module and showing a module's
+  pages, and collapsing it to a 4rem stub of unlabelled icons took away both.
+  The header's nav button now collapses the panel instead of closing the whole
+  nav, and is always offered — hiding it while collapsed left no way back
+  except hovering the rail.
+- **A module with no child routes still gets a panel.** Dashboard and Company
+  Configuration declare `sections` — in-page anchors whose `id` exists on that
+  screen — and the panel scroll-links them with an `IntersectionObserver`
+  marking where you are. Chat, Files, Audit Log and Export declare none, so they
+  show their single destination rather than an invented sub-page. **No panel
+  entry points at a destination that does not exist.**
+- New optional `NavItem` fields, all display-only: `subtitle`, `shortName`,
+  `sections`. `shortName` exists because a 3.5rem rail holds about ten
+  characters and "Compan…" / "Human R…" are worse than a chosen word; the
+  tooltip and the `aria-label` both carry the real name.
+
+**The per-module tab bars are retired.** `ModuleLayoutComponent` (Product, HR,
+Job Work, Users & Roles) is now nothing but its `<router-outlet>`. The panel
+lists the same tree, in the same order, with the same permission filtering, at
+full width — Product's seven tabs had already outgrown a 1440px row and were
+paging behind chevrons. Keeping both would have shown every module's page list
+twice on one screen.
+
+**The KPI row is one divided strip** (`ds-stat-strip`, new primitive). Applied to
+the Dashboard (P1) and the Product dashboard (P2.1) — 8 figures each, the same
+eight numbers from the same `getKpis()` call, no data added or dropped.
+- Track count follows the strip's **own** width, via container queries, not the
+  window's: the content column is ~288px narrower whenever the nav panel is
+  open, so a viewport query says "1440, go 8-across" while the strip is actually
+  1088px and every figure ellipses (CLAUDE.md §9). Steps are 1 / 2 / 4 /
+  one-per-item at 0 / 480 / 720 / 1024 container width.
+- Dividers are the grid's own 1px gap painted in the border colour, so there is
+  no doubled line at a row's end and no `:last-child` rule to break when the
+  track count changes.
+- The figure steps down to 0.9375rem at the densest step so a crore-scale rupee
+  amount fits instead of ellipsing — **measured**, not assumed (see below).
+- `ds-stat-card` is untouched and still in use by the Job Work, HR and Party
+  Portal dashboards until their own phases.
+
+**Two real bugs fixed on the way, both surfaced by the browser pass:**
+- **`CountUpDirective` formatted numbers in the browser's default locale.** On an
+  `en-US` browser every headline figure on every dashboard rendered ₹132,400
+  instead of ₹1,32,400 — Western grouping in an Indian-market ERP that already
+  pins its date locale for the same reason. Now `en-IN` explicitly. This fixes
+  `ds-stat-card` too, so it reaches screens no phase has touched yet.
+- **The shell's own layout thresholds were 599/960**, two values on no scale the
+  app uses. Now 720/1024, from the governed four (CLAUDE.md §9): overlay nav
+  below 720, rail-only to 1023, both columns at 1024 and up.
+
+## Verification
+
+`npm run lint` 0 errors · breakpoint-guard OK · `npm run build` clean ·
+`check-mirrors` in sync. No backend change in this phase.
+
+Browser pass —
+[`qa-artifacts/scripts/ui-refresh-nav-strip.js`](qa-artifacts/scripts/ui-refresh-nav-strip.js),
+screenshots and report in [`_ops/ui-refresh/nav-strip/`](_ops/ui-refresh/nav-strip/).
+Measured across light + dark at 480/720/1024/1440 **and** on four module shapes
+(a leaf with sections, a leaf without, a module with groups, the 26-link
+Transaction panel):
+- strip tracks 1 / 2 / 2 / 8 at the four widths (the 1024 case is 2 because the
+  content column there is 672px with the panel open — collapsing it gives 4);
+- **zero clipped text anywhere**: not one rail label, panel link, panel title,
+  strip label or strip value overflows its box at any width, in either theme;
+- a crore-scale ₹1,23,45,678 injected into the tightest 8-across cell **fits**;
+- no horizontal overflow at any width; **no console errors**;
+- collapse driven end-to-end: 288px → 72px, content margin follows, all 11 rail
+  icons still present, expand returns to 288px;
+- rail navigation driven: clicking the People icon re-titles the panel "Human
+  Resources" and re-fills it with Overview / Attendance / Leave / Payroll /
+  Masters;
+- section scroll driven: clicking "Sales vs purchases" scrolls the content 645px
+  and the panel's active marker follows.
+
+## Not done in this phase, on purpose
+
+- **Transaction keeps its right-hand rail**, so that module currently shows its
+  page list twice. Deliberate: the rail's "Menu" group is not just a list — it
+  also drops entries the admin hid company-wide (`hiddenTransactionMenus`) and
+  hides Pending Approvals when no voucher type needs approval. Deleting it
+  without moving those two rules into the panel would be a functional
+  regression, and the rules are Transaction's own. **This is the first item for
+  P3.1**, together with folding Quick Voucher Entry (the part the panel genuinely
+  cannot show, since `vouchers` is `hidden: true`) into whatever replaces it.
+- Job Work, HR and Party Portal dashboards keep the card grid until their phases
+  (your scope decision).
 
 # P2 — Product & Service
 
@@ -647,6 +774,7 @@ and what the app can actually do; resolving it is a decision, not a bug fix.
 | 5 | P1 | The theme **customizer FAB** (`position: fixed; right: 2rem; bottom: 5rem`) sits on top of whatever is in the bottom-right of the page — on the dashboard it covers the Nearest Dues panel's "View all dues →" link, in both themes and at every width | **Not fixed — needs your call.** It is global chrome, not a dashboard problem: it overlaps content on every screen, and moving or hiding it is a product decision (is the palette switcher a shipping feature or a development tool?). Options: dock it into the header's icon cluster, hide it under `NODE_ENV=production`, or leave it. |
 | 6 | P1 | The dashboard offers **Approve** whenever the role holds `canApprove`, but the server additionally refuses a voucher you submitted yourself (`allowSelfApproval: 0`). Clicking it then fails with a 403 — against §9's "a screen must never offer an action the server will refuse" | **Not fixed — pre-existing and app-wide**, not introduced here: the Pending Approvals screen gates its own buttons the same way. The honest fix is a per-row `canApprove` on the approvals list response (**B-9**), which is a backend change worth doing once for both consumers rather than a client-side guess in this phase. Verified meanwhile that the failure is *safe*: the dialog opens, the server refuses, the error surfaces, and the queue and KPI card stay truthful. |
 | 7 | P1 | The voucher grid's **Amount** column prints `24500`, not `₹24,500` — right-aligned and monospaced (P0 did its half) but unformatted | Left for **P3.1**, which owns the voucher lists. Noted here because P1's browser pass is what surfaced it. |
+| 9 | N | Transaction shows its page list twice — the new nav panel and the module's own right-hand rail | **Not fixed on purpose.** The rail also applies `hiddenTransactionMenus` and the approval gate, which the panel does not; removing it without moving those rules would be a functional regression. **First item for P3.1** — see Phase N. |
 | 8 | P2.1 | Grid `tag` columns rendered one primary-tinted pill for every value, so a Status column and a Type column looked identical and neither said anything | Tag cells now render through `ds-status-chip` with an optional per-column `tone`. **Ripples app-wide by design** (decision 10): the 13 tag columns in modules not yet reviewed lose the blue tint and read as neutral labels until their own phase colours them. Neutral is the honest default — a grid cannot know "Draft" is bad news |
 
 ## Verification reference
