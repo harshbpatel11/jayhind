@@ -40,7 +40,7 @@ needs data the API doesn't serve today (see **Backend-side work** and decision 1
 | **N** | **Two-column nav + KPI strip** | **retrofit across P1 + P2.1, and the shape for P3+** | **signed off 2026-08-18**, after a shell-bug correction (duplicate collapse control, stepped header hairline) |
 | P3 | Transaction | ~45 screens (4 gates) | **done — all four gates browser-verified 2026-08-19** |
 | P4 | Chat | 1 screen | **done, browser-verified 2026-08-19** |
-| P5 | Job Work | ~12 screens | not started |
+| P5 | Job Work | ~12 screens | **done, browser-verified 2026-08-19** |
 | P6 | Human Resources | ~15 screens | not started |
 | P7 | Users & Roles, Profile, Party Portal | ~8 screens | not started |
 | P8 | Files, Audit Log, Export, Site Config | ~6 screens | not started |
@@ -276,7 +276,7 @@ into their phase, the ones marked **your call** are written up but not scheduled
 | B-4 | drag-and-drop kanban on the Job Work board | a status-mutation endpoint (`PATCH /job-work/:id/stage`) with lifecycle validation server-side, plus a socket broadcast so two users dragging don't clobber each other | P5 | **your call** (decision 3) |
 | B-5 | filter chips as saved/preset filters rather than hand-declared per screen | preset filter definitions persisted per company + a `filterPresets` field on the list config | — | **your call** — hand-declared chips (decision 8) cover the design as drawn; this is only worth it if you want user-defined presets |
 | B-6 | chat presence / unread counts as the mockup shows them | checked in P4: `chat.service.ts` already returns per-conversation `unreadCount` and serves `GET /chat/unread-count`; the gateway already relays `chat:typing` and tracks per-socket `chat:focus`, and the screen consumes all three. Presence is not broadcast — and the reference shows no presence dots — so nothing is missing | P4 | **none needed** |
-| B-7 | KPI cards / trend chart on the module dashboards (Product, Transaction, Job Work, HR) | the mockup's card set may not match what each dashboard endpoint returns; any gap becomes an added field on that dashboard's existing response, not a new endpoint | P2.1, P3.1, P5, P6 | **Product: revised — see B-12.** P2.1's "no gap" finding was wrong; a full artifact-vs-shipped audit on 2026-08-18 found the Product dashboard's KPI *set* itself didn't match the reference (see mismatch 10). Still to check per phase for Transaction / Job Work / HR |
+| B-7 | KPI cards / trend chart on the module dashboards (Product, Transaction, Job Work, HR) | the mockup's card set may not match what each dashboard endpoint returns; any gap becomes an added field on that dashboard's existing response, not a new endpoint | P2.1, P3.1, P5, P6 | **Product: revised — see B-12.** P2.1's "no gap" finding was wrong; a full artifact-vs-shipped audit on 2026-08-18 found the Product dashboard's KPI *set* itself didn't match the reference (see mismatch 10). Transaction: checked in P3.1, retheme-in-place (mismatch 13). **Job Work: done — see B-18.** Still to check for HR |
 | B-8 | dashboard approval queue readable during billing grace | `@ReadOnlyRequest()` on `POST /approvals/pending/:sourceType` — a genuine read the P0-era sweep of 52 handlers missed; without it a past-due company sees a 402 where its approval queue should be | P1 | **done** |
 | B-9 | Approve button offered only where the server would actually allow it | the queue gates on `canApprove`, but segregation of duties (`allowSelfApproval: 0`) *also* bars approving a voucher you submitted — a per-row `canApprove` flag on the approvals list response would let both this panel and the Pending Approvals screen hide the button instead of failing on click | — | **your call** — see mismatch 6 |
 | B-10 | Business Dashboard "Cash position" breakdown panel — individual bank/cash/UPI/wallet balances, not just the one aggregate `cashBankBalance` figure | `cashByAccount: {name, balance}[]` on `/dashboard/kpis`, reading `TrxAccount.balance` (already engine-maintained, same read `getFundsSummary()` uses) — no new SQL derivation, just a scoped `TrxAccount.findAll()` | P1 (retrofit) | **done** |
@@ -287,6 +287,7 @@ into their phase, the ones marked **your call** are written up but not scheduled
 | B-15 | Product List's summary strip (Products / In stock / Below reorder / Stock value) | new `GET /products/summary` on the existing `products` controller/permission lane (`@SharedRead()`, matching `list`'s own gating) — its own small queries rather than reusing `DashboardService`'s (that lives in a different NestJS module; importing it just for three numbers would add a cross-module dependency) | P2.1 (retrofit) | **done** |
 | B-16 | The five product masters' usage count — the reference's Products / Used by / Applies to / Items column | `CommonDataService.attachReferenceCounts(page, Product, <fk>, 'productCount')` — one grouped count over the page's own ids, wired into all five masters' `findAll`. Through the ORM, so tenant scoping and the paranoid clause apply; not an `include` + `COUNT`, which would need a GROUP BY and break `totalItems` | P2.2 | **done** |
 | B-17 | The voucher form's **Vehicle no** header field, and the reference's "vehicle number captured" clause on the e-Way Bill preview line | a vehicle number exists only on the `eway_bills` row, which is created *after* approval — the voucher itself carries no transport details at all. Would need a column on `trx` (or a transport sub-form), a DTO field, and the e-Way Bill generate step pre-filling from it | P3.2 | **your call** — a feature, not a retheme. The preview line ships saying what is actually known (`raise it after approval`) rather than a clause it cannot stand behind |
+| B-18 | The Job Work dashboard's `dash`-shape data — WIP by operation, an orders-in-vs-delivered trend, an attention queue, and WIP / ready-to-bill / rejection-rate KPIs | added to the existing `/job-work-dashboard/summary` response (no new endpoint): `wipByOperation`, `orderTrend`, `queue`, `wipValue`, `readyToBillValue`, `rejectionRate`. Built from the module's existing report methods plus one grouped read of `job_work_operations`; money keys omitted rather than zeroed without `job-work-costing` (§10.5), and `rejectionRate` omitted when nothing has been inspected | P5 | **done** — this is B-7's Job Work half |
 
 **How each phase handles this:** step 1 of the per-phase protocol (Inventory) now
 also diffs the mockup's screen against the API response that feeds it. Anything the
@@ -1204,18 +1205,81 @@ console errors, no failed requests, no horizontal overflow. Screenshots in
 
 ---
 
-# P5 — Job Work
+# P5 — Job Work *(done — browser-verified 2026-08-19)*
 
-**Screens:** ~12. **Files:** `job-work/**` (48 files) — dashboard, board,
-ready queue, challans, billing run, reports, masters (operation types, machines,
-vendor capabilities, route templates, party billing settings, settings)
+**Screens:** 12. **Files:** `job-work/**` (dashboard, board, ready queue,
+challans, billing run, reports, six masters), `utils/dashboard-charts.ts`, plus
+**B-18** in `jayhind-client-back`
 - Board gets the **visual** retheme only — grouped-list behavior stays (decision 3).
-  Column headers, card shape, tone bars, counts all follow the mockup's board shape.
-- **Backend (B-4), your call:** real drag-and-drop needs a stage-mutation endpoint
-  with server-side lifecycle validation plus a socket broadcast. Now buildable under
-  decision 13, but it is a feature, not a retheme — tell me to schedule it and it
-  becomes P5b rather than quietly expanding this phase.
+- **B-4 (drag-and-drop) remains your call** and was not built.
 - Challans use the form shape from P3.2; masters use the list shape from P2.2.
+
+**What shipped**
+
+- **The dashboard is the reference's `dash` shape now** — KPI strip, attention
+  queue beside a WIP-by-operation breakdown, and a six-month trend chart —
+  matching the rebuild P1 and P2.1 already had (mismatch 10). It was a 6-up
+  `ds-stat-card` grid over a "By status" chip row, with no queue, no breakdown
+  and no chart.
+- **Every figure on it is server-computed (B-18)**, including the queue's
+  wording and each row's route. The screen composes and formats and derives
+  nothing, and the browser pass asserts the DOM against the same payload rather
+  than counting boxes: queue titles in order, breakdown bar names in order.
+  - `wipByOperation` buckets each live order to its **current** operation —
+    the lowest-sequence one not yet completed or skipped, the same "where is it
+    now" question the board answers. An order whose operations are all done but
+    which is not yet delivered is left out rather than bucketed into a fake
+    "Other" bar nobody can act on.
+  - `orderTrend` counts orders received vs delivered off the order row's own
+    `createdAt` / `deliveredAt`. Its chart is a new
+    `buildJobWorkOrderTrendChart` rather than a reuse of the stock one: these
+    are **orders**, not money, so the tooltip has no ₹ and the axis has
+    `minInterval: 1` — a "2.5 orders" gridline is nonsense.
+  - `rejectionRate` is **absent, not 0, when nothing has been inspected**. A 0%
+    rejection rate on zero inspections reads as flawless quality rather than as
+    no data, so the card is dropped instead.
+  - **Money follows §10.5's absent-not-zero rule**: `wipValue` and
+    `readyToBillValue` are omitted entirely for a viewer without
+    `job-work-costing`, and the strip simply carries four cards instead of six.
+    A ₹0 WIP value would read as "nothing in progress" rather than "not your
+    business". The breakdown falls back to order *counts* for that viewer, so
+    the panel still answers which operations the work is sitting on.
+- **The board gained the reference's two affordances**: a per-column tone dot
+  (the stage, deliberately *not* the risk — colouring a column by risk would
+  make "In progress" look like a problem because one late order sits in it) and
+  a per-card progress bar.
+  - The bar has **two segments on purpose**. A job-work order has two different
+    kinds of progress and one bar cannot honestly stand for both: an
+    accepted-only bar reads 0% for the entire time an order is actually being
+    worked on, and a received-only one calls material arriving "progress" when
+    nothing has been made yet. Material in is the faint segment, work accepted
+    the solid one. The pass asserts the accepted segment never runs past the
+    received one.
+- **Test data**: [`qa-artifacts/scripts/seed-job-work-fixture.js`](qa-artifacts/scripts/seed-job-work-fixture.js)
+  seeds three operation types, four orders spread across the promised date (one
+  already overdue, one due tomorrow) and material receipts against two of them.
+  The receipts exist specifically so the progress bars have a width to be wrong
+  at — a board of 0% bars renders correctly and proves nothing. Idempotent
+  **per step**, not per run: an earlier version bailed out entirely once orders
+  existed, which silently skipped the receipts.
+
+**P5 verified:** client-back build clean, **96 suites / 1341 Jest tests**,
+`dump-routes` boots the real `AppModule` (709 routes, unchanged — B-18 extends
+an existing response rather than adding an endpoint), **`ci-guard-raw-sql` now
+green** (see below) · client-front build clean, lint 0 errors, breakpoint guard
+OK, token guard OK, `check-mirrors` in sync · 12 screens driven in Playwright
+Chromium, light + dark at 480/720/1024/1440 — **157/157 checks green**, no
+console errors, no failed requests, no horizontal overflow. Screenshots in
+[`_ops/ui-refresh/p5/`](_ops/ui-refresh/p5/).
+
+**Fixed in passing:** `ci-guard-raw-sql` had been **red on four pre-existing
+sites** in `company-hard-delete.service.ts` — the orphaned-identity sweep
+(§6.5). All four are correctly cross-company: they run after this company's
+`company_members` rows are gone, and the question they ask is "does this
+identity belong to any *other* company?" — a `companyId` predicate would invert
+the answer and delete the login of someone still active elsewhere. Allow-listed
+with that justification, on the same reasoning the plan's own §13 note gives:
+a permanently-red guard is one nobody reads.
 
 ---
 

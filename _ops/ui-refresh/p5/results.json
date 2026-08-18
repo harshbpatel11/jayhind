@@ -1,0 +1,787 @@
+[
+  {
+    "name": "dashboard summary endpoint answers",
+    "pass": true,
+    "detail": "4 order(s), 3 queue row(s), 2 bar(s)"
+  },
+  {
+    "name": "money figures follow the absent-not-zero rule",
+    "pass": true,
+    "detail": "present: [wipValue, readyToBillValue] — all or none, never a mix"
+  },
+  {
+    "name": "rejection rate omitted when nothing inspected",
+    "pass": true,
+    "detail": "absent (nothing inspected)"
+  },
+  {
+    "name": "trend covers six months",
+    "pass": true,
+    "detail": "Mar Apr May Jun Jul Aug"
+  },
+  {
+    "name": "jw-dashboard/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "jw-dashboard/light KPI strip rendered",
+    "pass": true,
+    "detail": "6 figure(s)"
+  },
+  {
+    "name": "jw-dashboard/light old ds-stat-card grid gone",
+    "pass": true,
+    "detail": "0 card(s)"
+  },
+  {
+    "name": "jw-dashboard/light breakdown + chart present",
+    "pass": true,
+    "detail": "2 bar(s), chart=true"
+  },
+  {
+    "name": "jw-dashboard/light queue matches the server",
+    "pass": true,
+    "detail": "DOM 3 / API 3 — e.g. \"1 order past the promised date\""
+  },
+  {
+    "name": "jw-dashboard/light WIP bars match the server",
+    "pass": true,
+    "detail": "DOM [CNC, Grinding] / API [CNC, Grinding]"
+  },
+  {
+    "name": "jw-dashboard/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "jw-dashboard/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "jw-dashboard/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "jw-dashboard/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "jw-board/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "jw-board/light column tone dots rendered",
+    "pass": true,
+    "detail": "6 dot(s)"
+  },
+  {
+    "name": "jw-board/light progress bars within their track",
+    "pass": true,
+    "detail": "8 segment(s), max 75%"
+  },
+  {
+    "name": "jw-board/light at least one bar has a real width",
+    "pass": true,
+    "detail": "received segments: 0%, 75%, 30%, 0%"
+  },
+  {
+    "name": "jw-board/light accepted never exceeds received",
+    "pass": true,
+    "detail": "accepted 0/0/0/0 vs received 0/75/30/0"
+  },
+  {
+    "name": "jw-board/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "jw-board/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "jw-board/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "jw-board/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "jw-ready-queue/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "jw-ready-queue/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "jw-ready-queue/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "jw-ready-queue/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "jw-ready-queue/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "jw-challans/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "2 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "jw-challans/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "jw-challans/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "jw-challans/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "jw-challans/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "jw-challans/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "jw-billing-run/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "jw-billing-run/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "jw-billing-run/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "jw-billing-run/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "jw-billing-run/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "jw-reports/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "jw-reports/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "jw-reports/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "jw-reports/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "jw-reports/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "jw-operation-types/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "10 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "jw-operation-types/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "jw-operation-types/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "jw-operation-types/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "jw-operation-types/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "jw-operation-types/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "jw-machines/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "jw-machines/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "jw-machines/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "jw-machines/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "jw-machines/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "jw-vendor-caps/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "jw-vendor-caps/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "jw-vendor-caps/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "jw-vendor-caps/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "jw-vendor-caps/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "jw-route-templates/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "jw-route-templates/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "jw-route-templates/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "jw-route-templates/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "jw-route-templates/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "jw-party-settings/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "jw-party-settings/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "jw-party-settings/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "jw-party-settings/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "jw-party-settings/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "jw-configuration/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "jw-configuration/light configuration screen rendered",
+    "pass": true,
+    "detail": "rendered"
+  },
+  {
+    "name": "jw-configuration/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "jw-configuration/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "jw-configuration/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "jw-configuration/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "jw-dashboard/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "jw-dashboard/dark KPI strip rendered",
+    "pass": true,
+    "detail": "6 figure(s)"
+  },
+  {
+    "name": "jw-dashboard/dark old ds-stat-card grid gone",
+    "pass": true,
+    "detail": "0 card(s)"
+  },
+  {
+    "name": "jw-dashboard/dark breakdown + chart present",
+    "pass": true,
+    "detail": "2 bar(s), chart=true"
+  },
+  {
+    "name": "jw-dashboard/dark queue matches the server",
+    "pass": true,
+    "detail": "DOM 3 / API 3 — e.g. \"1 order past the promised date\""
+  },
+  {
+    "name": "jw-dashboard/dark WIP bars match the server",
+    "pass": true,
+    "detail": "DOM [CNC, Grinding] / API [CNC, Grinding]"
+  },
+  {
+    "name": "jw-dashboard/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "jw-dashboard/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "jw-dashboard/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "jw-dashboard/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "jw-board/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "jw-board/dark column tone dots rendered",
+    "pass": true,
+    "detail": "6 dot(s)"
+  },
+  {
+    "name": "jw-board/dark progress bars within their track",
+    "pass": true,
+    "detail": "8 segment(s), max 75%"
+  },
+  {
+    "name": "jw-board/dark at least one bar has a real width",
+    "pass": true,
+    "detail": "received segments: 0%, 75%, 30%, 0%"
+  },
+  {
+    "name": "jw-board/dark accepted never exceeds received",
+    "pass": true,
+    "detail": "accepted 0/0/0/0 vs received 0/75/30/0"
+  },
+  {
+    "name": "jw-board/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "jw-board/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "jw-board/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "jw-board/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "jw-ready-queue/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "jw-ready-queue/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "jw-ready-queue/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "jw-ready-queue/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "jw-ready-queue/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "jw-challans/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "2 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "jw-challans/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "jw-challans/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "jw-challans/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "jw-challans/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "jw-challans/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "jw-billing-run/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "jw-billing-run/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "jw-billing-run/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "jw-billing-run/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "jw-billing-run/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "jw-reports/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "jw-reports/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "jw-reports/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "jw-reports/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "jw-reports/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "jw-operation-types/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "10 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "jw-operation-types/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "jw-operation-types/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "jw-operation-types/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "jw-operation-types/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "jw-operation-types/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "jw-machines/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "jw-machines/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "jw-machines/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "jw-machines/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "jw-machines/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "jw-vendor-caps/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "jw-vendor-caps/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "jw-vendor-caps/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "jw-vendor-caps/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "jw-vendor-caps/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "jw-route-templates/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "jw-route-templates/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "jw-route-templates/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "jw-route-templates/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "jw-route-templates/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "jw-party-settings/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "jw-party-settings/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "jw-party-settings/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "jw-party-settings/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "jw-party-settings/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "jw-configuration/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "jw-configuration/dark configuration screen rendered",
+    "pass": true,
+    "detail": "rendered"
+  },
+  {
+    "name": "jw-configuration/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "jw-configuration/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "jw-configuration/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "jw-configuration/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "jw-dashboard card surface follows the theme",
+    "pass": true,
+    "detail": "light rgb(250, 249, 253)|rgb(196, 198, 208)|rgb(26, 27, 31) / dark rgb(18, 19, 22)|rgb(68, 71, 78)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "jw-challans card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "jw-reports card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "jw-operation-types card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "jw-machines card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "jw-vendor-caps card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "jw-route-templates card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "no console errors",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "no failed requests",
+    "pass": true,
+    "detail": ""
+  }
+]
