@@ -23,8 +23,8 @@ needs data the API doesn't serve today (see **Backend-side work** and decision 1
 
 | # | Phase | Scope | State |
 |---|---|---|---|
-| P0 | Foundation | tokens, fonts, icons, shared primitives | **done, browser-verified — pending commit** |
-| P1 | Dashboard (+ app shell) | 1 screen + sidebar/topbar chrome | queue-panel done, shell pass pending |
+| P0 | Foundation | tokens, fonts, icons, shared primitives | **done, browser-verified, committed** (`84f656c`) |
+| P1 | Dashboard (+ app shell) | 1 screen + sidebar/topbar chrome | **done, browser-verified — awaiting your review** |
 | P2 | Product & Service | ~14 screens (2 gates) | not started |
 | P3 | Transaction | ~45 screens (4 gates) | not started |
 | P4 | Chat | 1 screen | not started |
@@ -47,10 +47,11 @@ running stack — icon glyphs render, numeric cells confirmed
 `right / IBM Plex Mono / tabular-nums`, view-tabs show live counts, all six chip
 tones pass AA in dark mode.
 
-**P0 not verified:** status chips on voucher rows — the test tenant has no voucher
-data, so that refactor is covered by build + token probes, not by eye. It gets
-re-checked by eye in **P3.1**, where voucher data is seeded anyway. No Karma specs
-(see decision 6).
+**P0 not verified at the time:** status chips on voucher rows — the test tenant had
+no voucher data. **Closed early, in P1:** P1 had to seed real vouchers to check its
+own approval queue (see below), so the Pending Approvals grid was driven with live
+`pending` rows and the chips were confirmed by eye in both themes. P3.1 no longer
+inherits this. No Karma specs (see decision 6).
 
 ---
 
@@ -220,6 +221,8 @@ into their phase, the ones marked **your call** are written up but not scheduled
 | B-5 | filter chips as saved/preset filters rather than hand-declared per screen | preset filter definitions persisted per company + a `filterPresets` field on the list config | — | **your call** — hand-declared chips (decision 8) cover the design as drawn; this is only worth it if you want user-defined presets |
 | B-6 | chat presence / unread counts as the mockup shows them | check what `socketGateWay` already broadcasts before adding anything | P4 | **investigate first** |
 | B-7 | KPI cards / trend chart on the module dashboards (Product, Transaction, Job Work, HR) | the mockup's card set may not match what each dashboard endpoint returns; any gap becomes an added field on that dashboard's existing response, not a new endpoint | P2.1, P3.1, P5, P6 | **investigate per phase** |
+| B-8 | dashboard approval queue readable during billing grace | `@ReadOnlyRequest()` on `POST /approvals/pending/:sourceType` — a genuine read the P0-era sweep of 52 handlers missed; without it a past-due company sees a 402 where its approval queue should be | P1 | **done** |
+| B-9 | Approve button offered only where the server would actually allow it | the queue gates on `canApprove`, but segregation of duties (`allowSelfApproval: 0`) *also* bars approving a voucher you submitted — a per-row `canApprove` flag on the approvals list response would let both this panel and the Pending Approvals screen hide the button instead of failing on click | — | **your call** — see mismatch 6 |
 
 **How each phase handles this:** step 1 of the per-phase protocol (Inventory) now
 also diffs the mockup's screen against the API response that feeds it. Anything the
@@ -251,47 +254,138 @@ Already implemented in the working tree; listed here for the record.
 - **Doc fix**: `src/core/navigation/module-licence.ts` — its comment claimed a
   "Support Desk" module that has no nav item or route in this app.
 
-**Still owed from P0, done at the start of P1:**
-- `filter-chips` primitive (the fourth one) — built in P1 only if the Dashboard
-  needs it, otherwise deferred to P2.1 where the Product list is its first real
-  consumer.
-- Commit the whole P0 working tree as its own baseline commit.
+**Still owed from P0 — settled at the start of P1:**
+- `filter-chips` primitive (the fourth one) — the Dashboard has no list toolbar,
+  so it is **deferred to P2.1**, where the Product list is its first real consumer.
+- ~~Commit the whole P0 working tree as its own baseline commit~~ — done
+  (`84f656c`, submodule pointer bumped in `c06d0c0`).
 
 ---
 
-# P1 — Dashboard (+ the app shell around it)
+# P1 — Dashboard (+ the app shell around it) *(done — awaiting review)*
 
 **Why the shell is in this phase:** you cannot look at the dashboard without
 looking at the sidebar, topbar, breadcrumb and module tabs that frame it, and every
 later phase inherits that chrome. Doing it here means one review of the frame
-instead of noticing it on every subsequent screenshot. If you would rather keep
-this phase to the dashboard body alone, say so and the shell moves to its own P1b.
+instead of noticing it on every subsequent screenshot.
 
 **Screens:** `dashboard` (1), plus the always-visible shell.
 
-**Files:**
-- `src/components/admin/dashboard/dashboard.component.{ts,html}`
-- `src/components/admin/layout/**` (sidebar, topbar, breadcrumb, module tabs)
-- `src/components/admin/module-layout/**`, `src/components/admin/menu-hub/**`
+## What shipped
 
-**Work:**
-- Dashboard is already fully token-driven with an ECharts trend chart
-  (`utils/dashboard-charts.ts`) — mostly free after P0.
-- Pending Approvals / Dues sections move from `rank-panel` to `queue-panel` with
-  real per-row actions (Approve / Remind), wired to the services those actions
-  already call elsewhere. *(Dues half already done in P0.)*
-- KPI cards onto the mockup's stat-card shape and `tabular-nums`.
-- Shell: tokens, Material Symbols weight/fill consistency, active-item treatment,
-  density at 480/720.
+**Dashboard body**
+- **Pending Approvals is now a queue, not just a number.** A `queue-panel` beside
+  Nearest Dues lists what is waiting, oldest first, with a per-row **Approve**
+  wired to the same `VoucherApprovalUiService` the voucher grids use — same
+  confirm dialog, same endpoint, same toast. On success the queue *and* the KPI
+  card are both re-read, so the count can't sit there stale next to a row that
+  has gone.
+- **The card and the queue count the same thing.** The KPI's own SQL is
+  `status = pending AND isCurrent`, but the approvals endpoint's queue is
+  `status IN (draft, pending)`. Rather than let the panel list more rows than the
+  card claims, the request AND-composes a `status = pending` filter onto it.
+  Drafts are excluded deliberately: nobody is waiting on a voucher its maker
+  never submitted.
+- **KPI grid is 8 cards, 4-up.** It was 10 across three grids, and the last grid
+  held two cards in a four-track row — a permanently half-empty row. The two dues
+  figures moved into the Nearest Dues panel's title, where they caption the queue
+  they actually describe, and `.ds-grid--kpi` now declares explicit tracks
+  (4 / 2 / 1 at 1440 / 1024 / 480) instead of `auto-fill`, which re-counted the
+  tracks from the window and broke 8 cards as 5+3 on a wide monitor.
 
-**Backend:** none expected (B-2 — the actions already have endpoints). Confirmed
-during inventory.
+**Primitive changes** (pushed down into `queue-panel`, per decision 10 — both
+consumers needed them, so they are not dashboard-local)
+- `summary` — a headline figure in the title row, pre-formatted by the caller;
+  the panel never totals anything itself.
+- `linkRoute` / `linkLabel` — a footer link to the full screen, pinned to the
+  card's bottom edge so two panels side by side line up whatever their row counts.
+- **Rows wrap on a narrow card.** The one-line row overflowed straight out of the
+  card at 480 — the amount and the Approve button were simply outside it. Now a
+  **container query**, not a media query: a panel's width comes from the grid it
+  sits in (~490px each when two share a 1440px row), so the browser width is the
+  wrong thing to ask (CLAUDE.md §9).
+- `stat-card` gets a phone density step: 8 KPIs stacked at ~205px each was
+  1600px of scrolling before any content. Whitespace and display size only —
+  labels, hints and tap targets unchanged. ~205px → ~152px.
 
-**Risk to watch at review:** KPI card density on 1440 (the mockup runs 4-up; the
-app currently reflows differently), and sidebar contrast in dark mode after the
-`--muted` change.
+**Shell**
+- **`.matero-header` was dead CSS.** It was styled in three files and applied to
+  *no element* — `app-header` never carried the class — so the header's
+  background, blur and z-index, and `admin.component.scss`'s
+  `.matero-header-fixed .matero-header { position: sticky }`, had never done
+  anything. The class is now on the component host, and the component's own rules
+  address the host through `:host` (an encapsulated `.matero-header` selector is
+  rewritten to match *content* elements and would still miss the host).
+- Shell variables in `_reboot.scss` route through the bare tokens instead of
+  `--mat-sys-*` and two hand-picked greys. The header keeps its translucency via
+  `color-mix()` over the real surface token, so it follows the palette switcher.
+- **Active nav item**: `--primary-bg` wash instead of the saturated
+  `--primary-container` (which read as a selected *button* at that size and
+  competed with the page's own primary actions), plus weight 600 — the half that
+  survives the collapsed rail, where the fill is a 4rem stub and the label is
+  hidden. A leading accent bar was tried and abandoned: the item is a 1.5rem pill
+  with `overflow: hidden`, so a bar at x=0 is clipped away everywhere except the
+  item's exact vertical centre.
+- **Material Symbols axes pinned globally.** The npm package's stylesheet sets no
+  `font-variation-settings` at all, so every glyph rendered at whatever the
+  browser defaulted to. Now `FILL 0, wght 400` app-wide, and the active nav
+  destination takes `FILL 1, wght 500` — Material's own convention, and the same
+  glyph on the same variable font, so no second icon name and no second file.
+- Phone density on the header toolbar; the breadcrumb still drops at 480.
+- Remaining hardcoded colour in the shell moved onto tokens — `menu-hub`,
+  `user-panel`, `customizer` (shadows and scrim). One `#fff` is left, with a
+  comment: it is the tick on a palette swatch whose background *is* the hue being
+  previewed, so a token there would make it vanish on light hues.
 
----
+**Backend (B-8):** `@ReadOnlyRequest()` on `POST /approvals/pending/:sourceType`.
+The dashboard now depends on that endpoint, and it is a genuine read that the
+P0-era sweep of 52 handlers missed — without it a company in billing read-only
+grace gets a 402 where its approval queue should be. No other backend change was
+needed (B-2 confirmed: the approve path and `sendDueReminderNow` already exist).
+
+## Verification
+
+`jayhindi-client-front`: lint 0 errors · breakpoint-guard OK · build clean.
+`jayhind-client-back`: lint 0 errors · build clean · **95 suites / 1320 tests
+pass** · `dump-routes` boots the real `AppModule` and still maps 707 routes.
+`check-mirrors` in sync.
+
+Browser pass — dashboard driven in Playwright Chromium, **light and dark at all
+four breakpoints**, against the running stack. Screenshots and the probe report
+in [`_ops/ui-refresh/p1/`](_ops/ui-refresh/p1/). Measured, not just looked at:
+KPI track count 4/2/2/1 as intended · queue rows and Approve buttons present ·
+amounts in IBM Plex Mono with `tabular-nums` · active nav at weight 600 on
+`--primary-bg` with a filled icon, idle icons muted and unfilled · header
+background now resolving (it did not before) · breadcrumb hidden at 480 · **no
+horizontal overflow at any width** · **no console errors**.
+
+**Approve was driven end-to-end, not just rendered:** 4 rows → 3, summary
+"4 waiting" → "3 waiting", KPI card 4 → 3, no page errors.
+
+### The test data question
+
+No company in the dev database had a single voucher, so the approval queue, the
+dues queue and P0's voucher status chips had nothing to render and could not be
+checked by eye. Rather than ship the centrepiece of this phase unverified,
+[`qa-artifacts/scripts/seed-voucher-fixture.js`](qa-artifacts/scripts/seed-voucher-fixture.js)
+seeds a small fixture **through the API** — never straight into MySQL — so every
+row went through the same DTO validation, tenant scoping and posting rules the
+app uses. It is re-runnable and skips what already exists. Doing it this way
+found three real rules the fixture had to obey rather than bypass: a party needs
+an address before a voucher can resolve its GST split, a freshly provisioned
+company has `approvalRequired: 0` (so nothing ever reaches the pending queue
+until it is switched on), and segregation of duties means the account that
+submits may not approve. P3.1 inherits the fixture.
+
+## Not done in this phase, on purpose
+
+- The `filter-chips` primitive — the Dashboard has no list toolbar. It lands in
+  P2.1 with the Product list, its first real consumer.
+- Mismatches **5, 6 and 7** in the log below: the customizer FAB overlapping card
+  content, the Approve button being offered where segregation of duties will
+  refuse it (**B-9**), and the voucher grid's unformatted Amount column. The
+  first two are global/pre-existing and want a decision from you rather than a
+  quiet fix inside a dashboard phase; the third belongs to P3.1.
 
 # P2 — Product & Service
 
@@ -461,6 +555,9 @@ and what the app can actually do; resolving it is a decision, not a bug fix.
 | 2 | P0 | Mockup assumes Google Fonts CDN | Self-hosted npm packages instead (decision 9) |
 | 3 | P3.2 | Mockup shows pre-approval compliance status; app surfaces it post-approval | Read-only preview strip backed by a real preview endpoint (B-3), no change to the post-approval flow |
 | 4 | P5 | Mockup's board is drag-and-drop kanban | The API can now be built (B-4, decision 13) — still **your call** whether to schedule it; retheme-only otherwise |
+| 5 | P1 | The theme **customizer FAB** (`position: fixed; right: 2rem; bottom: 5rem`) sits on top of whatever is in the bottom-right of the page — on the dashboard it covers the Nearest Dues panel's "View all dues →" link, in both themes and at every width | **Not fixed — needs your call.** It is global chrome, not a dashboard problem: it overlaps content on every screen, and moving or hiding it is a product decision (is the palette switcher a shipping feature or a development tool?). Options: dock it into the header's icon cluster, hide it under `NODE_ENV=production`, or leave it. |
+| 6 | P1 | The dashboard offers **Approve** whenever the role holds `canApprove`, but the server additionally refuses a voucher you submitted yourself (`allowSelfApproval: 0`). Clicking it then fails with a 403 — against §9's "a screen must never offer an action the server will refuse" | **Not fixed — pre-existing and app-wide**, not introduced here: the Pending Approvals screen gates its own buttons the same way. The honest fix is a per-row `canApprove` on the approvals list response (**B-9**), which is a backend change worth doing once for both consumers rather than a client-side guess in this phase. Verified meanwhile that the failure is *safe*: the dialog opens, the server refuses, the error surfaces, and the queue and KPI card stay truthful. |
+| 7 | P1 | The voucher grid's **Amount** column prints `24500`, not `₹24,500` — right-aligned and monospaced (P0 did its half) but unformatted | Left for **P3.1**, which owns the voucher lists. Noted here because P1's browser pass is what surfaced it. |
 
 ## Verification reference
 

@@ -1,0 +1,331 @@
+{
+  "startedAt": "2026-08-18T09:58:09.255Z",
+  "probes": {
+    "480/light": {
+      "tokens": {
+        "primary": "light-dark(#005cbb, #abc7ff)",
+        "muted": "light-dark(#44474e, #a2a3ad)",
+        "surface": "light-dark(#faf9fd, #121316)",
+        "fontMono": "\"IBM Plex Mono\",\n    ui-monosp",
+        "sidemenuActiveBg": "light-dark(#e6eefb, #0f2340)",
+        "headerBg": "color-mix(in srgb, light-dark(#faf9fd, #121316) 80%, transparent)"
+      },
+      "kpi": {
+        "gridColumns": "416px",
+        "trackCount": 1,
+        "cardCount": 8
+      },
+      "queue": {
+        "panelCount": 2,
+        "summaryText": "4 waiting",
+        "summaryFont": "\"IBM Plex Mono\", ui-monospace,",
+        "linkText": "View all approvals →",
+        "amountFont": "\"IBM Plex Mono\", ui-monospace,",
+        "amountAlign": "start",
+        "amountNumeric": "tabular-nums",
+        "rowCount": 7,
+        "actionButtons": 7
+      },
+      "shell": {
+        "activeNavLabel": "dashboardDashboard",
+        "activeNavWeight": "600",
+        "activeNavColor": "rgb(0, 92, 187)",
+        "activeNavBg": "rgb(230, 238, 251)",
+        "activeIconAxes": "\"FILL\" 1, \"GRAD\" 0, \"opsz\" 24, \"wght\" 500",
+        "navIconAxes": "\"FILL\" 0, \"GRAD\" 0, \"opsz\" 24, \"wght\" 400",
+        "navIconColor": "rgb(68, 71, 78)",
+        "headerBgResolved": "color(srgb 0.980392 0.976471 0.992157 / 0.8)",
+        "breadcrumbVisible": false,
+        "iconGlyphsRender": false
+      },
+      "horizontalOverflow": false
+    },
+    "480/dark": {
+      "tokens": {
+        "primary": "light-dark(#005cbb, #abc7ff)",
+        "muted": "light-dark(#44474e, #a2a3ad)",
+        "surface": "light-dark(#faf9fd, #121316)",
+        "fontMono": "\"IBM Plex Mono\",\n    ui-monosp",
+        "sidemenuActiveBg": "light-dark(#e6eefb, #0f2340)",
+        "headerBg": "color-mix(in srgb, light-dark(#faf9fd, #121316) 80%, transparent)"
+      },
+      "kpi": {
+        "gridColumns": "416px",
+        "trackCount": 1,
+        "cardCount": 8
+      },
+      "queue": {
+        "panelCount": 2,
+        "summaryText": "4 waiting",
+        "summaryFont": "\"IBM Plex Mono\", ui-monospace,",
+        "linkText": "View all approvals →",
+        "amountFont": "\"IBM Plex Mono\", ui-monospace,",
+        "amountAlign": "start",
+        "amountNumeric": "tabular-nums",
+        "rowCount": 7,
+        "actionButtons": 7
+      },
+      "shell": {
+        "activeNavLabel": "dashboardDashboard",
+        "activeNavWeight": "600",
+        "activeNavColor": "rgb(171, 199, 255)",
+        "activeNavBg": "rgb(15, 35, 64)",
+        "activeIconAxes": "\"FILL\" 1, \"GRAD\" 0, \"opsz\" 24, \"wght\" 500",
+        "navIconAxes": "\"FILL\" 0, \"GRAD\" 0, \"opsz\" 24, \"wght\" 400",
+        "navIconColor": "rgb(162, 163, 173)",
+        "headerBgResolved": "color(srgb 0.0705882 0.0745098 0.0862745 / 0.8)",
+        "breadcrumbVisible": false,
+        "iconGlyphsRender": false
+      },
+      "horizontalOverflow": false
+    },
+    "720/light": {
+      "tokens": {
+        "primary": "light-dark(#005cbb, #abc7ff)",
+        "muted": "light-dark(#44474e, #a2a3ad)",
+        "surface": "light-dark(#faf9fd, #121316)",
+        "fontMono": "\"IBM Plex Mono\",\n    ui-monosp",
+        "sidemenuActiveBg": "light-dark(#e6eefb, #0f2340)",
+        "headerBg": "color-mix(in srgb, light-dark(#faf9fd, #121316) 80%, transparent)"
+      },
+      "kpi": {
+        "gridColumns": "284px 284px",
+        "trackCount": 2,
+        "cardCount": 8
+      },
+      "queue": {
+        "panelCount": 2,
+        "summaryText": "4 waiting",
+        "summaryFont": "\"IBM Plex Mono\", ui-monospace,",
+        "linkText": "View all approvals →",
+        "amountFont": "\"IBM Plex Mono\", ui-monospace,",
+        "amountAlign": "start",
+        "amountNumeric": "tabular-nums",
+        "rowCount": 7,
+        "actionButtons": 7
+      },
+      "shell": {
+        "activeNavLabel": "dashboardDashboard",
+        "activeNavWeight": "600",
+        "activeNavColor": "rgb(0, 92, 187)",
+        "activeNavBg": "rgb(230, 238, 251)",
+        "activeIconAxes": "\"FILL\" 1, \"GRAD\" 0, \"opsz\" 24, \"wght\" 500",
+        "navIconAxes": "\"FILL\" 0, \"GRAD\" 0, \"opsz\" 24, \"wght\" 400",
+        "navIconColor": "rgb(68, 71, 78)",
+        "headerBgResolved": "color(srgb 0.980392 0.976471 0.992157 / 0.8)",
+        "breadcrumbVisible": true,
+        "iconGlyphsRender": true
+      },
+      "horizontalOverflow": false
+    },
+    "720/dark": {
+      "tokens": {
+        "primary": "light-dark(#005cbb, #abc7ff)",
+        "muted": "light-dark(#44474e, #a2a3ad)",
+        "surface": "light-dark(#faf9fd, #121316)",
+        "fontMono": "\"IBM Plex Mono\",\n    ui-monosp",
+        "sidemenuActiveBg": "light-dark(#e6eefb, #0f2340)",
+        "headerBg": "color-mix(in srgb, light-dark(#faf9fd, #121316) 80%, transparent)"
+      },
+      "kpi": {
+        "gridColumns": "284px 284px",
+        "trackCount": 2,
+        "cardCount": 8
+      },
+      "queue": {
+        "panelCount": 2,
+        "summaryText": "4 waiting",
+        "summaryFont": "\"IBM Plex Mono\", ui-monospace,",
+        "linkText": "View all approvals →",
+        "amountFont": "\"IBM Plex Mono\", ui-monospace,",
+        "amountAlign": "start",
+        "amountNumeric": "tabular-nums",
+        "rowCount": 7,
+        "actionButtons": 7
+      },
+      "shell": {
+        "activeNavLabel": "dashboardDashboard",
+        "activeNavWeight": "600",
+        "activeNavColor": "rgb(171, 199, 255)",
+        "activeNavBg": "rgb(15, 35, 64)",
+        "activeIconAxes": "\"FILL\" 1, \"GRAD\" 0, \"opsz\" 24, \"wght\" 500",
+        "navIconAxes": "\"FILL\" 0, \"GRAD\" 0, \"opsz\" 24, \"wght\" 400",
+        "navIconColor": "rgb(162, 163, 173)",
+        "headerBgResolved": "color(srgb 0.0705882 0.0745098 0.0862745 / 0.8)",
+        "breadcrumbVisible": true,
+        "iconGlyphsRender": true
+      },
+      "horizontalOverflow": false
+    },
+    "1024/light": {
+      "tokens": {
+        "primary": "light-dark(#005cbb, #abc7ff)",
+        "muted": "light-dark(#44474e, #a2a3ad)",
+        "surface": "light-dark(#faf9fd, #121316)",
+        "fontMono": "\"IBM Plex Mono\",\n    ui-monosp",
+        "sidemenuActiveBg": "light-dark(#e6eefb, #0f2340)",
+        "headerBg": "color-mix(in srgb, light-dark(#faf9fd, #121316) 80%, transparent)"
+      },
+      "kpi": {
+        "gridColumns": "436px 436px",
+        "trackCount": 2,
+        "cardCount": 8
+      },
+      "queue": {
+        "panelCount": 2,
+        "summaryText": "4 waiting",
+        "summaryFont": "\"IBM Plex Mono\", ui-monospace,",
+        "linkText": "View all approvals →",
+        "amountFont": "\"IBM Plex Mono\", ui-monospace,",
+        "amountAlign": "start",
+        "amountNumeric": "tabular-nums",
+        "rowCount": 7,
+        "actionButtons": 7
+      },
+      "shell": {
+        "activeNavLabel": "dashboardDashboard",
+        "activeNavWeight": "600",
+        "activeNavColor": "rgb(0, 92, 187)",
+        "activeNavBg": "rgb(230, 238, 251)",
+        "activeIconAxes": "\"FILL\" 1, \"GRAD\" 0, \"opsz\" 24, \"wght\" 500",
+        "navIconAxes": "\"FILL\" 0, \"GRAD\" 0, \"opsz\" 24, \"wght\" 400",
+        "navIconColor": "rgb(68, 71, 78)",
+        "headerBgResolved": "color(srgb 0.980392 0.976471 0.992157 / 0.8)",
+        "breadcrumbVisible": true,
+        "iconGlyphsRender": true
+      },
+      "horizontalOverflow": false
+    },
+    "1024/dark": {
+      "tokens": {
+        "primary": "light-dark(#005cbb, #abc7ff)",
+        "muted": "light-dark(#44474e, #a2a3ad)",
+        "surface": "light-dark(#faf9fd, #121316)",
+        "fontMono": "\"IBM Plex Mono\",\n    ui-monosp",
+        "sidemenuActiveBg": "light-dark(#e6eefb, #0f2340)",
+        "headerBg": "color-mix(in srgb, light-dark(#faf9fd, #121316) 80%, transparent)"
+      },
+      "kpi": {
+        "gridColumns": "436px 436px",
+        "trackCount": 2,
+        "cardCount": 8
+      },
+      "queue": {
+        "panelCount": 2,
+        "summaryText": "4 waiting",
+        "summaryFont": "\"IBM Plex Mono\", ui-monospace,",
+        "linkText": "View all approvals →",
+        "amountFont": "\"IBM Plex Mono\", ui-monospace,",
+        "amountAlign": "start",
+        "amountNumeric": "tabular-nums",
+        "rowCount": 7,
+        "actionButtons": 7
+      },
+      "shell": {
+        "activeNavLabel": "dashboardDashboard",
+        "activeNavWeight": "600",
+        "activeNavColor": "rgb(171, 199, 255)",
+        "activeNavBg": "rgb(15, 35, 64)",
+        "activeIconAxes": "\"FILL\" 1, \"GRAD\" 0, \"opsz\" 24, \"wght\" 500",
+        "navIconAxes": "\"FILL\" 0, \"GRAD\" 0, \"opsz\" 24, \"wght\" 400",
+        "navIconColor": "rgb(162, 163, 173)",
+        "headerBgResolved": "color(srgb 0.0705882 0.0745098 0.0862745 / 0.8)",
+        "breadcrumbVisible": true,
+        "iconGlyphsRender": true
+      },
+      "horizontalOverflow": false
+    },
+    "1440/light": {
+      "tokens": {
+        "primary": "light-dark(#005cbb, #abc7ff)",
+        "muted": "light-dark(#44474e, #a2a3ad)",
+        "surface": "light-dark(#faf9fd, #121316)",
+        "fontMono": "\"IBM Plex Mono\",\n    ui-monosp",
+        "sidemenuActiveBg": "light-dark(#e6eefb, #0f2340)",
+        "headerBg": "color-mix(in srgb, light-dark(#faf9fd, #121316) 80%, transparent)"
+      },
+      "kpi": {
+        "gridColumns": "310px 310px 310px 310px",
+        "trackCount": 4,
+        "cardCount": 8
+      },
+      "queue": {
+        "panelCount": 2,
+        "summaryText": "4 waiting",
+        "summaryFont": "\"IBM Plex Mono\", ui-monospace,",
+        "linkText": "View all approvals →",
+        "amountFont": "\"IBM Plex Mono\", ui-monospace,",
+        "amountAlign": "start",
+        "amountNumeric": "tabular-nums",
+        "rowCount": 7,
+        "actionButtons": 7
+      },
+      "shell": {
+        "activeNavLabel": "dashboardDashboard",
+        "activeNavWeight": "600",
+        "activeNavColor": "rgb(0, 92, 187)",
+        "activeNavBg": "rgb(230, 238, 251)",
+        "activeIconAxes": "\"FILL\" 1, \"GRAD\" 0, \"opsz\" 24, \"wght\" 500",
+        "navIconAxes": "\"FILL\" 0, \"GRAD\" 0, \"opsz\" 24, \"wght\" 400",
+        "navIconColor": "rgb(68, 71, 78)",
+        "headerBgResolved": "color(srgb 0.980392 0.976471 0.992157 / 0.8)",
+        "breadcrumbVisible": true,
+        "iconGlyphsRender": true
+      },
+      "horizontalOverflow": false
+    },
+    "1440/dark": {
+      "tokens": {
+        "primary": "light-dark(#005cbb, #abc7ff)",
+        "muted": "light-dark(#44474e, #a2a3ad)",
+        "surface": "light-dark(#faf9fd, #121316)",
+        "fontMono": "\"IBM Plex Mono\",\n    ui-monosp",
+        "sidemenuActiveBg": "light-dark(#e6eefb, #0f2340)",
+        "headerBg": "color-mix(in srgb, light-dark(#faf9fd, #121316) 80%, transparent)"
+      },
+      "kpi": {
+        "gridColumns": "310px 310px 310px 310px",
+        "trackCount": 4,
+        "cardCount": 8
+      },
+      "queue": {
+        "panelCount": 2,
+        "summaryText": "4 waiting",
+        "summaryFont": "\"IBM Plex Mono\", ui-monospace,",
+        "linkText": "View all approvals →",
+        "amountFont": "\"IBM Plex Mono\", ui-monospace,",
+        "amountAlign": "start",
+        "amountNumeric": "tabular-nums",
+        "rowCount": 7,
+        "actionButtons": 7
+      },
+      "shell": {
+        "activeNavLabel": "dashboardDashboard",
+        "activeNavWeight": "600",
+        "activeNavColor": "rgb(171, 199, 255)",
+        "activeNavBg": "rgb(15, 35, 64)",
+        "activeIconAxes": "\"FILL\" 1, \"GRAD\" 0, \"opsz\" 24, \"wght\" 500",
+        "navIconAxes": "\"FILL\" 0, \"GRAD\" 0, \"opsz\" 24, \"wght\" 400",
+        "navIconColor": "rgb(162, 163, 173)",
+        "headerBgResolved": "color(srgb 0.0705882 0.0745098 0.0862745 / 0.8)",
+        "breadcrumbVisible": true,
+        "iconGlyphsRender": true
+      },
+      "horizontalOverflow": false
+    }
+  },
+  "shots": [
+    "dashboard__480__light.png",
+    "dashboard__480__dark.png",
+    "dashboard__720__light.png",
+    "dashboard__720__dark.png",
+    "dashboard__1024__light.png",
+    "dashboard__1024__dark.png",
+    "dashboard__1440__light.png",
+    "dashboard__1440__dark.png",
+    "shell__module-tabs__1440__light.png",
+    "shell__module-tabs__1440__dark.png"
+  ],
+  "console": [],
+  "landedOn": "http://localhost:4300/dashboard"
+}
