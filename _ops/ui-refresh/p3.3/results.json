@@ -1,0 +1,1292 @@
+[
+  {
+    "name": "trial-balance/light numeric headers right-aligned",
+    "pass": true,
+    "detail": "6 header(s) — right"
+  },
+  {
+    "name": "trial-balance/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "54 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "trial-balance/light figures grouped en-IN",
+    "pass": true,
+    "detail": "1,69,400.00 , 1,69,400.00 , 1,69,400.00"
+  },
+  {
+    "name": "trial-balance/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 1 ds-status-chip"
+  },
+  {
+    "name": "trial-balance/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "trial-balance/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "trial-balance/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "trial-balance/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "profit-and-loss/light numeric headers right-aligned",
+    "pass": true,
+    "detail": "2 header(s) — right"
+  },
+  {
+    "name": "profit-and-loss/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "3 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "profit-and-loss/light KPI band figures mono",
+    "pass": true,
+    "detail": "\"IBM Plex Mono\""
+  },
+  {
+    "name": "profit-and-loss/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "profit-and-loss/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "profit-and-loss/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "profit-and-loss/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "profit-and-loss/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "balance-sheet/light numeric headers right-aligned",
+    "pass": true,
+    "detail": "2 header(s) — right"
+  },
+  {
+    "name": "balance-sheet/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "5 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "balance-sheet/light figures grouped en-IN",
+    "pass": true,
+    "detail": "1,69,400.00 , -1,43,300.00"
+  },
+  {
+    "name": "balance-sheet/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 1 ds-status-chip"
+  },
+  {
+    "name": "balance-sheet/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "balance-sheet/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "balance-sheet/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "balance-sheet/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "day-book/light numeric headers right-aligned",
+    "pass": true,
+    "detail": "2 header(s) — right"
+  },
+  {
+    "name": "day-book/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "6 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "day-book/light KPI band figures mono",
+    "pass": true,
+    "detail": "\"IBM Plex Mono\""
+  },
+  {
+    "name": "day-book/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "day-book/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "day-book/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "day-book/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "day-book/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "group-statement/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "group-statement/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "group-statement/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "group-statement/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "group-statement/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "cash-book/light numeric headers right-aligned",
+    "pass": true,
+    "detail": "3 header(s) — right"
+  },
+  {
+    "name": "cash-book/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "4 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "cash-book/light KPI band figures mono",
+    "pass": true,
+    "detail": "\"IBM Plex Mono\""
+  },
+  {
+    "name": "cash-book/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "cash-book/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "cash-book/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "cash-book/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "cash-book/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "bank-book/light numeric headers right-aligned",
+    "pass": true,
+    "detail": "3 header(s) — right"
+  },
+  {
+    "name": "bank-book/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "4 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "bank-book/light KPI band figures mono",
+    "pass": true,
+    "detail": "\"IBM Plex Mono\""
+  },
+  {
+    "name": "bank-book/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "bank-book/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "bank-book/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "bank-book/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "bank-book/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "daily-cash/light numeric headers right-aligned",
+    "pass": true,
+    "detail": "3 header(s) — right"
+  },
+  {
+    "name": "daily-cash/light KPI band figures mono",
+    "pass": true,
+    "detail": "\"IBM Plex Mono\""
+  },
+  {
+    "name": "daily-cash/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "daily-cash/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "daily-cash/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "daily-cash/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "daily-cash/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "payment-register/light numeric headers right-aligned",
+    "pass": true,
+    "detail": "1 header(s) — right"
+  },
+  {
+    "name": "payment-register/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "1 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "payment-register/light KPI band figures mono",
+    "pass": true,
+    "detail": "\"IBM Plex Mono\""
+  },
+  {
+    "name": "payment-register/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "payment-register/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "payment-register/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "payment-register/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "payment-register/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "receipt-register/light numeric headers right-aligned",
+    "pass": true,
+    "detail": "1 header(s) — right"
+  },
+  {
+    "name": "receipt-register/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "1 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "receipt-register/light KPI band figures mono",
+    "pass": true,
+    "detail": "\"IBM Plex Mono\""
+  },
+  {
+    "name": "receipt-register/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "receipt-register/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "receipt-register/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "receipt-register/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "receipt-register/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "stock-ledger/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "stock-ledger/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "stock-ledger/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "stock-ledger/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "stock-ledger/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "valuation-summary/light numeric headers right-aligned",
+    "pass": true,
+    "detail": "3 header(s) — right"
+  },
+  {
+    "name": "valuation-summary/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "19 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "valuation-summary/light figures grouped en-IN",
+    "pass": true,
+    "detail": "1,43,300.00"
+  },
+  {
+    "name": "valuation-summary/light KPI band figures mono",
+    "pass": true,
+    "detail": "\"IBM Plex Mono\""
+  },
+  {
+    "name": "valuation-summary/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "valuation-summary/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "valuation-summary/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "valuation-summary/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "valuation-summary/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "reorder-alerts/light numeric headers right-aligned",
+    "pass": true,
+    "detail": "3 header(s) — right"
+  },
+  {
+    "name": "reorder-alerts/light KPI band figures mono",
+    "pass": true,
+    "detail": "\"IBM Plex Mono\""
+  },
+  {
+    "name": "reorder-alerts/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "reorder-alerts/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "reorder-alerts/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "reorder-alerts/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "reorder-alerts/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "outstanding/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "1 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "outstanding/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "outstanding/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "outstanding/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "outstanding/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "outstanding/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "party-statement/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "party-statement/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "party-statement/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "party-statement/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "party-statement/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "dues/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "dues/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "dues/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "dues/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "dues/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "gst-returns/light numeric headers right-aligned",
+    "pass": true,
+    "detail": "6 header(s) — right"
+  },
+  {
+    "name": "gst-returns/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "6 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "gst-returns/light KPI band figures mono",
+    "pass": true,
+    "detail": "\"IBM Plex Mono\""
+  },
+  {
+    "name": "gst-returns/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "gst-returns/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "gst-returns/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "gst-returns/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "gst-returns/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "chart-of-accounts/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "4 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "chart-of-accounts/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "chart-of-accounts/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "chart-of-accounts/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "chart-of-accounts/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "chart-of-accounts/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "trial-balance/dark numeric headers right-aligned",
+    "pass": true,
+    "detail": "6 header(s) — right"
+  },
+  {
+    "name": "trial-balance/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "54 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "trial-balance/dark figures grouped en-IN",
+    "pass": true,
+    "detail": "1,69,400.00 , 1,69,400.00 , 1,69,400.00"
+  },
+  {
+    "name": "trial-balance/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 1 ds-status-chip"
+  },
+  {
+    "name": "trial-balance/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "trial-balance/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "trial-balance/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "trial-balance/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "profit-and-loss/dark numeric headers right-aligned",
+    "pass": true,
+    "detail": "2 header(s) — right"
+  },
+  {
+    "name": "profit-and-loss/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "3 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "profit-and-loss/dark KPI band figures mono",
+    "pass": true,
+    "detail": "\"IBM Plex Mono\""
+  },
+  {
+    "name": "profit-and-loss/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "profit-and-loss/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "profit-and-loss/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "profit-and-loss/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "profit-and-loss/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "balance-sheet/dark numeric headers right-aligned",
+    "pass": true,
+    "detail": "2 header(s) — right"
+  },
+  {
+    "name": "balance-sheet/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "5 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "balance-sheet/dark figures grouped en-IN",
+    "pass": true,
+    "detail": "1,69,400.00 , -1,43,300.00"
+  },
+  {
+    "name": "balance-sheet/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 1 ds-status-chip"
+  },
+  {
+    "name": "balance-sheet/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "balance-sheet/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "balance-sheet/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "balance-sheet/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "day-book/dark numeric headers right-aligned",
+    "pass": true,
+    "detail": "2 header(s) — right"
+  },
+  {
+    "name": "day-book/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "6 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "day-book/dark KPI band figures mono",
+    "pass": true,
+    "detail": "\"IBM Plex Mono\""
+  },
+  {
+    "name": "day-book/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "day-book/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "day-book/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "day-book/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "day-book/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "group-statement/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "group-statement/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "group-statement/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "group-statement/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "group-statement/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "cash-book/dark numeric headers right-aligned",
+    "pass": true,
+    "detail": "3 header(s) — right"
+  },
+  {
+    "name": "cash-book/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "4 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "cash-book/dark KPI band figures mono",
+    "pass": true,
+    "detail": "\"IBM Plex Mono\""
+  },
+  {
+    "name": "cash-book/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "cash-book/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "cash-book/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "cash-book/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "cash-book/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "bank-book/dark numeric headers right-aligned",
+    "pass": true,
+    "detail": "3 header(s) — right"
+  },
+  {
+    "name": "bank-book/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "4 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "bank-book/dark KPI band figures mono",
+    "pass": true,
+    "detail": "\"IBM Plex Mono\""
+  },
+  {
+    "name": "bank-book/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "bank-book/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "bank-book/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "bank-book/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "bank-book/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "daily-cash/dark numeric headers right-aligned",
+    "pass": true,
+    "detail": "3 header(s) — right"
+  },
+  {
+    "name": "daily-cash/dark KPI band figures mono",
+    "pass": true,
+    "detail": "\"IBM Plex Mono\""
+  },
+  {
+    "name": "daily-cash/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "daily-cash/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "daily-cash/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "daily-cash/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "daily-cash/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "payment-register/dark numeric headers right-aligned",
+    "pass": true,
+    "detail": "1 header(s) — right"
+  },
+  {
+    "name": "payment-register/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "1 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "payment-register/dark KPI band figures mono",
+    "pass": true,
+    "detail": "\"IBM Plex Mono\""
+  },
+  {
+    "name": "payment-register/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "payment-register/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "payment-register/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "payment-register/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "payment-register/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "receipt-register/dark numeric headers right-aligned",
+    "pass": true,
+    "detail": "1 header(s) — right"
+  },
+  {
+    "name": "receipt-register/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "1 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "receipt-register/dark KPI band figures mono",
+    "pass": true,
+    "detail": "\"IBM Plex Mono\""
+  },
+  {
+    "name": "receipt-register/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "receipt-register/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "receipt-register/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "receipt-register/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "receipt-register/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "stock-ledger/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "stock-ledger/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "stock-ledger/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "stock-ledger/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "stock-ledger/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "valuation-summary/dark numeric headers right-aligned",
+    "pass": true,
+    "detail": "3 header(s) — right"
+  },
+  {
+    "name": "valuation-summary/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "19 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "valuation-summary/dark figures grouped en-IN",
+    "pass": true,
+    "detail": "1,43,300.00"
+  },
+  {
+    "name": "valuation-summary/dark KPI band figures mono",
+    "pass": true,
+    "detail": "\"IBM Plex Mono\""
+  },
+  {
+    "name": "valuation-summary/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "valuation-summary/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "valuation-summary/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "valuation-summary/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "valuation-summary/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "reorder-alerts/dark numeric headers right-aligned",
+    "pass": true,
+    "detail": "3 header(s) — right"
+  },
+  {
+    "name": "reorder-alerts/dark KPI band figures mono",
+    "pass": true,
+    "detail": "\"IBM Plex Mono\""
+  },
+  {
+    "name": "reorder-alerts/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "reorder-alerts/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "reorder-alerts/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "reorder-alerts/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "reorder-alerts/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "outstanding/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "1 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "outstanding/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "outstanding/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "outstanding/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "outstanding/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "outstanding/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "party-statement/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "party-statement/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "party-statement/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "party-statement/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "party-statement/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "dues/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "dues/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "dues/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "dues/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "dues/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "gst-returns/dark numeric headers right-aligned",
+    "pass": true,
+    "detail": "6 header(s) — right"
+  },
+  {
+    "name": "gst-returns/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "6 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "gst-returns/dark KPI band figures mono",
+    "pass": true,
+    "detail": "\"IBM Plex Mono\""
+  },
+  {
+    "name": "gst-returns/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "gst-returns/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "gst-returns/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "gst-returns/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "gst-returns/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "chart-of-accounts/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "4 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "chart-of-accounts/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "chart-of-accounts/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "chart-of-accounts/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "chart-of-accounts/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "chart-of-accounts/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "en-IN grouping actually exercised",
+    "pass": true,
+    "detail": "18 decisive figure(s), e.g. 1,69,400.00"
+  },
+  {
+    "name": "voucher-type pill follows the theme",
+    "pass": true,
+    "detail": "light rgb(230, 238, 251) / dark rgb(15, 35, 64)"
+  },
+  {
+    "name": "no console errors",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "no failed requests",
+    "pass": true,
+    "detail": ""
+  }
+]

@@ -38,7 +38,7 @@ needs data the API doesn't serve today (see **Backend-side work** and decision 1
 | P1 | Dashboard (+ app shell) | 1 screen + sidebar/topbar chrome | **signed off 2026-08-18** |
 | P2 | Product & Service | ~14 screens (2 gates) | **P2.1 signed off 2026-08-18**; **P2.2 done, browser-verified 2026-08-19** |
 | **N** | **Two-column nav + KPI strip** | **retrofit across P1 + P2.1, and the shape for P3+** | **signed off 2026-08-18**, after a shell-bug correction (duplicate collapse control, stepped header hairline) |
-| P3 | Transaction | ~45 screens (4 gates) | **P3.1 done**; **P3.2 done, browser-verified 2026-08-19**; P3.3–P3.4 not started |
+| P3 | Transaction | ~45 screens (4 gates) | **P3.1–P3.3 done, browser-verified**; P3.4 not started |
 | P4 | Chat | 1 screen | not started |
 | P5 | Job Work | ~12 screens | not started |
 | P6 | Human Resources | ~15 screens | not started |
@@ -1033,14 +1033,62 @@ e-Way Bill switched off, so both gateway signals render in their `muted`
 the DOM mirrors whatever the server returns. Turning the gateways on needs real
 GSP credentials, which a fixture cannot honestly fake.
 
-### P3.3 — Statements, registers and reports
-**Files:** `transaction/{outstanding,party-statement,dues,gst-returns,
-chart-of-accounts}/**`, `transaction/reports/**` (trial balance, P&L, balance
-sheet, day book, group statement, cash book, bank book, daily cash, payment
-register, receipt register, stock ledger, valuation summary, reorder alerts)
+### P3.3 — Statements, registers and reports *(done — browser-verified 2026-08-19)*
+**Files:** `transaction/reports/reports.shared.scss` (the one sheet all 14
+reports use), `transaction/{party-statement,gst-returns}/**`,
+`reports/{trial-balance,balance-sheet,stock-ledger}/**`
 - Report shape: period selector + dense numeric grid + export bar. Almost entirely
   typography and alignment, which is exactly what IBM Plex Mono + `tabular-nums`
-  from P0 were for.
+  from P0 were for. **No backend change** — these screens already return
+  everything the reference shows.
+
+**What shipped**
+
+- **A silent alignment bug across all 14 reports, found by measuring.**
+  `.report-table .num` set `text-align: right`, and every numeric *header*
+  rendered left anyway. The cause is a real Angular trap worth recording: under
+  emulated encapsulation every compound selector gains an attribute, so
+  `.report-table thead th` becomes three compounds (one class, three
+  attributes, two elements) while `.report-table .num` becomes two — the first
+  outranks the second even though the second has more classes. The
+  `font-family` in the same block still applied, which is exactly why it looked
+  like it had worked. Numeric headers are now right-aligned explicitly, over
+  their figures, which is also what the reference's `>` header prefix means.
+- **The mono face is on body cells only.** A column header is a word
+  ("Opening Dr"), not a figure; setting it in a tabular mono makes the label
+  read as data.
+- **A permanently-frozen pill fixed.** `.voucher-block .vtype` (Day Book, Group
+  Statement) used `var(--ds-primary-soft, #e7efff)` — and `--ds-primary-soft`
+  **is not defined anywhere in the design system**, so the fallback was not a
+  fallback at all: every render was a literal light-mode blue, in both themes.
+  It is `--primary-bg` now. Measured live: light `rgb(230,238,251)`, dark
+  `rgb(15,35,64)`.
+- **Every other frozen fallback in the shared sheet is gone** — twelve
+  `var(--ds-x, #hex)` pairs across the table, section rows, subtotals, grand
+  totals and the KPI band, all now bare tokens.
+- **Two more hand-rolled pills onto `ds-status-chip`**: `.balance-chip`
+  (Trial Balance, Balance Sheet, GSTR-3B ×2) and `.dir-chip` (Stock Ledger's
+  IN/OUT badge). That is the sixth and seventh copy of a vocabulary P0 made a
+  primitive.
+- **The KPI band is one divided band**, matching `ds-stat-strip`'s shape
+  decision (decision 14), with its figures in mono/tabular. Deliberately still
+  its own class rather than the component: a report's headline figures are read
+  *with* the grid under them, so they take the grid's typography and skip the
+  count-up animation, which is dashboard punctuation and pure noise over a
+  number someone is reading off a statement.
+- **`.report-columns` is a container query now.** Two side-by-side statements
+  (Income/Expense, Assets/Liabilities) collapsed to one column on a viewport
+  `@media` — but what decides whether two tables fit is the *content* column,
+  which is ~288px narrower whenever the nav panel is open (CLAUDE.md §9).
+- **`.empty-note` deliberately kept.** Of its 37 sites most are terse
+  `<td colspan>` placeholders inside a table; `ds-empty-state`'s icon art and
+  48px padding belong on an empty *screen*, not an empty table body.
+
+**P3.3 verified:** build clean · lint 0 errors · breakpoint guard OK ·
+`check-mirrors` in sync · 18 screens driven in Playwright Chromium, light + dark
+at 480/720/1024/1440 — **258/258 checks green**, en-IN grouping exercised on 18
+real six-figure amounts, no console errors, no failed requests, no horizontal
+overflow. Screenshots in [`_ops/ui-refresh/p3.3/`](_ops/ui-refresh/p3.3/).
 
 ### P3.4 — Masters, configuration, data import, invoice scanning
 **Files:** `transaction/masters/**` (nature, group, financial year, GST rates),
