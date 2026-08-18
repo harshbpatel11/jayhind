@@ -36,9 +36,9 @@ needs data the API doesn't serve today (see **Backend-side work** and decision 1
 |---|---|---|---|
 | P0 | Foundation | tokens, fonts, icons, shared primitives | **done, browser-verified, committed** (`84f656c`) |
 | P1 | Dashboard (+ app shell) | 1 screen + sidebar/topbar chrome | **signed off 2026-08-18** |
-| P2 | Product & Service | ~14 screens (2 gates) | **P2.1 signed off 2026-08-18**; P2.2 not started |
+| P2 | Product & Service | ~14 screens (2 gates) | **P2.1 signed off 2026-08-18**; **P2.2 done, browser-verified 2026-08-19** |
 | **N** | **Two-column nav + KPI strip** | **retrofit across P1 + P2.1, and the shape for P3+** | **signed off 2026-08-18**, after a shell-bug correction (duplicate collapse control, stepped header hairline) |
-| P3 | Transaction | ~45 screens (4 gates) | **P3.1 in progress**; P3.2–P3.4 not started |
+| P3 | Transaction | ~45 screens (4 gates) | **P3.1 done, browser-verified**; P3.2–P3.4 not started |
 | P4 | Chat | 1 screen | not started |
 | P5 | Job Work | ~12 screens | not started |
 | P6 | Human Resources | ~15 screens | not started |
@@ -285,6 +285,7 @@ into their phase, the ones marked **your call** are written up but not scheduled
 | B-13 | Product Dashboard's sixth reference KPI, "Price changes" (pending price-revision approvals) | genuinely doesn't exist: no price-revision entity, no status column, no approval workflow anywhere in the schema — `ProductPriceDetails` only has `autoManaged`, and `ProductPriceCaptureService` approves *vouchers*, not prices. Would need real new schema + a request/approve workflow, not a query | P2.1 | **your call** — shipped as 5 real cards instead of a fabricated 6th, per this plan's own rule (§ below). Flag if you want the workflow built; it's a feature, not a retheme |
 | B-14 | Product List's Category column and stock-health second Status column | `productCategories` relation added to the `Product` entity + `findAll()`'s include (each product may carry >1 category — no bucketing needed here, the grid just lists every name); stock-health computed client-side from the `productQuantity` fields already on every row (no new field) | P2.1 (retrofit) | **done** |
 | B-15 | Product List's summary strip (Products / In stock / Below reorder / Stock value) | new `GET /products/summary` on the existing `products` controller/permission lane (`@SharedRead()`, matching `list`'s own gating) — its own small queries rather than reusing `DashboardService`'s (that lives in a different NestJS module; importing it just for three numbers would add a cross-module dependency) | P2.1 (retrofit) | **done** |
+| B-16 | The five product masters' usage count — the reference's Products / Used by / Applies to / Items column | `CommonDataService.attachReferenceCounts(page, Product, <fk>, 'productCount')` — one grouped count over the page's own ids, wired into all five masters' `findAll`. Through the ORM, so tenant scoping and the paranoid clause apply; not an `include` + `COUNT`, which would need a GROUP BY and break `totalItems` | P2.2 | **done** |
 
 **How each phase handles this:** step 1 of the per-phase protocol (Inventory) now
 also diffs the mockup's screen against the API response that feeds it. Anything the
@@ -802,13 +803,88 @@ Stock Health columns, service-list GST column all confirmed rendering in both
 themes at both widths). This tenant has no catalogue seeded, so structure is
 verified, not populated data — see P1's addendum for the same caveat.
 
-### P2.2 — Masters, product management, stock conversion, configuration
+### P2.2 — Masters, product management, stock conversion, configuration *(done — browser-verified 2026-08-19)*
 **Files:** `product/masters/**` (manufacturer, measurement unit, return policy,
 product condition, warranty, categories & tags), `product/product-management/**`
 (quantity, price, media), `product/stock-conversion/**` (conversions, BOM
-templates), `product/product-configuration/**` (general settings, dynamic fields)
-- Mechanical once P2.1 is signed off: same list shape for the six masters, the
-  **gallery** variant for Product Media, the **settings** shape for configuration.
+templates), `product/product-configuration/**` (general settings, dynamic fields),
+`styles/design-system/_settings.scss` (new), `app/app.config.ts`
+- Same list shape for the six masters, the **gallery** variant for Product Media,
+  the **settings** shape for configuration.
+
+**What shipped**
+
+- **en-IN is now the app's locale, not a per-call-site formatter.** The
+  conversion and BOM money cells printed `₹126,200.00` — US grouping — because
+  `| currency:'INR'` renders under Angular's default `en-US` and no `LOCALE_ID`
+  was ever provided. That is mismatch 7 again, in its pipe form, at **87 call
+  sites** across HR, party portal, invoice scanning, e-Way Bill and stock
+  conversion. Registering `en-IN` in `app.config.ts` fixes all of them at the
+  root rather than rewriting each cell (decision 10: fix the primitive).
+  Verified safe for dates first — every `| date` in the app passes an explicit
+  format string, so the only ones affected are the named `mediumDate` /
+  `medium` / `shortTime` forms, which move from US ordering to the day-first
+  ordering this app already uses everywhere else.
+- **The five masters now say what uses them (B-16).** Manufacturer / Measurement
+  Unit / Return Policy / Product Condition / Product Warranty listed only
+  Id-Name-Description; the reference gives each a usage count (Products / Used
+  by / Applies to / Items). `CommonDataService.attachReferenceCounts` stamps it
+  from one grouped query over the page's own ids — through the ORM, so tenant
+  scoping and the paranoid clause apply, and a master reports the products
+  **still** using it. Deliberately not an `include` + `COUNT` on `paginateNew`:
+  that needs a GROUP BY, which turns `findAndCountAll`'s COUNT into one row per
+  group and breaks `totalItems`. The column is `sortable: false` on purpose —
+  it is computed after pagination, so there is no DB column to sort on and
+  offering one would be a button the server cannot honour (§9).
+- **Quantity gained a reorder level and a stock-health chip**, reading the same
+  `available` vs `minimumAvailableQuantity` verdict the Product List's own
+  Stock Health column uses — `stock-health.util.ts` now exposes `stockHealthOf`
+  over the levels alone, so the screen where those two figures are *edited*
+  cannot disagree with the list that reports them. No backend change: both
+  figures were already on the row.
+- **Two more hand-rolled status pills folded onto `ds-status-chip`** —
+  conversions' `.sc-status` and BOM templates' `.bt-flag`, each with its own
+  frozen success/error hues. That is the fourth and fifth copy of a vocabulary
+  P0 made a primitive. Both stylesheets shrank to nothing or near it; Dynamic
+  Fields' three `.df-chip` variants went the same way, and its empty state is
+  the shared `ds-empty-state` now.
+- **Product Media is the reference's `files` shape.** It was a grid whose
+  columns were multer's own bookkeeping — `encoding`, `mimetype`, `filename`,
+  `path` — which say nothing about a picture. It now opens as a tile gallery
+  (thumbnail, name, size · date, tinted type icon for non-images, click to
+  preview through the shared `document-viewer`), with a toggle back to a table
+  for the sort/filter/bulk work tiles cannot do. Column count follows the
+  panel's width via a container query, not the viewport's (§9).
+- **Product Configuration is the reference's `settings` shape.** The accordion
+  hid half the decisions behind a disclosure; it is grouped setting cards now —
+  label plus what it does on the left, the control on the right. Built as a
+  shared partial (`styles/design-system/_settings.scss`), not per-screen,
+  because Transaction, Job Work, HR and Site Configuration all have one of
+  these and must not drift into five ideas of what a setting looks like.
+- **Categories & Tags lost a dead table and gained an empty state.** The screen
+  rendered a two-column `<table mat-table>` above the tree with no data source
+  at all — a header row over an empty elevation box. And on a company with no
+  categories yet it rendered *nothing*: toolbar over blank space. Both fixed.
+- **Test data**: [`qa-artifacts/scripts/seed-catalogue-fixture.js`](qa-artifacts/scripts/seed-catalogue-fixture.js),
+  same doctrine as the voucher fixture — through the API, re-runnable. It seeds
+  a category tree with children and tags, the five masters, three products
+  across them, and **lakh-scale prices on purpose**: en-IN grouping only differs
+  from the US form past six digits, so a fixture of two-digit rates cannot
+  prove the locale change worked.
+
+**P2.2 verified:** `npm run build` clean · `npm run lint` 0 errors ·
+breakpoint guard OK · `check-mirrors` in sync · client-back `npm run build`
+clean and **95 suites / 1326 Jest tests passing** · driven in Playwright
+Chromium against the running stack, light + dark at 480/720/1024/1440 —
+**213/213 checks green**, no console errors, no failed requests, no horizontal
+overflow. Screenshots in [`_ops/ui-refresh/p2.2/`](_ops/ui-refresh/p2.2/).
+
+Two of those checks were *rewritten* mid-pass because they were passing
+vacuously: the usage-count check confirmed the column existed but never read a
+cell (the bulk-select column's blank `<th>` was being filtered out, shifting
+every index by one), and the en-IN check reported green on `₹24.00`, an amount
+too short to distinguish the two groupings at all. Both now assert the value —
+counts read `3` and `6`, money reads `₹1,26,200.00`.
 
 ---
 
