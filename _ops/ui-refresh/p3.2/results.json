@@ -1,0 +1,167 @@
+[
+  {
+    "name": "a saved sales voucher exists to preview",
+    "pass": true,
+    "detail": "3 row(s)"
+  },
+  {
+    "name": "compliance-preview endpoint answers",
+    "pass": true,
+    "detail": "einvoice:muted | eway-bill:muted | stock:success"
+  },
+  {
+    "name": "every signal carries a reason",
+    "pass": true,
+    "detail": "e-Invoicing is switched off for this company. || e-Way Bill is switched off for this company. || Every goods line is available."
+  },
+  {
+    "name": "no signal claims a vehicle number",
+    "pass": true,
+    "detail": "the voucher carries no transport details in this app (B-17)"
+  },
+  {
+    "name": "sales-form/light voucher form rendered",
+    "pass": true,
+    "detail": "true"
+  },
+  {
+    "name": "sales-form/light compliance strip rendered",
+    "pass": true,
+    "detail": "3 signal(s)"
+  },
+  {
+    "name": "sales-form/light strip matches the server response",
+    "pass": true,
+    "detail": "DOM [e-Invoice, e-Way Bill, Stock check passed] vs API [e-Invoice, e-Way Bill, Stock check passed]"
+  },
+  {
+    "name": "sales-form/light strip tones match the server",
+    "pass": true,
+    "detail": "muted,muted,success vs muted,muted,success"
+  },
+  {
+    "name": "sales-form/light voucher figures mono + tabular",
+    "pass": true,
+    "detail": "\"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "sales-form/light no --mat-sys-* left in .vch-* rules",
+    "pass": true,
+    "detail": "false"
+  },
+  {
+    "name": "sales-form/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "sales-form/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "sales-form/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "sales-form/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "sales-form/dark voucher form rendered",
+    "pass": true,
+    "detail": "true"
+  },
+  {
+    "name": "sales-form/dark compliance strip rendered",
+    "pass": true,
+    "detail": "3 signal(s)"
+  },
+  {
+    "name": "sales-form/dark strip matches the server response",
+    "pass": true,
+    "detail": "DOM [e-Invoice, e-Way Bill, Stock check passed] vs API [e-Invoice, e-Way Bill, Stock check passed]"
+  },
+  {
+    "name": "sales-form/dark strip tones match the server",
+    "pass": true,
+    "detail": "muted,muted,success vs muted,muted,success"
+  },
+  {
+    "name": "sales-form/dark voucher figures mono + tabular",
+    "pass": true,
+    "detail": "\"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "sales-form/dark no --mat-sys-* left in .vch-* rules",
+    "pass": true,
+    "detail": "false"
+  },
+  {
+    "name": "sales-form/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "sales-form/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "sales-form/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "sales-form/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "titlebar background differs between themes",
+    "pass": true,
+    "detail": "light rgb(215, 227, 255) / dark rgb(0, 69, 143)"
+  },
+  {
+    "name": "titlebar text differs between themes",
+    "pass": true,
+    "detail": "light rgb(0, 69, 143) / dark rgb(215, 227, 255)"
+  },
+  {
+    "name": "shell surface differs between themes",
+    "pass": true,
+    "detail": "light rgb(250, 249, 253) / dark rgb(18, 19, 22)"
+  },
+  {
+    "name": "--vch-border differs between themes",
+    "pass": true,
+    "detail": "light rgb(196, 198, 208) / dark rgb(68, 71, 78)"
+  },
+  {
+    "name": "--vch-muted differs between themes",
+    "pass": true,
+    "detail": "light rgb(68, 71, 78) / dark rgb(162, 163, 173)"
+  },
+  {
+    "name": "--vch-text differs between themes",
+    "pass": true,
+    "detail": "light rgb(26, 27, 31) / dark rgb(227, 226, 230)"
+  },
+  {
+    "name": "--vch-surface-alt differs between themes",
+    "pass": true,
+    "detail": "light rgb(244, 243, 246) / dark rgb(26, 27, 31)"
+  },
+  {
+    "name": "no console errors",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "no failed requests",
+    "pass": true,
+    "detail": ""
+  }
+]

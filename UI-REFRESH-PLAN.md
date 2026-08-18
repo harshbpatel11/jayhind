@@ -38,7 +38,7 @@ needs data the API doesn't serve today (see **Backend-side work** and decision 1
 | P1 | Dashboard (+ app shell) | 1 screen + sidebar/topbar chrome | **signed off 2026-08-18** |
 | P2 | Product & Service | ~14 screens (2 gates) | **P2.1 signed off 2026-08-18**; **P2.2 done, browser-verified 2026-08-19** |
 | **N** | **Two-column nav + KPI strip** | **retrofit across P1 + P2.1, and the shape for P3+** | **signed off 2026-08-18**, after a shell-bug correction (duplicate collapse control, stepped header hairline) |
-| P3 | Transaction | ~45 screens (4 gates) | **P3.1 done, browser-verified**; P3.2–P3.4 not started |
+| P3 | Transaction | ~45 screens (4 gates) | **P3.1 done**; **P3.2 done, browser-verified 2026-08-19**; P3.3–P3.4 not started |
 | P4 | Chat | 1 screen | not started |
 | P5 | Job Work | ~12 screens | not started |
 | P6 | Human Resources | ~15 screens | not started |
@@ -272,7 +272,7 @@ into their phase, the ones marked **your call** are written up but not scheduled
 |---|---|---|---|---|
 | B-1 | view-tabs showing counts on **both** Active and Archived | `activeCount` + `archivedCount` on the paginated list response — one extra `count()` in `paginateNew`, over the request's own composed where/include, no new endpoint | P2.1 | **done** |
 | B-2 | dashboard queue rows that can be acted on without leaving the screen | already served by existing endpoints (`sendDueReminderNow`, the approve path) — **no backend change** | P1 | none needed |
-| B-3 | voucher form showing e-Invoice / e-Way Bill status *before* approval | `GET /trx/:id/compliance-preview` (or a field on the existing detail response) returning what approval will trigger and why — replaces the client-side inference the strip would otherwise do | P3.2 | **planned** |
+| B-3 | voucher form showing e-Invoice / e-Way Bill status *before* approval | `GET /trx/:id/compliance-preview` (or a field on the existing detail response) returning what approval will trigger and why — replaces the client-side inference the strip would otherwise do. Shipped as `GET /trx/:id/compliance-preview` + `CompliancePreviewService` + `compliance-preview.const.ts` (15 specs), reusing both gateways' own `getEligibility` under a new `{ preApproval: true }` option so the preview and the post-approval dialog cannot drift | P3.2 | **done** |
 | B-4 | drag-and-drop kanban on the Job Work board | a status-mutation endpoint (`PATCH /job-work/:id/stage`) with lifecycle validation server-side, plus a socket broadcast so two users dragging don't clobber each other | P5 | **your call** (decision 3) |
 | B-5 | filter chips as saved/preset filters rather than hand-declared per screen | preset filter definitions persisted per company + a `filterPresets` field on the list config | — | **your call** — hand-declared chips (decision 8) cover the design as drawn; this is only worth it if you want user-defined presets |
 | B-6 | chat presence / unread counts as the mockup shows them | check what `socketGateWay` already broadcasts before adding anything | P4 | **investigate first** |
@@ -286,6 +286,7 @@ into their phase, the ones marked **your call** are written up but not scheduled
 | B-14 | Product List's Category column and stock-health second Status column | `productCategories` relation added to the `Product` entity + `findAll()`'s include (each product may carry >1 category — no bucketing needed here, the grid just lists every name); stock-health computed client-side from the `productQuantity` fields already on every row (no new field) | P2.1 (retrofit) | **done** |
 | B-15 | Product List's summary strip (Products / In stock / Below reorder / Stock value) | new `GET /products/summary` on the existing `products` controller/permission lane (`@SharedRead()`, matching `list`'s own gating) — its own small queries rather than reusing `DashboardService`'s (that lives in a different NestJS module; importing it just for three numbers would add a cross-module dependency) | P2.1 (retrofit) | **done** |
 | B-16 | The five product masters' usage count — the reference's Products / Used by / Applies to / Items column | `CommonDataService.attachReferenceCounts(page, Product, <fk>, 'productCount')` — one grouped count over the page's own ids, wired into all five masters' `findAll`. Through the ORM, so tenant scoping and the paranoid clause apply; not an `include` + `COUNT`, which would need a GROUP BY and break `totalItems` | P2.2 | **done** |
+| B-17 | The voucher form's **Vehicle no** header field, and the reference's "vehicle number captured" clause on the e-Way Bill preview line | a vehicle number exists only on the `eway_bills` row, which is created *after* approval — the voucher itself carries no transport details at all. Would need a column on `trx` (or a transport sub-form), a DTO field, and the e-Way Bill generate step pre-filling from it | P3.2 | **your call** — a feature, not a retheme. The preview line ships saying what is actually known (`raise it after approval`) rather than a clause it cannot stand behind |
 
 **How each phase handles this:** step 1 of the per-phase protocol (Inventory) now
 also diffs the mockup's screen against the API response that feeds it. Anything the
@@ -951,17 +952,86 @@ The biggest module (~45 screens, 129 files). Four gates.
   purchase has brought in yet; and a payment/receipt is refused unless it
   actually allocates against an invoice.
 
-### P3.2 — The voucher entry form
+### P3.2 — The voucher entry form *(done — browser-verified 2026-08-19)*
 **Files:** `transaction/vouchers/trx/trx-add-edit/**`,
-`src/styles/design-system/_voucher.scss` (1230 lines)
+`src/styles/design-system/_voucher.scss` (1234 lines),
+`shared/voucher-compliance/**` (new), plus **B-3** in `jayhind-client-back`
 - The single biggest retheme in the project: systematic token pass across the
   `.vch-*` classes, `tabular-nums` on line-item and totals columns, line-item table
   density, sticky totals bar.
-- Adds the **read-only compliance preview strip** described above, backed by
-  **B-3** — a real server-side preview of what approval will trigger, rather than
-  the frontend re-deriving licence flags, GSTIN and thresholds itself. The
+- Adds the **read-only compliance preview strip**, backed by **B-3**. The
   post-approval flow is untouched.
-- Reviewed on its own precisely because it is where a wrong call costs the most.
+
+**What shipped**
+
+- **The whole `.vch-*` sheet is theme-aware, from one place.** Every colour
+  indirected through `--mat-sys-*` with a frozen light-mode hex fallback
+  (`var(--mat-sys-surface, #fff)`, `var(--mat-sys-error, #d32f2f)`, …), so any
+  role Material did not define stayed at a light literal in dark mode. All 18
+  such references are gone: the `--vch-*` token block at the top of the file now
+  resolves to the P0 bare tokens, which re-bases 1,234 lines at once.
+- **The titlebar follows the theme.** It was `#1e293b` on `#f1f5f9`, commented
+  "stable across light/dark" — which in practice meant a dark slate bar sitting
+  on a light form. A `.theme-dark .vch-shell` override then escaped it to a
+  neutral `--surface-2`, so the two schemes had two different designs for the
+  same element. It is `--primary-container` / `--on-primary-container` now —
+  one design, and the override is gone as redundant. Measured: light
+  `rgb(215,227,255)` on `rgb(0,69,143)`, dark exactly inverted.
+- **Voucher figures read like every other number in the app.** `tabular-nums`
+  was already broad but IBM Plex Mono was on only 3 selectors; the line-item
+  amount, the GST cell, the footer totals and the amount input carry it now.
+  Tabular figures alone stop digits jittering — they do not make a column read
+  as a column.
+- **The compliance preview strip (B-3, mismatch 3).** Three lines above the
+  sticky footer saying what approving this voucher will do: e-Invoice, e-Way
+  Bill, stock. **The strip derives nothing.** Every input is a server decision —
+  the module licence, the company's toggles, the configured e-Way Bill
+  threshold, the party's GSTIN, the per-voucher-type negative-stock override,
+  live stock on hand — so re-deriving any of them in the template would be a
+  second implementation of rules the API owns, and the first disagreement would
+  have the strip confidently describing an approval that then behaved
+  differently. It renders `GET /trx/:id/compliance-preview` verbatim, and the
+  browser pass asserts the DOM against that same response rather than counting
+  boxes.
+- **The gateway answers are the existing ones, asked differently.** Both
+  `getEligibility` methods return "approve the voucher first" for any unapproved
+  voucher — the exact state a preview is drawn in, so reusing them as-is would
+  have made every preview say that and nothing else. They take a
+  `{ preApproval: true }` option now which skips **only** that gate; every other
+  block reason stays shared, so the preview and the post-approval dialog cannot
+  drift apart.
+- **The stock line mirrors `InventoryService`'s own decisions** rather than
+  inventing new ones: the voucher type decides direction, a type with
+  `updateInventory` off moves nothing, service lines are skipped, and the
+  per-type `negativeStockCheck` overrides the company flag exactly as at posting
+  time. It also sums a product appearing on more than one line — two lines of 60
+  against 100 on hand is short even though neither line is. Tone tracks what the
+  server will actually **do**: an error when the check will refuse the approval,
+  only a warning when negative stock is permitted.
+
+**P3.2 verified:** client-back `npm run build` clean, **96 suites / 1341 Jest
+tests** (15 new specs on `compliance-preview.const.ts`), `dump-routes` boots the
+real `AppModule` and lists `GET /trx/:id/compliance-preview`, no raw SQL added ·
+client-front build clean, lint 0 errors, breakpoint guard OK, `check-mirrors` in
+sync · driven in Playwright Chromium, light + dark at 480/720/1024/1440 —
+**33/33 checks green**. Screenshots in [`_ops/ui-refresh/p3.2/`](_ops/ui-refresh/p3.2/).
+
+Two harness checks were rewritten mid-pass for measuring the wrong thing, both
+worth recording because they are easy traps: reading `borderTopColor` off an
+element that sets no border reports its `color` instead, and
+`getPropertyValue('--vch-border')` hands back the *unresolved*
+`light-dark(#c4c6d0, #44474e)` literal — identical in both themes, because
+`light-dark()` resolves where it is **used**, not where the custom property is
+computed. The pass now applies each token to a probe element inside the shell
+and reads the used value back; all seven `--vch-*` roles are confirmed to
+actually move between themes.
+
+**What the browser pass could NOT exercise:** the test tenant has e-Invoice and
+e-Way Bill switched off, so both gateway signals render in their `muted`
+"switched off" branch. The 15 unit specs cover the required / blocked / already
+-registered / sub-threshold / services-only branches; the browser pass proves
+the DOM mirrors whatever the server returns. Turning the gateways on needs real
+GSP credentials, which a fixture cannot honestly fake.
 
 ### P3.3 — Statements, registers and reports
 **Files:** `transaction/{outstanding,party-statement,dues,gst-returns,
@@ -1073,7 +1143,7 @@ and what the app can actually do; resolving it is a decision, not a bug fix.
 |---|---|---|---|
 | 1 | P0 | Mockup's All/Active/Archived tabs vs. the binary `isDeleted` data model | **Closed in P2.1.** Both tabs now carry a count (B-1), computed over the request's own filters. Still two tabs, not three — see decision 7 |
 | 2 | P0 | Mockup assumes Google Fonts CDN | Self-hosted npm packages instead (decision 9) |
-| 3 | P3.2 | Mockup shows pre-approval compliance status; app surfaces it post-approval | Read-only preview strip backed by a real preview endpoint (B-3), no change to the post-approval flow |
+| 3 | P3.2 | Mockup shows pre-approval compliance status; app surfaces it post-approval | **Closed in P3.2.** Read-only preview strip backed by a real preview endpoint (B-3); the post-approval flow is untouched. The strip renders the server's answer verbatim and derives nothing |
 | 4 | P5 | Mockup's board is drag-and-drop kanban | The API can now be built (B-4, decision 13) — still **your call** whether to schedule it; retheme-only otherwise |
 | 5 | P1 | The theme **customizer FAB** (`position: fixed; right: 2rem; bottom: 5rem`) sits on top of whatever is in the bottom-right of the page — on the dashboard it covers the Nearest Dues panel's "View all dues →" link, in both themes and at every width | **Not fixed — needs your call.** It is global chrome, not a dashboard problem: it overlaps content on every screen, and moving or hiding it is a product decision (is the palette switcher a shipping feature or a development tool?). Options: dock it into the header's icon cluster, hide it under `NODE_ENV=production`, or leave it. |
 | 6 | P1 | The dashboard offers **Approve** whenever the role holds `canApprove`, but the server additionally refuses a voucher you submitted yourself (`allowSelfApproval: 0`). Clicking it then fails with a 403 — against §9's "a screen must never offer an action the server will refuse" | **Not fixed — pre-existing and app-wide**, not introduced here: the Pending Approvals screen gates its own buttons the same way. The honest fix is a per-row `canApprove` on the approvals list response (**B-9**), which is a backend change worth doing once for both consumers rather than a client-side guess in this phase. Verified meanwhile that the failure is *safe*: the dialog opens, the server refuses, the error surfaces, and the queue and KPI card stay truthful. |
@@ -1083,6 +1153,7 @@ and what the app can actually do; resolving it is a decision, not a bug fix.
 | 10 | P1, P2.1 | Full artifact-vs-shipped audit (2026-08-18, on your instruction): the Business and Product dashboards both diverged from the artifact's `dash` shape — 2 same-type queue panels instead of 1 merged queue + a breakdown-bars panel, no breakdown panel at all, KPI counts/sets that didn't match, and (Business only) three widgets — Top Products/Customers, Live System Monitor, Quick Actions — absent from every one of the artifact's 7 dash-kind screens | **Fixed — "match the artifact exactly"** (your call via AskUserQuestion). See the "Corrected 2026-08-18" addenda under P1 and P2.1 above; backend work tracked as **B-10–B-13** |
 | 11 | P2.1 | Product/Service list columns diverged: Product's Status column meant catalogue lifecycle where the artifact's means stock health (same header, different data); Category was dropped for Manufacturer; a single Rate became Cost+Sale Price; Service List had no GST column; neither list had the artifact's summary strip | **Fixed — "add what's missing, keep both dimensions"** (your call). Category and a second Stock Health column added rather than replacing anything; Manufacturer and the Cost/Sale split kept; GST% and the summary strip added. See P2.1's addendum above; backend tracked as **B-14/B-15** |
 | 13 | P3.1 | The artifact defines `transaction/dashboard` as literally the same object as the Business dashboard (`S['transaction/dashboard'] = S['dashboard']`) — the generic KPI-strip → queue + breakdown → trend-chart `dash` shape. The real screen is a different thing entirely: a financial analytics workbench with an FY + date-range filter, live Cash/Bank/UPI/Wallet fund cards deep-linking to group statements, three charts and three searchable, CSV-exportable analytics tables (Nature, Top Groups, Accounts) | **Retheme in place — deliberate deviation** (your call). Matching the artifact exactly would have deleted the FY selector, the fund cards and all three analytics tables to replace them with a duplicate of the Business dashboard. The artifact's entry reads as a placeholder (a literal alias of another screen) rather than a considered design for this one, and the shipped screen serves a real job the generic shape does not. It gets the token/mono/breakpoint pass and keeps every feature. Revisit if you'd rather the tables moved to Reports and the dashboard became the generic shape |
+| 15 | P3.2 | The reference's voucher form shows a **Vehicle no** header field and promises "vehicle number captured" on the e-Way Bill compliance line. This app's voucher carries no transport details — a vehicle number lives on the `eway_bills` row, which does not exist until after approval | **Shipped without it, deliberately** (this plan's own rule: no screen displays something the backend did not produce). The preview line says `raise it after approval` instead, and a spec asserts it never mentions a vehicle. Tracked as **B-17** — your call whether to build the transport fields |
 | 14 | N | The shell shipped two controls doing the same thing — the header's hamburger and the nav panel's own `left_panel_close` button both collapsed the panel, side by side — and the panel head (61px, hairlined) did not match the toolbar beside it (64px, no hairline), so the divider stepped at the seam | **Fixed** (your report, 2026-08-18). One collapse control (the header's); the panel head is toolbar-height and the hairline runs unbroken across rail, panel and toolbar. Mobile's close/X stays — it closes the whole overlay, a different action |
 | 12 | N | Nav panel: 7 of 12 rail short-labels drifted from the artifact's wording; no accordion collapse for modules over the artifact's own 14-item threshold (Transaction's panel was one long flat list); no filter box above panels over 10 items, though the artifact shows one | **Fixed**, no decision needed — pure conformance, no downside. See Phase N's "Corrected 2026-08-18" addendum above |
 
