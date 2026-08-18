@@ -52,7 +52,7 @@ PROJECTS=(
   "client-back|jayhind-client-back|3000|npm start"
   "admin-front|jayhind-admin-front|4500|npm start"
   "client-front|jayhindi-client-front|4300|npm start"
-  "ocr|jayhind-ocr-service|8100|./scripts/serve.sh"
+  # "ocr|jayhind-ocr-service|8100|./scripts/serve.sh"
 )
 
 all_names() { local p; for p in "${PROJECTS[@]}"; do echo "${p%%|*}"; done; }

@@ -6,6 +6,17 @@ needs data the API doesn't serve today (see **Backend-side work** and decision 1
 > **Reference:** the Claude Design canvas artifact "Jayhind ERP — All Screens"
 > (101 screens across all 12 modules + 38 dialog patterns), which mirrors
 > `src/core/navigation/navigation.config.ts` route-for-route.
+> **Canvas URL:** https://claude.ai/code/artifact/a0d7de26-dede-4323-a8dc-c8dc16b599da
+> — this is the single source of truth for every screen shape, token value and
+> component pattern named in this plan; when a phase says "the mockup shows X",
+> this is the artifact it means. Re-open it at the start of each phase's
+> Inventory step rather than relying on memory of it from an earlier phase.
+> **Local extraction:** the canvas is a bundled React app, not static HTML per
+> screen — [`_ops/ui-refresh/reference/`](_ops/ui-refresh/reference/) holds
+> every screen's actual data (`screens-spec.js`), every dialog (`dialogs-spec.js`),
+> the canvas's own render logic and exact token hex values
+> (`canvas-app-shell.jsx`), and a README explaining the row-cell shorthand.
+> Grep this before re-fetching the artifact — it's the same data, already decoded.
 >
 > **Rollout shape (decided 2026-08-18):** *one module per phase*, each phase
 > finished, built, browser-checked and committed on its own, then handed over for
@@ -24,9 +35,9 @@ needs data the API doesn't serve today (see **Backend-side work** and decision 1
 | # | Phase | Scope | State |
 |---|---|---|---|
 | P0 | Foundation | tokens, fonts, icons, shared primitives | **done, browser-verified, committed** (`84f656c`) |
-| P1 | Dashboard (+ app shell) | 1 screen + sidebar/topbar chrome | **done, browser-verified — awaiting your review** |
-| P2 | Product & Service | ~14 screens (2 gates) | **P2.1 done, browser-verified — awaiting your review**; P2.2 not started |
-| **N** | **Two-column nav + KPI strip** | **retrofit across P1 + P2.1, and the shape for P3+** | **done, browser-verified — awaiting your review** |
+| P1 | Dashboard (+ app shell) | 1 screen + sidebar/topbar chrome | **corrected 2026-08-18 for artifact conformance, browser-verified (108/112, light+dark, 480/1440) — awaiting your review** |
+| P2 | Product & Service | ~14 screens (2 gates) | **P2.1 corrected 2026-08-18 for artifact conformance, browser-verified (108/112, light+dark, 480/1440) — awaiting your review**; P2.2 not started |
+| **N** | **Two-column nav + KPI strip** | **retrofit across P1 + P2.1, and the shape for P3+** | **corrected 2026-08-18 (nav accordion/filter/labels), browser-verified — awaiting your review** |
 | P3 | Transaction | ~45 screens (4 gates) | not started |
 | P4 | Chat | 1 screen | not started |
 | P5 | Job Work | ~12 screens | not started |
@@ -202,6 +213,28 @@ licence flags + party GSTIN + invoice value threshold — all already available
 client-side) showing what *will* happen on approval, without changing the actual
 post-approval flow. Purely additive, no backend change, easy to drop if unwanted.
 
+15. **Artifact-conformance audit, 2026-08-18** (your instruction — check
+    already-shipped work against the artifact, fix what doesn't match). Two
+    calls, both via AskUserQuestion:
+    - **Dashboard shape (P1 Business, P2.1 Product) — match the artifact
+      exactly.** Rebuilt both to the `dash` shape (KPI strip, one merged
+      attention queue beside a new breakdown-bars panel, trend chart);
+      removed the three widgets (Top Products/Customers, Live System Monitor,
+      Quick Actions) that appear nowhere in the artifact's 7 dash-kind
+      screens. See mismatch 10, and the "Corrected 2026-08-18" addenda under
+      P1 and P2.1.
+    - **Product/Service list columns — add what's missing, keep both
+      dimensions.** Category and a Stock Health second column added
+      *alongside* the existing Manufacturer/Cost-Sale-Price/catalogue-status
+      columns, not instead of them; GST% and a summary strip added to match
+      the artifact. See mismatch 11.
+    - The nav-panel accordion/filter/short-label gaps found in the same audit
+      needed no decision — pure conformance, fixed outright (mismatch 12).
+    - One artifact KPI, Product Dashboard's "Price changes", has zero backing
+      anywhere in the schema (no price-revision approval workflow exists at
+      all) — shipped as 5 real cards instead of a fabricated 6th, per this
+      plan's own rule (**B-13**, your call whether to build the workflow).
+
 ---
 
 ## The per-phase protocol (same for every module)
@@ -243,9 +276,15 @@ into their phase, the ones marked **your call** are written up but not scheduled
 | B-4 | drag-and-drop kanban on the Job Work board | a status-mutation endpoint (`PATCH /job-work/:id/stage`) with lifecycle validation server-side, plus a socket broadcast so two users dragging don't clobber each other | P5 | **your call** (decision 3) |
 | B-5 | filter chips as saved/preset filters rather than hand-declared per screen | preset filter definitions persisted per company + a `filterPresets` field on the list config | — | **your call** — hand-declared chips (decision 8) cover the design as drawn; this is only worth it if you want user-defined presets |
 | B-6 | chat presence / unread counts as the mockup shows them | check what `socketGateWay` already broadcasts before adding anything | P4 | **investigate first** |
-| B-7 | KPI cards / trend chart on the module dashboards (Product, Transaction, Job Work, HR) | the mockup's card set may not match what each dashboard endpoint returns; any gap becomes an added field on that dashboard's existing response, not a new endpoint | P2.1, P3.1, P5, P6 | **Product: checked in P2.1, no gap** — every figure already comes from `getKpis()`. Still to check per phase for Transaction / Job Work / HR |
+| B-7 | KPI cards / trend chart on the module dashboards (Product, Transaction, Job Work, HR) | the mockup's card set may not match what each dashboard endpoint returns; any gap becomes an added field on that dashboard's existing response, not a new endpoint | P2.1, P3.1, P5, P6 | **Product: revised — see B-12.** P2.1's "no gap" finding was wrong; a full artifact-vs-shipped audit on 2026-08-18 found the Product dashboard's KPI *set* itself didn't match the reference (see mismatch 10). Still to check per phase for Transaction / Job Work / HR |
 | B-8 | dashboard approval queue readable during billing grace | `@ReadOnlyRequest()` on `POST /approvals/pending/:sourceType` — a genuine read the P0-era sweep of 52 handlers missed; without it a past-due company sees a 402 where its approval queue should be | P1 | **done** |
 | B-9 | Approve button offered only where the server would actually allow it | the queue gates on `canApprove`, but segregation of duties (`allowSelfApproval: 0`) *also* bars approving a voucher you submitted — a per-row `canApprove` flag on the approvals list response would let both this panel and the Pending Approvals screen hide the button instead of failing on click | — | **your call** — see mismatch 6 |
+| B-10 | Business Dashboard "Cash position" breakdown panel — individual bank/cash/UPI/wallet balances, not just the one aggregate `cashBankBalance` figure | `cashByAccount: {name, balance}[]` on `/dashboard/kpis`, reading `TrxAccount.balance` (already engine-maintained, same read `getFundsSummary()` uses) — no new SQL derivation, just a scoped `TrxAccount.findAll()` | P1 (retrofit) | **done** |
+| B-11 | Product Dashboard KPIs the reference shows that the API didn't return — Services count, Slow-moving stock value | `servicesCount` (count of `itemType='service'` rows, mirrors `productStats()`'s own goods-only carve-out) and `slowMovingValue` (stock value with no `stock_movements` row in 90+ days) added to `/dashboard/kpis` | P2.1 (retrofit) | **done** |
+| B-12 | Product Dashboard's breakdown panel and trend chart — "Value by category" bars, "Stock in vs out" (Received/Issued) trend | `stockValueByCategory: {category, value}[]` (each product bucketed to its single earliest-assigned category — `product_category` is many-rows-possible, naive summing would double-count) and `stockTrend: {months, received, issued}` (from `stock_movements.direction`, already carrying everything needed) added to `/dashboard/kpis` | P2.1 (retrofit) | **done** |
+| B-13 | Product Dashboard's sixth reference KPI, "Price changes" (pending price-revision approvals) | genuinely doesn't exist: no price-revision entity, no status column, no approval workflow anywhere in the schema — `ProductPriceDetails` only has `autoManaged`, and `ProductPriceCaptureService` approves *vouchers*, not prices. Would need real new schema + a request/approve workflow, not a query | P2.1 | **your call** — shipped as 5 real cards instead of a fabricated 6th, per this plan's own rule (§ below). Flag if you want the workflow built; it's a feature, not a retheme |
+| B-14 | Product List's Category column and stock-health second Status column | `productCategories` relation added to the `Product` entity + `findAll()`'s include (each product may carry >1 category — no bucketing needed here, the grid just lists every name); stock-health computed client-side from the `productQuantity` fields already on every row (no new field) | P2.1 (retrofit) | **done** |
+| B-15 | Product List's summary strip (Products / In stock / Below reorder / Stock value) | new `GET /products/summary` on the existing `products` controller/permission lane (`@SharedRead()`, matching `list`'s own gating) — its own small queries rather than reusing `DashboardService`'s (that lives in a different NestJS module; importing it just for three numbers would add a cross-module dependency) | P2.1 (retrofit) | **done** |
 
 **How each phase handles this:** step 1 of the per-phase protocol (Inventory) now
 also diffs the mockup's screen against the API response that feeds it. Anything the
@@ -410,6 +449,65 @@ submits may not approve. P3.1 inherits the fixture.
   first two are global/pre-existing and want a decision from you rather than a
   quiet fix inside a dashboard phase; the third belongs to P3.1.
 
+## Corrected 2026-08-18 — dash-shape conformance audit
+
+The canvas URL landed in the plan header this session, and against your
+instruction to check already-shipped work against it, a full audit turned up a
+real structural gap: **every dash-kind screen in the artifact (all 7 —
+Business, Product, Job Work, HR ×2, Users & Roles, Party Portal) uses the
+identical shape** — KPI strip → [one attention queue | a breakdown-bars panel]
+→ trend chart — and this screen didn't match it. You picked "match the mockup
+exactly" (see the two AskUserQuestion decisions this session); here's what
+changed:
+
+- **KPI strip: 8 cards → 6**, matching `S['dashboard'].kpis` exactly (Cash &
+  Bank, Receivable, Payable, Net Profit, Stock Value, GST Liability). Approvals
+  and Stock Alerts are counts, not money — they moved to where the artifact
+  always put them: captioning the queue below.
+- **Two queue panels (Pending Approvals, Nearest Dues) → one merged
+  "Needs your attention" queue.** `attentionQueue` concatenates both sources
+  (approvals first — they block a process — dues after); `attentionSummary`
+  folds all three counts into one caption; `attentionLinks` gives the merged
+  queue two footer links instead of one, since `ds-queue-panel`'s `linkRoute`/
+  `linkLabel` inputs became a `links: {route,label}[]` array to support this
+  (its only consumer at the time, so no other screen was touched).
+- **New "Cash Position" breakdown panel** (`ds-breakdown-bars`, a new shared
+  primitive — every dash screen in the artifact carries one of these beside
+  its queue) — backed by **B-10**.
+- **Top Products / Top Customers rank panels, Live System Monitor and Quick
+  Actions removed.** None appear anywhere in the artifact's 7 dash-kind
+  screens. `rank-panel.component.ts` and `quick-actions-card.component.ts`
+  are deleted outright (zero remaining consumers after this and the P2.1
+  correction below); `live-system-monitor.component.ts` too — its backing
+  `SystemMetricsService` and the backend's `GET /dashboard` OS-stats route are
+  left in place, unconsumed, in case a future ops-only page wants them; flag if
+  you'd rather those removed too.
+- Dashboard's nav-panel `sections` in `navigation.config.ts` dropped the two
+  entries (`dash-rankings`, `dash-monitor`) whose destinations no longer exist
+  — a panel entry may never point at a screen band that isn't there (Phase N's
+  own rule).
+
+**Verification:** `jayhind-client-back` — 95 suites / 1326 tests pass ·
+`tsc --noEmit` clean · lint 0 errors · `ci-guard-raw-sql` clean (new queries)
+· `dump-routes` boots clean, `products/summary` registered.
+`jayhindi-client-front` — `tsc --noEmit` clean · lint 0 errors ·
+breakpoint-guard OK · production build clean. `check-mirrors` in sync (nav
+`shortName` values changed, no permission-key/licence mapping touched).
+Backend queries confirmed executing against live seeded data in
+`.dev-logs/client-back.log` (real `trx_accounts` balances, real stock-movement
+sums). **Browser pass done** —
+[`qa-artifacts/scripts/ui-refresh-dash-audit.js`](qa-artifacts/scripts/ui-refresh-dash-audit.js),
+screenshots in [`_ops/ui-refresh/dash-audit/`](_ops/ui-refresh/dash-audit/),
+light + dark at 480/1440, **108/112 checks green**. The 4 "failures" are one
+false-negative repeated across all four runs: the merged queue correctly shows
+no "view all" links because this tenant (`lg@yopmail.com`) genuinely has zero
+pending approvals and zero dues — confirmed by eye (the empty-state message
+renders correctly) rather than assumed. This tenant has no seeded catalogue
+either, so the KPI/panel/column *structure* is verified but not populated
+data — P1's own `seed-voucher-fixture.js` / P2.1's `seed-catalogue-fixture.js`
+would still be the way to check chip tones and real numbers if that's wanted
+before sign-off.
+
 # Phase N — Two-column navigation + KPI strip *(done — awaiting review)*
 
 Out of band with the module ordering on purpose: this is a **shape** change, not
@@ -516,6 +614,38 @@ Transaction panel):
 - Job Work, HR and Party Portal dashboards keep the card grid until their phases
   (your scope decision).
 
+## Corrected 2026-08-18 — nav panel gaps found in the artifact audit
+
+The same audit that found the dashboard shape gap (see P1's addendum above)
+also read `canvas-app-shell.jsx` (the artifact's own render logic) against
+`sidemenu.component.ts` and found three real behavioural gaps, all fixed now
+— none needed a decision, they're pure conformance with no downside:
+
+- **Rail short-labels corrected** on 7 of 12 modules (`navigation.config.ts`):
+  Dashboard→**Home**, Transaction→**Books**, Product→**Stock** (was
+  "Products"), Job Work→**Shop**, Users & Roles→**Access** (was "Users"),
+  Audit Log→**Audit**, My Account→**Portal** (was "Account").
+- **Accordion collapse for dense modules** — the artifact collapses a
+  module's page-groups once it has more than 14 items (one group pinned open,
+  the rest closed with a chevron toggle and a collapsed-count badge); the real
+  panel showed every group flat regardless of length — Transaction's ~26
+  currently-listed items (more once P3.1 restores the voucher-type groups
+  the panel doesn't show yet, see Phase N's own "not done" note above) made
+  for one long unscannable list. `SidemenuComponent.groups` now carries
+  `pinned`/`open`/`key` per group; the first group and any group holding the
+  active route default open, everything else defaults closed and remembers
+  what you last toggled it to.
+- **Panel filter box** — the artifact shows a "Filter this module…" input
+  above any panel with more than 10 items; added, filtering by name and
+  auto-expanding whichever collapsed groups match.
+- `MenuService.url` — new public accessor (was tracked privately already,
+  just unexposed) so the sidemenu can tell which group holds the active route
+  without standing up a second router subscription.
+- **Not done:** per-item badge counts (`NavItem.badge` exists, the template
+  now renders one if set, but nothing sets one yet — wiring real counts
+  in touches per-module data loading, one nav item at a time, better done as
+  each owning phase ships its data rather than as a batch here).
+
 # P2 — Product & Service
 
 Two gates, because 14 screens is more than one useful review.
@@ -621,6 +751,56 @@ it to inference.
 **Not done in P2.1, on purpose:** the Product **view** dialog is left to the P9
 dialogs sweep — it is a dialog pattern, not a list or form shape, and P9 owns
 those. Product/Service list screens themselves are complete.
+
+## Corrected 2026-08-18 — artifact conformance audit (dashboard + list columns)
+
+Same session, same audit as P1's addendum above. Two AskUserQuestion decisions
+governed the fix: **dashboard shape → match the artifact exactly**;
+**list columns → add what's missing, keep both dimensions** (i.e. don't drop
+real data the artifact's example rows don't happen to show).
+
+**Product Dashboard — rebuilt to the `dash` shape** (was carrying its own
+Top-Products bar chart + leaderboard + a Product-Status donut, none of which
+appear in `S['product/dashboard']` or anywhere else in the artifact's dash
+vocabulary):
+- KPI strip **8 cards → 5**: Products, Services, Stock Value, Below Reorder,
+  Slow Moving — matching the artifact's own 6, minus "Price changes" (**B-13**,
+  no real data behind it anywhere in this app — shipped honest rather than
+  fabricated).
+- Stock Alerts card retitled "Stock Needing Action" (the artifact's queue
+  title) and kept as its own progress-bar list rather than forced into
+  `ds-queue-panel`'s icon/amount row shape — a reorder alert reads better as
+  "available vs. reorder level" than as a currency amount, and there's no
+  working create-PO action to put behind a button yet (§9 — never offer an
+  action the server would refuse; **B-4** is that action, if you schedule it).
+- New "Value by Category" breakdown panel (`ds-breakdown-bars`) and "Stock In
+  vs Out" trend chart (`buildStockInOutChart`, Received/Issued) — backed by
+  **B-11/B-12**. `buildTopProductsChart`/`buildProductStatusChart` deleted
+  from `dashboard-charts.ts` (zero remaining consumers).
+
+**Product List columns** — Category added (new `productCategories` relation
+on the `Product` entity + `findAll()` include — a product may carry more than
+one, the grid lists every name, comma-joined); Manufacturer and the Cost/Sale
+Price split **kept** (per your "keep both dimensions" call); a second
+**Stock Health** tag column added beside the existing catalogue-lifecycle
+Status (computed client-side from `productQuantity`, already on every row —
+see `stock-health.util.ts`; its "at/below reorder" threshold matches the
+backend's own `stockAlertCount()` exactly, so the two can't disagree about
+which rows count); a **summary strip** above the grid (Products / In Stock /
+Below Reorder / Stock Value) — backed by **B-15**.
+
+**Service List** — GST% column added, reading `pricing.salesTax.rate`, already
+on every row via the same relation the price tiers use (no backend change).
+
+**Verification:** same clean bill as the P1 addendum — `jayhind-client-back`
+95/1326 tests pass, `tsc`/lint/`ci-guard-raw-sql`/`dump-routes` all clean
+(`products/summary` registered); `jayhindi-client-front` `tsc`/lint/breakpoint-
+guard/build all clean. `check-mirrors` in sync. Browser pass done — same run as
+P1's addendum, 108/112 checks green (product dashboard 5-KPI set, Value by
+Category panel, Stock In vs Out chart, product-list summary strip + Category +
+Stock Health columns, service-list GST column all confirmed rendering in both
+themes at both widths). This tenant has no catalogue seeded, so structure is
+verified, not populated data — see P1's addendum for the same caveat.
 
 ### P2.2 — Masters, product management, stock conversion, configuration
 **Files:** `product/masters/**` (manufacturer, measurement unit, return policy,
@@ -776,6 +956,9 @@ and what the app can actually do; resolving it is a decision, not a bug fix.
 | 7 | P1 | The voucher grid's **Amount** column prints `24500`, not `₹24,500` — right-aligned and monospaced (P0 did its half) but unformatted | Left for **P3.1**, which owns the voucher lists. Noted here because P1's browser pass is what surfaced it. |
 | 9 | N | Transaction shows its page list twice — the new nav panel and the module's own right-hand rail | **Not fixed on purpose.** The rail also applies `hiddenTransactionMenus` and the approval gate, which the panel does not; removing it without moving those rules would be a functional regression. **First item for P3.1** — see Phase N. |
 | 8 | P2.1 | Grid `tag` columns rendered one primary-tinted pill for every value, so a Status column and a Type column looked identical and neither said anything | Tag cells now render through `ds-status-chip` with an optional per-column `tone`. **Ripples app-wide by design** (decision 10): the 13 tag columns in modules not yet reviewed lose the blue tint and read as neutral labels until their own phase colours them. Neutral is the honest default — a grid cannot know "Draft" is bad news |
+| 10 | P1, P2.1 | Full artifact-vs-shipped audit (2026-08-18, on your instruction): the Business and Product dashboards both diverged from the artifact's `dash` shape — 2 same-type queue panels instead of 1 merged queue + a breakdown-bars panel, no breakdown panel at all, KPI counts/sets that didn't match, and (Business only) three widgets — Top Products/Customers, Live System Monitor, Quick Actions — absent from every one of the artifact's 7 dash-kind screens | **Fixed — "match the artifact exactly"** (your call via AskUserQuestion). See the "Corrected 2026-08-18" addenda under P1 and P2.1 above; backend work tracked as **B-10–B-13** |
+| 11 | P2.1 | Product/Service list columns diverged: Product's Status column meant catalogue lifecycle where the artifact's means stock health (same header, different data); Category was dropped for Manufacturer; a single Rate became Cost+Sale Price; Service List had no GST column; neither list had the artifact's summary strip | **Fixed — "add what's missing, keep both dimensions"** (your call). Category and a second Stock Health column added rather than replacing anything; Manufacturer and the Cost/Sale split kept; GST% and the summary strip added. See P2.1's addendum above; backend tracked as **B-14/B-15** |
+| 12 | N | Nav panel: 7 of 12 rail short-labels drifted from the artifact's wording; no accordion collapse for modules over the artifact's own 14-item threshold (Transaction's panel was one long flat list); no filter box above panels over 10 items, though the artifact shows one | **Fixed**, no decision needed — pure conformance, no downside. See Phase N's "Corrected 2026-08-18" addendum above |
 
 ## Verification reference
 
