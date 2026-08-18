@@ -39,7 +39,7 @@ needs data the API doesn't serve today (see **Backend-side work** and decision 1
 | P2 | Product & Service | ~14 screens (2 gates) | **P2.1 signed off 2026-08-18**; **P2.2 done, browser-verified 2026-08-19** |
 | **N** | **Two-column nav + KPI strip** | **retrofit across P1 + P2.1, and the shape for P3+** | **signed off 2026-08-18**, after a shell-bug correction (duplicate collapse control, stepped header hairline) |
 | P3 | Transaction | ~45 screens (4 gates) | **done — all four gates browser-verified 2026-08-19** |
-| P4 | Chat | 1 screen | not started |
+| P4 | Chat | 1 screen | **done, browser-verified 2026-08-19** |
 | P5 | Job Work | ~12 screens | not started |
 | P6 | Human Resources | ~15 screens | not started |
 | P7 | Users & Roles, Profile, Party Portal | ~8 screens | not started |
@@ -275,7 +275,7 @@ into their phase, the ones marked **your call** are written up but not scheduled
 | B-3 | voucher form showing e-Invoice / e-Way Bill status *before* approval | `GET /trx/:id/compliance-preview` (or a field on the existing detail response) returning what approval will trigger and why — replaces the client-side inference the strip would otherwise do. Shipped as `GET /trx/:id/compliance-preview` + `CompliancePreviewService` + `compliance-preview.const.ts` (15 specs), reusing both gateways' own `getEligibility` under a new `{ preApproval: true }` option so the preview and the post-approval dialog cannot drift | P3.2 | **done** |
 | B-4 | drag-and-drop kanban on the Job Work board | a status-mutation endpoint (`PATCH /job-work/:id/stage`) with lifecycle validation server-side, plus a socket broadcast so two users dragging don't clobber each other | P5 | **your call** (decision 3) |
 | B-5 | filter chips as saved/preset filters rather than hand-declared per screen | preset filter definitions persisted per company + a `filterPresets` field on the list config | — | **your call** — hand-declared chips (decision 8) cover the design as drawn; this is only worth it if you want user-defined presets |
-| B-6 | chat presence / unread counts as the mockup shows them | check what `socketGateWay` already broadcasts before adding anything | P4 | **investigate first** |
+| B-6 | chat presence / unread counts as the mockup shows them | checked in P4: `chat.service.ts` already returns per-conversation `unreadCount` and serves `GET /chat/unread-count`; the gateway already relays `chat:typing` and tracks per-socket `chat:focus`, and the screen consumes all three. Presence is not broadcast — and the reference shows no presence dots — so nothing is missing | P4 | **none needed** |
 | B-7 | KPI cards / trend chart on the module dashboards (Product, Transaction, Job Work, HR) | the mockup's card set may not match what each dashboard endpoint returns; any gap becomes an added field on that dashboard's existing response, not a new endpoint | P2.1, P3.1, P5, P6 | **Product: revised — see B-12.** P2.1's "no gap" finding was wrong; a full artifact-vs-shipped audit on 2026-08-18 found the Product dashboard's KPI *set* itself didn't match the reference (see mismatch 10). Still to check per phase for Transaction / Job Work / HR |
 | B-8 | dashboard approval queue readable during billing grace | `@ReadOnlyRequest()` on `POST /approvals/pending/:sourceType` — a genuine read the P0-era sweep of 52 handlers missed; without it a past-due company sees a 402 where its approval queue should be | P1 | **done** |
 | B-9 | Approve button offered only where the server would actually allow it | the queue gates on `canApprove`, but segregation of duties (`allowSelfApproval: 0`) *also* bars approving a voucher you submitted — a per-row `canApprove` flag on the approvals list response would let both this panel and the Pending Approvals screen hide the button instead of failing on click | — | **your call** — see mismatch 6 |
@@ -1157,15 +1157,50 @@ surfaces are unverified. The scan **queue** was driven (empty).
 
 ---
 
-# P4 — Chat
+# P4 — Chat *(done — browser-verified 2026-08-19)*
 
 **Screens:** 1. **Files:** `src/components/admin/chat/**` (4 files)
 - The mockup's chat variant: conversation list, message column, composer,
   presence/unread treatment.
-- **Backend (B-6):** check what `socket/socketGateWay.ts` already broadcasts for
-  presence and unread before adding anything — likely no change.
-- Small and self-contained — a deliberate breather between Transaction and Job
-  Work, and a good check that the token layer holds up on a non-grid screen.
+- **Backend (B-6): no change needed** — confirmed by reading the code rather
+  than assumed. `chat.service.ts` already returns a per-conversation
+  `unreadCount` on the conversation list and serves `GET /chat/unread-count`;
+  `socketGateWay.ts` already relays `chat:typing` and tracks per-socket
+  `chat:focus`, and the screen already consumes all three. Online/offline
+  presence is *not* broadcast — and the reference's chat screen does not show
+  presence dots either (its threads are initials + name + last message + time),
+  so there is nothing missing to build.
+
+**What shipped**
+
+- **A three-way colour collision, fixed.** The selected conversation row, the
+  avatar *inside* that row, and your own message bubbles were all
+  `--primary-container`. Two consequences, both visible: the avatar vanished
+  into the row exactly when the row was the one you were looking at, and "mine"
+  differed from "theirs" only by alignment — not a difference you can see while
+  scanning a thread.
+  - Selected row → `--primary-bg`, the faint wash the design system defines for
+    a selected row for precisely this reason.
+  - Own bubble → solid `--primary` on `--on-primary`, per the reference.
+    Measured live: **6.46:1 in light, 7.74:1 in dark** — a tint becoming a fill
+    is exactly where contrast breaks, so the pass computes the ratio rather
+    than trusting it.
+  - Incoming bubble → `--surface` with a `--border` hairline, per the
+    reference. The pane behind is `--surface` too, so the border is what draws
+    the bubble rather than a fill competing with the solid primary opposite it.
+- **The last `--ds-*` colour aliases in `chat.scss` are gone** — the file now
+  reads the bare tokens directly.
+- **Test data**: [`qa-artifacts/scripts/seed-chat-fixture.js`](qa-artifacts/scripts/seed-chat-fixture.js)
+  seeds **both sides** of a conversation. A one-sided thread cannot show an
+  incoming bubble at all, so it signs in as the voucher fixture's own checker
+  account to send the incoming message and as the primary user to reply.
+
+**P4 verified:** build clean · lint 0 errors · breakpoint guard OK · token guard
+OK · driven in Playwright Chromium, light + dark at 480/720/1024/1440 —
+**22/22 checks green**, including measured AA contrast on both bubble kinds in
+both themes and all three formerly-colliding surfaces proven distinct. No
+console errors, no failed requests, no horizontal overflow. Screenshots in
+[`_ops/ui-refresh/p4/`](_ops/ui-refresh/p4/).
 
 ---
 
