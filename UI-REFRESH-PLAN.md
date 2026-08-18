@@ -35,10 +35,10 @@ needs data the API doesn't serve today (see **Backend-side work** and decision 1
 | # | Phase | Scope | State |
 |---|---|---|---|
 | P0 | Foundation | tokens, fonts, icons, shared primitives | **done, browser-verified, committed** (`84f656c`) |
-| P1 | Dashboard (+ app shell) | 1 screen + sidebar/topbar chrome | **corrected 2026-08-18 for artifact conformance, browser-verified (108/112, light+dark, 480/1440) — awaiting your review** |
-| P2 | Product & Service | ~14 screens (2 gates) | **P2.1 corrected 2026-08-18 for artifact conformance, browser-verified (108/112, light+dark, 480/1440) — awaiting your review**; P2.2 not started |
-| **N** | **Two-column nav + KPI strip** | **retrofit across P1 + P2.1, and the shape for P3+** | **corrected 2026-08-18 (nav accordion/filter/labels), browser-verified — awaiting your review** |
-| P3 | Transaction | ~45 screens (4 gates) | not started |
+| P1 | Dashboard (+ app shell) | 1 screen + sidebar/topbar chrome | **signed off 2026-08-18** |
+| P2 | Product & Service | ~14 screens (2 gates) | **P2.1 signed off 2026-08-18**; P2.2 not started |
+| **N** | **Two-column nav + KPI strip** | **retrofit across P1 + P2.1, and the shape for P3+** | **signed off 2026-08-18**, after a shell-bug correction (duplicate collapse control, stepped header hairline) |
+| P3 | Transaction | ~45 screens (4 gates) | **P3.1 in progress**; P3.2–P3.4 not started |
 | P4 | Chat | 1 screen | not started |
 | P5 | Job Work | ~12 screens | not started |
 | P6 | Human Resources | ~15 screens | not started |
@@ -816,16 +816,64 @@ templates), `product/product-configuration/**` (general settings, dynamic fields
 
 The biggest module (~45 screens, 129 files). Four gates.
 
-### P3.1 — Voucher lists + Pending Approvals + Transaction dashboard
-**Files:** `transaction/vouchers/trx/{trx.ts,trx.html}`,
-`transaction/pending-approvals/**`, `transaction/dashboard/**`
-- `view-tabs` + `filter-chips` in the toolbar; e-Way Bill / e-Invoice inline chips
-  and voucher status chips onto the `status-chip` primitive.
+### P3.1 — Voucher lists + Pending Approvals + Transaction dashboard *(in progress)*
+**Files:** `transaction/vouchers/trx/{trx.ts,trx.html,trx.scss}`,
+`transaction/vouchers/{trx-pay-rece,trx-journal,trx-contra}/**`,
+`transaction/pending-approvals/**`, `transaction/transaction-dashboard/**`,
+`shared/voucher-list-toolbar/**`, `shared/voucher-summary/**`,
+`styles/design-system/_app.scss`
+- `filter-chips` in the toolbar; e-Way Bill / e-Invoice inline chips and voucher
+  status chips onto the `status-chip` primitive.
 - **Re-checks the P0 voucher-chip refactor by eye** — the one thing P0 could not
   verify. Needs a tenant with voucher data seeded before the browser pass.
 - Covers all 14 voucher types that share `trx.ts` (purchase requisition, purchase
   order, goods receipt, purchase, debit note, quotation, sales order, delivery
   challan, sales, credit note, payment, receipt, journal, contra).
+
+**What shipped so far**
+
+- **Status is chips, not a dropdown.** `voucher-list-toolbar` rendered a `Status`
+  select beside Period and Quick-search; it is now a `ds-filter-chips` row, so
+  the one question these screens get asked all day is answered in one click
+  rather than two. The chips carry **counts from the same `TrxSummary.byStatus`
+  the summary bar renders**, so a chip's number and the bar's badge cannot
+  disagree; a host with no summary (the scan queue) gets bare labels, which is
+  `ds-filter-chips`' own "no count reported" rule rather than a wrong zero.
+  The chip `filters` map is deliberately empty — this toolbar owns `status`
+  through `VoucherFilterCriteria`, so the row presents that one field instead of
+  becoming a second filter mechanism beside it.
+- **Mismatch 7 closed.** The Amount column printed a bare `24500`. A new shared
+  `utils/currency.util.ts` (`formatInrAmount`) formats every money column across
+  the trx, payment/receipt, journal and contra lists and all three Pending
+  Approvals tabs — en-IN grouping, so ₹1,32,400 rather than ₹132,400. It also
+  replaced the Product list's own private copy of the same formatter.
+- **Transaction dashboard rethemed in place, not rebuilt** (your call — see
+  mismatch 13). Its fund cards had every colour frozen as a hex
+  (`#2e7d32`, `#0277bd`, `rgba(0,0,0,.05)`…) and stale `--mat-sys-*` fallbacks,
+  so the whole strip stayed light-mode-coloured in dark; all of it now runs on
+  the bare tokens, and its money figures carry the app's tabular mono like every
+  other numeric surface.
+- **Compliance cells detoned off hardcoded hex.** `trx.scss`'s e-Way Bill /
+  e-Invoice chips were `#16a34a` / `#dc2626` / `#f59e0b` with
+  `--mat-sys-on-surface` mixes; they are the design system's
+  `--success`/`--error`/`--warning` pairs now, so they follow the theme.
+- **Summary bar likewise.** `voucher-summary-bar` carried a second hardcoded copy
+  of the same status hues (`rgba(217,119,6,.14)`…) that the status chip renders
+  from tokens — the two drifted apart in dark mode. Now one vocabulary. Its own
+  narrow-width rule was a viewport `@media` on a bar whose width comes from the
+  content column, so it is a container query now (CLAUDE.md §9).
+- **Test data**, per the plan's own rule that a browser pass needs real rows:
+  [`qa-artifacts/scripts/seed-voucher-fixture.js`](qa-artifacts/scripts/seed-voucher-fixture.js)
+  seeds the fixture **through the API**, never into MySQL, so every row passes
+  the same DTO validation, tenant scoping, numbering and posting rules the app
+  uses. Re-runnable and idempotent per voucher. Building it this way surfaced
+  four real rules it had to obey rather than bypass: a party needs an **address**
+  before GST can resolve a place of supply; **segregation of duties** refuses to
+  let the account that submitted a voucher approve it (so the fixture creates a
+  genuine second "checker" user instead of switching `allowSelfApproval` on);
+  **negative-stock check** refuses a sales approval for stock no approved
+  purchase has brought in yet; and a payment/receipt is refused unless it
+  actually allocates against an invoice.
 
 ### P3.2 — The voucher entry form
 **Files:** `transaction/vouchers/trx/trx-add-edit/**`,
@@ -958,6 +1006,8 @@ and what the app can actually do; resolving it is a decision, not a bug fix.
 | 8 | P2.1 | Grid `tag` columns rendered one primary-tinted pill for every value, so a Status column and a Type column looked identical and neither said anything | Tag cells now render through `ds-status-chip` with an optional per-column `tone`. **Ripples app-wide by design** (decision 10): the 13 tag columns in modules not yet reviewed lose the blue tint and read as neutral labels until their own phase colours them. Neutral is the honest default — a grid cannot know "Draft" is bad news |
 | 10 | P1, P2.1 | Full artifact-vs-shipped audit (2026-08-18, on your instruction): the Business and Product dashboards both diverged from the artifact's `dash` shape — 2 same-type queue panels instead of 1 merged queue + a breakdown-bars panel, no breakdown panel at all, KPI counts/sets that didn't match, and (Business only) three widgets — Top Products/Customers, Live System Monitor, Quick Actions — absent from every one of the artifact's 7 dash-kind screens | **Fixed — "match the artifact exactly"** (your call via AskUserQuestion). See the "Corrected 2026-08-18" addenda under P1 and P2.1 above; backend work tracked as **B-10–B-13** |
 | 11 | P2.1 | Product/Service list columns diverged: Product's Status column meant catalogue lifecycle where the artifact's means stock health (same header, different data); Category was dropped for Manufacturer; a single Rate became Cost+Sale Price; Service List had no GST column; neither list had the artifact's summary strip | **Fixed — "add what's missing, keep both dimensions"** (your call). Category and a second Stock Health column added rather than replacing anything; Manufacturer and the Cost/Sale split kept; GST% and the summary strip added. See P2.1's addendum above; backend tracked as **B-14/B-15** |
+| 13 | P3.1 | The artifact defines `transaction/dashboard` as literally the same object as the Business dashboard (`S['transaction/dashboard'] = S['dashboard']`) — the generic KPI-strip → queue + breakdown → trend-chart `dash` shape. The real screen is a different thing entirely: a financial analytics workbench with an FY + date-range filter, live Cash/Bank/UPI/Wallet fund cards deep-linking to group statements, three charts and three searchable, CSV-exportable analytics tables (Nature, Top Groups, Accounts) | **Retheme in place — deliberate deviation** (your call). Matching the artifact exactly would have deleted the FY selector, the fund cards and all three analytics tables to replace them with a duplicate of the Business dashboard. The artifact's entry reads as a placeholder (a literal alias of another screen) rather than a considered design for this one, and the shipped screen serves a real job the generic shape does not. It gets the token/mono/breakpoint pass and keeps every feature. Revisit if you'd rather the tables moved to Reports and the dashboard became the generic shape |
+| 14 | N | The shell shipped two controls doing the same thing — the header's hamburger and the nav panel's own `left_panel_close` button both collapsed the panel, side by side — and the panel head (61px, hairlined) did not match the toolbar beside it (64px, no hairline), so the divider stepped at the seam | **Fixed** (your report, 2026-08-18). One collapse control (the header's); the panel head is toolbar-height and the hairline runs unbroken across rail, panel and toolbar. Mobile's close/X stays — it closes the whole overlay, a different action |
 | 12 | N | Nav panel: 7 of 12 rail short-labels drifted from the artifact's wording; no accordion collapse for modules over the artifact's own 14-item threshold (Transaction's panel was one long flat list); no filter box above panels over 10 items, though the artifact shows one | **Fixed**, no decision needed — pure conformance, no downside. See Phase N's "Corrected 2026-08-18" addendum above |
 
 ## Verification reference
