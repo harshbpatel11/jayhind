@@ -25,7 +25,7 @@ needs data the API doesn't serve today (see **Backend-side work** and decision 1
 |---|---|---|---|
 | P0 | Foundation | tokens, fonts, icons, shared primitives | **done, browser-verified, committed** (`84f656c`) |
 | P1 | Dashboard (+ app shell) | 1 screen + sidebar/topbar chrome | **done, browser-verified — awaiting your review** |
-| P2 | Product & Service | ~14 screens (2 gates) | not started |
+| P2 | Product & Service | ~14 screens (2 gates) | **P2.1 done, browser-verified — awaiting your review**; P2.2 not started |
 | P3 | Transaction | ~45 screens (4 gates) | not started |
 | P4 | Chat | 1 screen | not started |
 | P5 | Job Work | ~12 screens | not started |
@@ -118,11 +118,13 @@ reference while fixing the concrete mismatches review surfaces along the way.
    files are committed. The CLAUDE.md §13 test-coverage gap is left where it is.
 7. **View-tabs are two tabs, not three.** The mockup shows All/Active/Archived with
    live counts on each, but the data model is binary
-   (`PaginatedResponse.isDeleted`) with `totalItems` describing only the view
-   actually returned. There is no server-supported "All", and counting the other
-   side costs a second request per list screen. Shipped as an Active|Archived
-   segmented control with a count on the current tab only. **Reopened by decision
-   13** — the list endpoints can return both counts in one response; see **B-1**.
+   (`PaginatedResponse.isDeleted`). There is no server-supported "All", so the
+   control is an Active|Archived segmented one. ~~With a count on the current tab
+   only~~ — **settled in P2.1 (B-1)**: the list response now carries both counts,
+   computed over the request's own filters, so both tabs are numbered and neither
+   can contradict the grid. The missing third tab stays missing on purpose: "All"
+   would mean mixing live and archived rows in one list, which no screen in this
+   app treats as one set.
 8. **Filter chips on high-traffic screens only.** The filter system is generic
    (columns declare `filterType`, the dialog builds match-mode conditions); it has
    no concept of preset values, so chips must be hand-declared per screen. They go
@@ -214,13 +216,13 @@ into their phase, the ones marked **your call** are written up but not scheduled
 
 | # | What the design needs | Backend change | Phase | Status |
 |---|---|---|---|---|
-| B-1 | view-tabs showing counts on **both** Active and Archived | add `archivedCount` (and `activeCount`) to the paginated list response — one extra `COUNT` in the existing query path, no new endpoint | P2.1 | **planned** |
+| B-1 | view-tabs showing counts on **both** Active and Archived | `activeCount` + `archivedCount` on the paginated list response — one extra `count()` in `paginateNew`, over the request's own composed where/include, no new endpoint | P2.1 | **done** |
 | B-2 | dashboard queue rows that can be acted on without leaving the screen | already served by existing endpoints (`sendDueReminderNow`, the approve path) — **no backend change** | P1 | none needed |
 | B-3 | voucher form showing e-Invoice / e-Way Bill status *before* approval | `GET /trx/:id/compliance-preview` (or a field on the existing detail response) returning what approval will trigger and why — replaces the client-side inference the strip would otherwise do | P3.2 | **planned** |
 | B-4 | drag-and-drop kanban on the Job Work board | a status-mutation endpoint (`PATCH /job-work/:id/stage`) with lifecycle validation server-side, plus a socket broadcast so two users dragging don't clobber each other | P5 | **your call** (decision 3) |
 | B-5 | filter chips as saved/preset filters rather than hand-declared per screen | preset filter definitions persisted per company + a `filterPresets` field on the list config | — | **your call** — hand-declared chips (decision 8) cover the design as drawn; this is only worth it if you want user-defined presets |
 | B-6 | chat presence / unread counts as the mockup shows them | check what `socketGateWay` already broadcasts before adding anything | P4 | **investigate first** |
-| B-7 | KPI cards / trend chart on the module dashboards (Product, Transaction, Job Work, HR) | the mockup's card set may not match what each dashboard endpoint returns; any gap becomes an added field on that dashboard's existing response, not a new endpoint | P2.1, P3.1, P5, P6 | **investigate per phase** |
+| B-7 | KPI cards / trend chart on the module dashboards (Product, Transaction, Job Work, HR) | the mockup's card set may not match what each dashboard endpoint returns; any gap becomes an added field on that dashboard's existing response, not a new endpoint | P2.1, P3.1, P5, P6 | **Product: checked in P2.1, no gap** — every figure already comes from `getKpis()`. Still to check per phase for Transaction / Job Work / HR |
 | B-8 | dashboard approval queue readable during billing grace | `@ReadOnlyRequest()` on `POST /approvals/pending/:sourceType` — a genuine read the P0-era sweep of 52 handlers missed; without it a past-due company sees a 402 where its approval queue should be | P1 | **done** |
 | B-9 | Approve button offered only where the server would actually allow it | the queue gates on `canApprove`, but segregation of duties (`allowSelfApproval: 0`) *also* bars approving a voucher you submitted — a per-row `canApprove` flag on the approvals list response would let both this panel and the Pending Approvals screen hide the button instead of failing on click | — | **your call** — see mismatch 6 |
 
@@ -391,20 +393,107 @@ submits may not approve. P3.1 inherits the fixture.
 
 Two gates, because 14 screens is more than one useful review.
 
-### P2.1 — Product list, Service list, Product dashboard
-**Files:** `src/components/admin/product/{product,service}/**`,
-`product/dashboard/**`
-- First real consumer of **`view-tabs`** (Active|Archived) and the **`filter-chips`**
-  row in `paginated-table`'s toolbar.
-- `status-chip` on stock/status columns; numeric columns tabular.
-- Product add/edit form onto the **form** shape (header fields + sections).
-- **Backend (B-1):** add both-side counts to the paginated list response so
-  view-tabs can show Active *and* Archived counts as the mockup draws them. Lands
-  in the same commit pair as this phase.
-- **Backend (B-7):** diff the Product dashboard's KPI set against what its endpoint
-  returns; add fields if the mockup asks for something real that isn't there.
-- **This is the gate where the list shape gets settled.** Everything in P3–P8
-  copies it, so mismatches found here are cheap and mismatches found later are not.
+### P2.1 — Product list, Service list, Product dashboard *(done — awaiting review)*
+
+**Screens:** Product List, Service List, Product Dashboard, plus the Product
+add/edit dialog. **This is the gate where the list shape gets settled** —
+everything in P3–P8 copies it, so the four changes below are all made in the
+*primitive*, not in the two screens that happen to consume them first.
+
+**Backend (B-1) — both-side view counts.** `paginateNew` (the one choke point
+every list endpoint goes through) now returns `activeCount` + `archivedCount`
+alongside `totalItems`, so the Active|Archived tabs are both numbered as the
+mockup draws them. This closes mismatch 1 and reverses decision 7.
+- Exactly **one** extra query per list: the view just read already reported its
+  own count, so only the opposite side is unknown, and it is a `count()` (no
+  rows fetched) with `order`/`attributes`/`limit`/`offset` dropped.
+- The opposite count reuses the **same composed where/include** as the list, so
+  the tabs describe the universe the grid is showing — filter the list to Draft
+  and the tabs read 2 / 0, not 5 / 1. Verified in the browser, not just asserted.
+- Sent only for soft-deletable models, tested by the same
+  `findAndCountAllDeleted` the archived read itself goes through; an entity with
+  no archived view sends neither and the toolbar falls back to one count.
+- 6 new Jest specs beside the 8 existing `paginateNew` ones.
+
+**Backend (B-7) — no change needed, and that is a finding, not a skip.** Every
+figure on the Product dashboard already comes from `getKpis()`: all 8 KPI cards,
+both charts, both panels. The only derived number on the screen is the gross
+profit *percentage* badge, computed from two served fields and labelled as a
+ratio. Nothing on that dashboard is a client-side guess, so there was nothing to
+add. (B-7 stays open for P3.1/P5/P6, which have their own dashboards.)
+
+**`filter-chips`** — the fourth P0 primitive, deferred to its first real
+consumer, now shipped as `ds-filter-chips` + `[filterChips]` on
+`paginated-table`. A chip carries a fragment of the **same `Filters` map the
+filter dialog builds**, so chips and the dialog are one mechanism rather than
+two: a chip on `status` leaves a dialog filter on `name` alone. Single-select on
+purpose (the chips of one row are alternative answers to one question), and the
+lit chip is **derived from the live filter map**, never stored — so editing that
+filter in the dialog un-lights the chip that no longer describes the list.
+Product and Service get Active/Draft/Inactive presets.
+
+**`status-chip` on grid `tag` columns.** `type: 'tag'` rendered one
+primary-tinted pill whatever the value said. Tag cells now render through
+`ds-status-chip`, and a column may declare `tone` (and `tagIcon`) as a value or
+a function of the row. Product/Service map Active→success, Draft→warning,
+Inactive→muted, with icons.
+- **App-wide effect, deliberate:** a column that declares no tone gets the
+  neutral one, so the 13 tag columns in modules not yet reviewed (HR, tax rates,
+  audit log…) now read as neutral labels instead of uniformly primary-blue. That
+  is the honest default — a grid cannot know that "Draft" is bad news — and each
+  of those columns gets its real tones in its own phase.
+
+**`ds-form-section`** — the *form* shape's section chrome (icon + title + a
+hairline tying the header to its own fields), added to the design system rather
+than to the product form, because the voucher form (P3.2) and the employee form
+(P6) are the same shape and must not each invent their own. The product add/edit
+dialog is its first consumer.
+
+**Also fixed in passing:** the product form's GST-rate hint said in its own
+comment "green when it filled itself in" while the code used `--mat-sys-primary`
+(blue). It is `--success` now, i.e. what the comment always claimed.
+
+**P2.1 verified:** client-back `npm run build` clean · `npm run lint:ci` 0 errors ·
+**1326 Jest tests in 95 suites, all passing** (up from 1310/94 — the 16 new ones
+are `paginateNew`'s counts) · client-front `npm run build` clean ·
+`npm run lint` 0 errors · breakpoint guard OK · `check-mirrors` in sync ·
+driven in Playwright Chromium against the running stack, light + dark, at
+480/720/1024/1440, with **zero console errors, zero failed requests** and no
+horizontal overflow at any width. Measured rather than eyeballed (`qa-artifacts/scripts/ui-refresh-p2.js`):
+- both view tabs numbered from the server (`Active 5 / Archived 1` on Product,
+  `3 / 1` on Service), and correct on the archived view too;
+- **the counts follow the filter** — clicking the Draft chip takes the grid from
+  5 rows to 2, all of them Draft, and the tabs to `2 / 0`; clicking All restores 5;
+- the three status tones resolve to three distinct colour pairs in **both**
+  themes, each with its icon glyph rendering;
+- numeric cells still `right / IBM Plex Mono / tabular-nums`;
+- the form's section headers carry their hairline and themed icon in both themes
+  — worth measuring because that rule is global CSS applying into an overlay;
+- the dashboard's re-pointed colour rules resolve to real themed values
+  (alert-row border, alert badge), checked with actual alert rows on screen.
+
+**Test data:** the tenant had one product, all Active, nothing archived, and no
+reorder levels anywhere — so chips, tones, the Archived tab and the dashboard's
+Stock Alerts panel had nothing to render.
+`qa-artifacts/scripts/seed-catalogue-fixture.js` seeds a real catalogue through
+the **API** (never straight into MySQL, so every row passes the same DTO
+validation and tenant scoping the app uses): 5 goods + 3 services across all
+three statuses, one of each archived, and stock levels that put two products at
+or below their reorder level.
+
+**One environment flake, recorded rather than hidden:** two of the four full
+sweeps logged transient `ERR_CONNECTION_REFUSED` against `:3000` on the last
+context of the screens loop (`product-dashboard 1440/dark`), which also lost its
+data that run. It is not the screen and not volume: a clean full sweep, three
+isolated loads of that exact screen and 24 sequential ones were all green with
+`health/live` returning 200, and the final committed run has both counters at
+zero. The harness now records the failed request's **URL and reason**, not just
+the page's console line, so a recurrence names the endpoint instead of leaving
+it to inference.
+
+**Not done in P2.1, on purpose:** the Product **view** dialog is left to the P9
+dialogs sweep — it is a dialog pattern, not a list or form shape, and P9 owns
+those. Product/Service list screens themselves are complete.
 
 ### P2.2 — Masters, product management, stock conversion, configuration
 **Files:** `product/masters/**` (manufacturer, measurement unit, return policy,
@@ -551,13 +640,14 @@ and what the app can actually do; resolving it is a decision, not a bug fix.
 
 | # | Phase | Mismatch | Resolution |
 |---|---|---|---|
-| 1 | P0 | Mockup's All/Active/Archived tabs vs. the binary `isDeleted` data model | Shipped Active\|Archived with a count on the current tab (decision 7); **both-side counts now planned as B-1 in P2.1** |
+| 1 | P0 | Mockup's All/Active/Archived tabs vs. the binary `isDeleted` data model | **Closed in P2.1.** Both tabs now carry a count (B-1), computed over the request's own filters. Still two tabs, not three — see decision 7 |
 | 2 | P0 | Mockup assumes Google Fonts CDN | Self-hosted npm packages instead (decision 9) |
 | 3 | P3.2 | Mockup shows pre-approval compliance status; app surfaces it post-approval | Read-only preview strip backed by a real preview endpoint (B-3), no change to the post-approval flow |
 | 4 | P5 | Mockup's board is drag-and-drop kanban | The API can now be built (B-4, decision 13) — still **your call** whether to schedule it; retheme-only otherwise |
 | 5 | P1 | The theme **customizer FAB** (`position: fixed; right: 2rem; bottom: 5rem`) sits on top of whatever is in the bottom-right of the page — on the dashboard it covers the Nearest Dues panel's "View all dues →" link, in both themes and at every width | **Not fixed — needs your call.** It is global chrome, not a dashboard problem: it overlaps content on every screen, and moving or hiding it is a product decision (is the palette switcher a shipping feature or a development tool?). Options: dock it into the header's icon cluster, hide it under `NODE_ENV=production`, or leave it. |
 | 6 | P1 | The dashboard offers **Approve** whenever the role holds `canApprove`, but the server additionally refuses a voucher you submitted yourself (`allowSelfApproval: 0`). Clicking it then fails with a 403 — against §9's "a screen must never offer an action the server will refuse" | **Not fixed — pre-existing and app-wide**, not introduced here: the Pending Approvals screen gates its own buttons the same way. The honest fix is a per-row `canApprove` on the approvals list response (**B-9**), which is a backend change worth doing once for both consumers rather than a client-side guess in this phase. Verified meanwhile that the failure is *safe*: the dialog opens, the server refuses, the error surfaces, and the queue and KPI card stay truthful. |
 | 7 | P1 | The voucher grid's **Amount** column prints `24500`, not `₹24,500` — right-aligned and monospaced (P0 did its half) but unformatted | Left for **P3.1**, which owns the voucher lists. Noted here because P1's browser pass is what surfaced it. |
+| 8 | P2.1 | Grid `tag` columns rendered one primary-tinted pill for every value, so a Status column and a Type column looked identical and neither said anything | Tag cells now render through `ds-status-chip` with an optional per-column `tone`. **Ripples app-wide by design** (decision 10): the 13 tag columns in modules not yet reviewed lose the blue tint and read as neutral labels until their own phase colours them. Neutral is the honest default — a grid cannot know "Draft" is bad news |
 
 ## Verification reference
 

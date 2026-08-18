@@ -1,0 +1,1004 @@
+{
+  "startedAt": "2026-08-18T10:52:34.343Z",
+  "probes": {
+    "product-list 480/light": {
+      "chips": {
+        "rendered": true,
+        "labels": [
+          "All",
+          "check_circleActive",
+          "edit_noteDraft",
+          "do_not_disturb_onInactive"
+        ],
+        "activeLabel": "All",
+        "activeBg": "rgb(230, 238, 251)",
+        "inactiveBg": "rgba(0, 0, 0, 0)",
+        "activeColor": "rgb(0, 92, 187)"
+      },
+      "viewTabs": [
+        {
+          "label": "Active",
+          "count": "5",
+          "active": true
+        },
+        {
+          "label": "Archived",
+          "count": "1",
+          "active": false
+        }
+      ],
+      "statusChips": {
+        "count": 5,
+        "byLabel": {
+          "do_not_disturb_onInactive": {
+            "color": "rgb(68, 71, 78)",
+            "background": "rgb(239, 237, 240)",
+            "iconGlyph": true
+          },
+          "edit_noteDraft": {
+            "color": "rgb(154, 74, 8)",
+            "background": "rgb(253, 238, 224)",
+            "iconGlyph": true
+          },
+          "check_circleActive": {
+            "color": "rgb(13, 107, 48)",
+            "background": "rgb(227, 244, 233)",
+            "iconGlyph": true
+          }
+        }
+      },
+      "numericCells": {
+        "textAlign": "right",
+        "fontFamily": "\"IBM Plex Mono\", ui-monospace,",
+        "numeric": "tabular-nums"
+      },
+      "rowCount": 5,
+      "horizontalOverflow": false
+    },
+    "product-list 480/dark": {
+      "chips": {
+        "rendered": true,
+        "labels": [
+          "All",
+          "check_circleActive",
+          "edit_noteDraft",
+          "do_not_disturb_onInactive"
+        ],
+        "activeLabel": "All",
+        "activeBg": "rgb(15, 35, 64)",
+        "inactiveBg": "rgba(0, 0, 0, 0)",
+        "activeColor": "rgb(171, 199, 255)"
+      },
+      "viewTabs": [
+        {
+          "label": "Active",
+          "count": "5",
+          "active": true
+        },
+        {
+          "label": "Archived",
+          "count": "1",
+          "active": false
+        }
+      ],
+      "statusChips": {
+        "count": 5,
+        "byLabel": {
+          "do_not_disturb_onInactive": {
+            "color": "rgb(162, 163, 173)",
+            "background": "rgb(31, 32, 34)",
+            "iconGlyph": true
+          },
+          "edit_noteDraft": {
+            "color": "rgb(240, 179, 87)",
+            "background": "rgb(51, 36, 14)",
+            "iconGlyph": true
+          },
+          "check_circleActive": {
+            "color": "rgb(95, 209, 139)",
+            "background": "rgb(18, 48, 31)",
+            "iconGlyph": true
+          }
+        }
+      },
+      "numericCells": {
+        "textAlign": "right",
+        "fontFamily": "\"IBM Plex Mono\", ui-monospace,",
+        "numeric": "tabular-nums"
+      },
+      "rowCount": 5,
+      "horizontalOverflow": false
+    },
+    "product-list 720/light": {
+      "chips": {
+        "rendered": true,
+        "labels": [
+          "All",
+          "check_circleActive",
+          "edit_noteDraft",
+          "do_not_disturb_onInactive"
+        ],
+        "activeLabel": "All",
+        "activeBg": "rgb(230, 238, 251)",
+        "inactiveBg": "rgba(0, 0, 0, 0)",
+        "activeColor": "rgb(0, 92, 187)"
+      },
+      "viewTabs": [
+        {
+          "label": "Active",
+          "count": "5",
+          "active": true
+        },
+        {
+          "label": "Archived",
+          "count": "1",
+          "active": false
+        }
+      ],
+      "statusChips": {
+        "count": 5,
+        "byLabel": {
+          "do_not_disturb_onInactive": {
+            "color": "rgb(68, 71, 78)",
+            "background": "rgb(239, 237, 240)",
+            "iconGlyph": true
+          },
+          "edit_noteDraft": {
+            "color": "rgb(154, 74, 8)",
+            "background": "rgb(253, 238, 224)",
+            "iconGlyph": true
+          },
+          "check_circleActive": {
+            "color": "rgb(13, 107, 48)",
+            "background": "rgb(227, 244, 233)",
+            "iconGlyph": true
+          }
+        }
+      },
+      "numericCells": {
+        "textAlign": "right",
+        "fontFamily": "\"IBM Plex Mono\", ui-monospace,",
+        "numeric": "tabular-nums"
+      },
+      "rowCount": 5,
+      "horizontalOverflow": false
+    },
+    "product-list 720/dark": {
+      "chips": {
+        "rendered": true,
+        "labels": [
+          "All",
+          "check_circleActive",
+          "edit_noteDraft",
+          "do_not_disturb_onInactive"
+        ],
+        "activeLabel": "All",
+        "activeBg": "rgb(15, 35, 64)",
+        "inactiveBg": "rgba(0, 0, 0, 0)",
+        "activeColor": "rgb(171, 199, 255)"
+      },
+      "viewTabs": [
+        {
+          "label": "Active",
+          "count": "5",
+          "active": true
+        },
+        {
+          "label": "Archived",
+          "count": "1",
+          "active": false
+        }
+      ],
+      "statusChips": {
+        "count": 5,
+        "byLabel": {
+          "do_not_disturb_onInactive": {
+            "color": "rgb(162, 163, 173)",
+            "background": "rgb(31, 32, 34)",
+            "iconGlyph": true
+          },
+          "edit_noteDraft": {
+            "color": "rgb(240, 179, 87)",
+            "background": "rgb(51, 36, 14)",
+            "iconGlyph": true
+          },
+          "check_circleActive": {
+            "color": "rgb(95, 209, 139)",
+            "background": "rgb(18, 48, 31)",
+            "iconGlyph": true
+          }
+        }
+      },
+      "numericCells": {
+        "textAlign": "right",
+        "fontFamily": "\"IBM Plex Mono\", ui-monospace,",
+        "numeric": "tabular-nums"
+      },
+      "rowCount": 5,
+      "horizontalOverflow": false
+    },
+    "product-list 1024/light": {
+      "chips": {
+        "rendered": true,
+        "labels": [
+          "All",
+          "check_circleActive",
+          "edit_noteDraft",
+          "do_not_disturb_onInactive"
+        ],
+        "activeLabel": "All",
+        "activeBg": "rgb(230, 238, 251)",
+        "inactiveBg": "rgba(0, 0, 0, 0)",
+        "activeColor": "rgb(0, 92, 187)"
+      },
+      "viewTabs": [
+        {
+          "label": "Active",
+          "count": "5",
+          "active": true
+        },
+        {
+          "label": "Archived",
+          "count": "1",
+          "active": false
+        }
+      ],
+      "statusChips": {
+        "count": 5,
+        "byLabel": {
+          "do_not_disturb_onInactive": {
+            "color": "rgb(68, 71, 78)",
+            "background": "rgb(239, 237, 240)",
+            "iconGlyph": true
+          },
+          "edit_noteDraft": {
+            "color": "rgb(154, 74, 8)",
+            "background": "rgb(253, 238, 224)",
+            "iconGlyph": true
+          },
+          "check_circleActive": {
+            "color": "rgb(13, 107, 48)",
+            "background": "rgb(227, 244, 233)",
+            "iconGlyph": true
+          }
+        }
+      },
+      "numericCells": {
+        "textAlign": "right",
+        "fontFamily": "\"IBM Plex Mono\", ui-monospace,",
+        "numeric": "tabular-nums"
+      },
+      "rowCount": 5,
+      "horizontalOverflow": false
+    },
+    "product-list 1024/dark": {
+      "chips": {
+        "rendered": true,
+        "labels": [
+          "All",
+          "check_circleActive",
+          "edit_noteDraft",
+          "do_not_disturb_onInactive"
+        ],
+        "activeLabel": "All",
+        "activeBg": "rgb(15, 35, 64)",
+        "inactiveBg": "rgba(0, 0, 0, 0)",
+        "activeColor": "rgb(171, 199, 255)"
+      },
+      "viewTabs": [
+        {
+          "label": "Active",
+          "count": "5",
+          "active": true
+        },
+        {
+          "label": "Archived",
+          "count": "1",
+          "active": false
+        }
+      ],
+      "statusChips": {
+        "count": 5,
+        "byLabel": {
+          "do_not_disturb_onInactive": {
+            "color": "rgb(162, 163, 173)",
+            "background": "rgb(31, 32, 34)",
+            "iconGlyph": true
+          },
+          "edit_noteDraft": {
+            "color": "rgb(240, 179, 87)",
+            "background": "rgb(51, 36, 14)",
+            "iconGlyph": true
+          },
+          "check_circleActive": {
+            "color": "rgb(95, 209, 139)",
+            "background": "rgb(18, 48, 31)",
+            "iconGlyph": true
+          }
+        }
+      },
+      "numericCells": {
+        "textAlign": "right",
+        "fontFamily": "\"IBM Plex Mono\", ui-monospace,",
+        "numeric": "tabular-nums"
+      },
+      "rowCount": 5,
+      "horizontalOverflow": false
+    },
+    "product-list 1440/light": {
+      "chips": {
+        "rendered": true,
+        "labels": [
+          "All",
+          "check_circleActive",
+          "edit_noteDraft",
+          "do_not_disturb_onInactive"
+        ],
+        "activeLabel": "All",
+        "activeBg": "rgb(230, 238, 251)",
+        "inactiveBg": "rgba(0, 0, 0, 0)",
+        "activeColor": "rgb(0, 92, 187)"
+      },
+      "viewTabs": [
+        {
+          "label": "Active",
+          "count": "5",
+          "active": true
+        },
+        {
+          "label": "Archived",
+          "count": "1",
+          "active": false
+        }
+      ],
+      "statusChips": {
+        "count": 5,
+        "byLabel": {
+          "do_not_disturb_onInactive": {
+            "color": "rgb(68, 71, 78)",
+            "background": "rgb(239, 237, 240)",
+            "iconGlyph": true
+          },
+          "edit_noteDraft": {
+            "color": "rgb(154, 74, 8)",
+            "background": "rgb(253, 238, 224)",
+            "iconGlyph": true
+          },
+          "check_circleActive": {
+            "color": "rgb(13, 107, 48)",
+            "background": "rgb(227, 244, 233)",
+            "iconGlyph": true
+          }
+        }
+      },
+      "numericCells": {
+        "textAlign": "right",
+        "fontFamily": "\"IBM Plex Mono\", ui-monospace,",
+        "numeric": "tabular-nums"
+      },
+      "rowCount": 5,
+      "horizontalOverflow": false
+    },
+    "product-list 1440/dark": {
+      "chips": {
+        "rendered": true,
+        "labels": [
+          "All",
+          "check_circleActive",
+          "edit_noteDraft",
+          "do_not_disturb_onInactive"
+        ],
+        "activeLabel": "All",
+        "activeBg": "rgb(15, 35, 64)",
+        "inactiveBg": "rgba(0, 0, 0, 0)",
+        "activeColor": "rgb(171, 199, 255)"
+      },
+      "viewTabs": [
+        {
+          "label": "Active",
+          "count": "5",
+          "active": true
+        },
+        {
+          "label": "Archived",
+          "count": "1",
+          "active": false
+        }
+      ],
+      "statusChips": {
+        "count": 5,
+        "byLabel": {
+          "do_not_disturb_onInactive": {
+            "color": "rgb(162, 163, 173)",
+            "background": "rgb(31, 32, 34)",
+            "iconGlyph": true
+          },
+          "edit_noteDraft": {
+            "color": "rgb(240, 179, 87)",
+            "background": "rgb(51, 36, 14)",
+            "iconGlyph": true
+          },
+          "check_circleActive": {
+            "color": "rgb(95, 209, 139)",
+            "background": "rgb(18, 48, 31)",
+            "iconGlyph": true
+          }
+        }
+      },
+      "numericCells": {
+        "textAlign": "right",
+        "fontFamily": "\"IBM Plex Mono\", ui-monospace,",
+        "numeric": "tabular-nums"
+      },
+      "rowCount": 5,
+      "horizontalOverflow": false
+    },
+    "service-list 480/light": {
+      "chips": {
+        "rendered": true,
+        "labels": [
+          "All",
+          "check_circleActive",
+          "edit_noteDraft",
+          "do_not_disturb_onInactive"
+        ],
+        "activeLabel": "All",
+        "activeBg": "rgb(230, 238, 251)",
+        "inactiveBg": "rgba(0, 0, 0, 0)",
+        "activeColor": "rgb(0, 92, 187)"
+      },
+      "viewTabs": [
+        {
+          "label": "Active",
+          "count": "3",
+          "active": true
+        },
+        {
+          "label": "Archived",
+          "count": "1",
+          "active": false
+        }
+      ],
+      "statusChips": {
+        "count": 3,
+        "byLabel": {
+          "edit_noteDraft": {
+            "color": "rgb(154, 74, 8)",
+            "background": "rgb(253, 238, 224)",
+            "iconGlyph": true
+          },
+          "check_circleActive": {
+            "color": "rgb(13, 107, 48)",
+            "background": "rgb(227, 244, 233)",
+            "iconGlyph": true
+          }
+        }
+      },
+      "numericCells": {
+        "textAlign": "right",
+        "fontFamily": "\"IBM Plex Mono\", ui-monospace,",
+        "numeric": "tabular-nums"
+      },
+      "rowCount": 3,
+      "horizontalOverflow": false
+    },
+    "service-list 480/dark": {
+      "chips": {
+        "rendered": true,
+        "labels": [
+          "All",
+          "check_circleActive",
+          "edit_noteDraft",
+          "do_not_disturb_onInactive"
+        ],
+        "activeLabel": "All",
+        "activeBg": "rgb(15, 35, 64)",
+        "inactiveBg": "rgba(0, 0, 0, 0)",
+        "activeColor": "rgb(171, 199, 255)"
+      },
+      "viewTabs": [
+        {
+          "label": "Active",
+          "count": "3",
+          "active": true
+        },
+        {
+          "label": "Archived",
+          "count": "1",
+          "active": false
+        }
+      ],
+      "statusChips": {
+        "count": 3,
+        "byLabel": {
+          "edit_noteDraft": {
+            "color": "rgb(240, 179, 87)",
+            "background": "rgb(51, 36, 14)",
+            "iconGlyph": true
+          },
+          "check_circleActive": {
+            "color": "rgb(95, 209, 139)",
+            "background": "rgb(18, 48, 31)",
+            "iconGlyph": true
+          }
+        }
+      },
+      "numericCells": {
+        "textAlign": "right",
+        "fontFamily": "\"IBM Plex Mono\", ui-monospace,",
+        "numeric": "tabular-nums"
+      },
+      "rowCount": 3,
+      "horizontalOverflow": false
+    },
+    "service-list 720/light": {
+      "chips": {
+        "rendered": true,
+        "labels": [
+          "All",
+          "check_circleActive",
+          "edit_noteDraft",
+          "do_not_disturb_onInactive"
+        ],
+        "activeLabel": "All",
+        "activeBg": "rgb(230, 238, 251)",
+        "inactiveBg": "rgba(0, 0, 0, 0)",
+        "activeColor": "rgb(0, 92, 187)"
+      },
+      "viewTabs": [
+        {
+          "label": "Active",
+          "count": "3",
+          "active": true
+        },
+        {
+          "label": "Archived",
+          "count": "1",
+          "active": false
+        }
+      ],
+      "statusChips": {
+        "count": 3,
+        "byLabel": {
+          "edit_noteDraft": {
+            "color": "rgb(154, 74, 8)",
+            "background": "rgb(253, 238, 224)",
+            "iconGlyph": true
+          },
+          "check_circleActive": {
+            "color": "rgb(13, 107, 48)",
+            "background": "rgb(227, 244, 233)",
+            "iconGlyph": true
+          }
+        }
+      },
+      "numericCells": {
+        "textAlign": "right",
+        "fontFamily": "\"IBM Plex Mono\", ui-monospace,",
+        "numeric": "tabular-nums"
+      },
+      "rowCount": 3,
+      "horizontalOverflow": false
+    },
+    "service-list 720/dark": {
+      "chips": {
+        "rendered": true,
+        "labels": [
+          "All",
+          "check_circleActive",
+          "edit_noteDraft",
+          "do_not_disturb_onInactive"
+        ],
+        "activeLabel": "All",
+        "activeBg": "rgb(15, 35, 64)",
+        "inactiveBg": "rgba(0, 0, 0, 0)",
+        "activeColor": "rgb(171, 199, 255)"
+      },
+      "viewTabs": [
+        {
+          "label": "Active",
+          "count": "3",
+          "active": true
+        },
+        {
+          "label": "Archived",
+          "count": "1",
+          "active": false
+        }
+      ],
+      "statusChips": {
+        "count": 3,
+        "byLabel": {
+          "edit_noteDraft": {
+            "color": "rgb(240, 179, 87)",
+            "background": "rgb(51, 36, 14)",
+            "iconGlyph": true
+          },
+          "check_circleActive": {
+            "color": "rgb(95, 209, 139)",
+            "background": "rgb(18, 48, 31)",
+            "iconGlyph": true
+          }
+        }
+      },
+      "numericCells": {
+        "textAlign": "right",
+        "fontFamily": "\"IBM Plex Mono\", ui-monospace,",
+        "numeric": "tabular-nums"
+      },
+      "rowCount": 3,
+      "horizontalOverflow": false
+    },
+    "service-list 1024/light": {
+      "chips": {
+        "rendered": true,
+        "labels": [
+          "All",
+          "check_circleActive",
+          "edit_noteDraft",
+          "do_not_disturb_onInactive"
+        ],
+        "activeLabel": "All",
+        "activeBg": "rgb(230, 238, 251)",
+        "inactiveBg": "rgba(0, 0, 0, 0)",
+        "activeColor": "rgb(0, 92, 187)"
+      },
+      "viewTabs": [
+        {
+          "label": "Active",
+          "count": "3",
+          "active": true
+        },
+        {
+          "label": "Archived",
+          "count": "1",
+          "active": false
+        }
+      ],
+      "statusChips": {
+        "count": 3,
+        "byLabel": {
+          "edit_noteDraft": {
+            "color": "rgb(154, 74, 8)",
+            "background": "rgb(253, 238, 224)",
+            "iconGlyph": true
+          },
+          "check_circleActive": {
+            "color": "rgb(13, 107, 48)",
+            "background": "rgb(227, 244, 233)",
+            "iconGlyph": true
+          }
+        }
+      },
+      "numericCells": {
+        "textAlign": "right",
+        "fontFamily": "\"IBM Plex Mono\", ui-monospace,",
+        "numeric": "tabular-nums"
+      },
+      "rowCount": 3,
+      "horizontalOverflow": false
+    },
+    "service-list 1024/dark": {
+      "chips": {
+        "rendered": true,
+        "labels": [
+          "All",
+          "check_circleActive",
+          "edit_noteDraft",
+          "do_not_disturb_onInactive"
+        ],
+        "activeLabel": "All",
+        "activeBg": "rgb(15, 35, 64)",
+        "inactiveBg": "rgba(0, 0, 0, 0)",
+        "activeColor": "rgb(171, 199, 255)"
+      },
+      "viewTabs": [
+        {
+          "label": "Active",
+          "count": "3",
+          "active": true
+        },
+        {
+          "label": "Archived",
+          "count": "1",
+          "active": false
+        }
+      ],
+      "statusChips": {
+        "count": 3,
+        "byLabel": {
+          "edit_noteDraft": {
+            "color": "rgb(240, 179, 87)",
+            "background": "rgb(51, 36, 14)",
+            "iconGlyph": true
+          },
+          "check_circleActive": {
+            "color": "rgb(95, 209, 139)",
+            "background": "rgb(18, 48, 31)",
+            "iconGlyph": true
+          }
+        }
+      },
+      "numericCells": {
+        "textAlign": "right",
+        "fontFamily": "\"IBM Plex Mono\", ui-monospace,",
+        "numeric": "tabular-nums"
+      },
+      "rowCount": 3,
+      "horizontalOverflow": false
+    },
+    "service-list 1440/light": {
+      "chips": {
+        "rendered": true,
+        "labels": [
+          "All",
+          "check_circleActive",
+          "edit_noteDraft",
+          "do_not_disturb_onInactive"
+        ],
+        "activeLabel": "All",
+        "activeBg": "rgb(230, 238, 251)",
+        "inactiveBg": "rgba(0, 0, 0, 0)",
+        "activeColor": "rgb(0, 92, 187)"
+      },
+      "viewTabs": [
+        {
+          "label": "Active",
+          "count": "3",
+          "active": true
+        },
+        {
+          "label": "Archived",
+          "count": "1",
+          "active": false
+        }
+      ],
+      "statusChips": {
+        "count": 3,
+        "byLabel": {
+          "edit_noteDraft": {
+            "color": "rgb(154, 74, 8)",
+            "background": "rgb(253, 238, 224)",
+            "iconGlyph": true
+          },
+          "check_circleActive": {
+            "color": "rgb(13, 107, 48)",
+            "background": "rgb(227, 244, 233)",
+            "iconGlyph": true
+          }
+        }
+      },
+      "numericCells": {
+        "textAlign": "right",
+        "fontFamily": "\"IBM Plex Mono\", ui-monospace,",
+        "numeric": "tabular-nums"
+      },
+      "rowCount": 3,
+      "horizontalOverflow": false
+    },
+    "service-list 1440/dark": {
+      "chips": {
+        "rendered": true,
+        "labels": [
+          "All",
+          "check_circleActive",
+          "edit_noteDraft",
+          "do_not_disturb_onInactive"
+        ],
+        "activeLabel": "All",
+        "activeBg": "rgb(15, 35, 64)",
+        "inactiveBg": "rgba(0, 0, 0, 0)",
+        "activeColor": "rgb(171, 199, 255)"
+      },
+      "viewTabs": [
+        {
+          "label": "Active",
+          "count": "3",
+          "active": true
+        },
+        {
+          "label": "Archived",
+          "count": "1",
+          "active": false
+        }
+      ],
+      "statusChips": {
+        "count": 3,
+        "byLabel": {
+          "edit_noteDraft": {
+            "color": "rgb(240, 179, 87)",
+            "background": "rgb(51, 36, 14)",
+            "iconGlyph": true
+          },
+          "check_circleActive": {
+            "color": "rgb(95, 209, 139)",
+            "background": "rgb(18, 48, 31)",
+            "iconGlyph": true
+          }
+        }
+      },
+      "numericCells": {
+        "textAlign": "right",
+        "fontFamily": "\"IBM Plex Mono\", ui-monospace,",
+        "numeric": "tabular-nums"
+      },
+      "rowCount": 3,
+      "horizontalOverflow": false
+    },
+    "product-dashboard 480/light": {
+      "statCards": 8,
+      "chartCards": 2,
+      "alertRows": 2,
+      "alertRowBorder": "color(srgb 0.729412 0.101961 0.101961 / 0.3)",
+      "alertBadge": {
+        "color": "rgb(186, 26, 26)",
+        "background": "rgb(255, 228, 224)"
+      },
+      "horizontalOverflow": false
+    },
+    "product-dashboard 480/dark": {
+      "statCards": 8,
+      "chartCards": 2,
+      "alertRows": 2,
+      "alertRowBorder": "color(srgb 1 0.705882 0.670588 / 0.3)",
+      "alertBadge": {
+        "color": "rgb(255, 180, 171)",
+        "background": "rgb(58, 21, 18)"
+      },
+      "horizontalOverflow": false
+    },
+    "product-dashboard 720/light": {
+      "statCards": 8,
+      "chartCards": 2,
+      "alertRows": 2,
+      "alertRowBorder": "color(srgb 0.729412 0.101961 0.101961 / 0.3)",
+      "alertBadge": {
+        "color": "rgb(186, 26, 26)",
+        "background": "rgb(255, 228, 224)"
+      },
+      "horizontalOverflow": false
+    },
+    "product-dashboard 720/dark": {
+      "statCards": 8,
+      "chartCards": 2,
+      "alertRows": 2,
+      "alertRowBorder": "color(srgb 1 0.705882 0.670588 / 0.3)",
+      "alertBadge": {
+        "color": "rgb(255, 180, 171)",
+        "background": "rgb(58, 21, 18)"
+      },
+      "horizontalOverflow": false
+    },
+    "product-dashboard 1024/light": {
+      "statCards": 8,
+      "chartCards": 2,
+      "alertRows": 2,
+      "alertRowBorder": "color(srgb 0.729412 0.101961 0.101961 / 0.3)",
+      "alertBadge": {
+        "color": "rgb(186, 26, 26)",
+        "background": "rgb(255, 228, 224)"
+      },
+      "horizontalOverflow": false
+    },
+    "product-dashboard 1024/dark": {
+      "statCards": 8,
+      "chartCards": 2,
+      "alertRows": 2,
+      "alertRowBorder": "color(srgb 1 0.705882 0.670588 / 0.3)",
+      "alertBadge": {
+        "color": "rgb(255, 180, 171)",
+        "background": "rgb(58, 21, 18)"
+      },
+      "horizontalOverflow": false
+    },
+    "product-dashboard 1440/light": {
+      "statCards": 8,
+      "chartCards": 2,
+      "alertRows": 2,
+      "alertRowBorder": "color(srgb 0.729412 0.101961 0.101961 / 0.3)",
+      "alertBadge": {
+        "color": "rgb(186, 26, 26)",
+        "background": "rgb(255, 228, 224)"
+      },
+      "horizontalOverflow": false
+    },
+    "product-dashboard 1440/dark": {
+      "statCards": 8,
+      "chartCards": 2,
+      "alertRows": 2,
+      "alertRowBorder": "color(srgb 1 0.705882 0.670588 / 0.3)",
+      "alertBadge": {
+        "color": "rgb(255, 180, 171)",
+        "background": "rgb(58, 21, 18)"
+      },
+      "horizontalOverflow": false
+    },
+    "chip filtering": {
+      "rowsBefore": 5,
+      "draft": {
+        "rows": 2,
+        "statuses": [
+          "edit_noteDraft",
+          "edit_noteDraft"
+        ],
+        "active": "edit_noteDraft",
+        "tabCounts": [
+          "2",
+          "0"
+        ]
+      },
+      "rowsAfterAll": 5
+    },
+    "archived view": {
+      "tabs": [
+        {
+          "label": "Active",
+          "count": "5",
+          "active": false
+        },
+        {
+          "label": "Archived",
+          "count": "1",
+          "active": true
+        }
+      ],
+      "rows": 1
+    },
+    "product form light": {
+      "sectionCount": 3,
+      "titles": [
+        "infoBasic Information",
+        "inventory_2Inventory & Logistics",
+        "notesDescription"
+      ],
+      "headerBorderBottom": "1px",
+      "headerBorderColor": "rgb(196, 198, 208)",
+      "iconColor": "rgb(0, 92, 187)",
+      "iconRenders": true
+    },
+    "product form dark": {
+      "sectionCount": 3,
+      "titles": [
+        "infoBasic Information",
+        "inventory_2Inventory & Logistics",
+        "notesDescription"
+      ],
+      "headerBorderBottom": "1px",
+      "headerBorderColor": "rgb(68, 71, 78)",
+      "iconColor": "rgb(171, 199, 255)",
+      "iconRenders": true
+    }
+  },
+  "shots": [
+    "product-list__480__light.png",
+    "product-list__480__dark.png",
+    "product-list__720__light.png",
+    "product-list__720__dark.png",
+    "product-list__1024__light.png",
+    "product-list__1024__dark.png",
+    "product-list__1440__light.png",
+    "product-list__1440__dark.png",
+    "service-list__480__light.png",
+    "service-list__480__dark.png",
+    "service-list__720__light.png",
+    "service-list__720__dark.png",
+    "service-list__1024__light.png",
+    "service-list__1024__dark.png",
+    "service-list__1440__light.png",
+    "service-list__1440__dark.png",
+    "product-dashboard__480__light.png",
+    "product-dashboard__480__dark.png",
+    "product-dashboard__720__light.png",
+    "product-dashboard__720__dark.png",
+    "product-dashboard__1024__light.png",
+    "product-dashboard__1024__dark.png",
+    "product-dashboard__1440__light.png",
+    "product-dashboard__1440__dark.png",
+    "product-list__chip-draft__1440__light.png",
+    "product-list__archived__1440__dark.png",
+    "product-form__1440__light.png",
+    "product-form__1440__dark.png"
+  ],
+  "console": [],
+  "netFailures": []
+}
