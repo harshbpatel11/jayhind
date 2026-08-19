@@ -1,0 +1,802 @@
+[
+  {
+    "name": "users-dashboard/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 10 ds-status-chip"
+  },
+  {
+    "name": "users-dashboard/light no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 10 ds-status-chip"
+  },
+  {
+    "name": "users-dashboard/light status chips carry more than one tone",
+    "pass": true,
+    "detail": "chip--info, chip--success"
+  },
+  {
+    "name": "users-dashboard/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "users-dashboard/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "users-dashboard/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "users-dashboard/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "users/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "4 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "users/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "users/light no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "users/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "users/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "users/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "users/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "roles/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "7 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "roles/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "roles/light no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "roles/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "roles/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "roles/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "roles/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "permission-matrix/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "7 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "permission-matrix/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 1 ds-status-chip"
+  },
+  {
+    "name": "permission-matrix/light no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 1 ds-status-chip"
+  },
+  {
+    "name": "permission-matrix/light permission matrix dialog opened",
+    "pass": true,
+    "detail": "75 module row(s)"
+  },
+  {
+    "name": "permission-matrix/light matrix host is a query container",
+    "pass": true,
+    "detail": "inline-size"
+  },
+  {
+    "name": "permission-matrix/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "permission-matrix/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "permission-matrix/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "permission-matrix/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "user-config/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "user-config/light no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "user-config/light configuration screen rendered",
+    "pass": true,
+    "detail": "rendered"
+  },
+  {
+    "name": "user-config/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "user-config/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "user-config/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "user-config/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "profile/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "profile/light no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "profile/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "profile/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "profile/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "profile/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "party-dashboard/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "party-dashboard/light no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "party-dashboard/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "party-dashboard/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "party-dashboard/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "party-dashboard/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "party-transactions/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "party-transactions/light no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "party-transactions/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "party-transactions/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "party-transactions/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "party-transactions/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "party-payments/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "party-payments/light no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "party-payments/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "party-payments/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "party-payments/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "party-payments/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "party-statement/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "party-statement/light no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "party-statement/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "party-statement/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "party-statement/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "party-statement/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "party-job-work/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "party-job-work/light no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "party-job-work/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "party-job-work/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "party-job-work/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "party-job-work/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "users-dashboard/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 10 ds-status-chip"
+  },
+  {
+    "name": "users-dashboard/dark no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 10 ds-status-chip"
+  },
+  {
+    "name": "users-dashboard/dark status chips carry more than one tone",
+    "pass": true,
+    "detail": "chip--info, chip--success"
+  },
+  {
+    "name": "users-dashboard/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "users-dashboard/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "users-dashboard/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "users-dashboard/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "users/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "4 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "users/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "users/dark no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "users/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "users/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "users/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "users/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "roles/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "7 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "roles/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "roles/dark no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "roles/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "roles/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "roles/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "roles/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "permission-matrix/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "7 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "permission-matrix/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 1 ds-status-chip"
+  },
+  {
+    "name": "permission-matrix/dark no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 1 ds-status-chip"
+  },
+  {
+    "name": "permission-matrix/dark permission matrix dialog opened",
+    "pass": true,
+    "detail": "75 module row(s)"
+  },
+  {
+    "name": "permission-matrix/dark matrix host is a query container",
+    "pass": true,
+    "detail": "inline-size"
+  },
+  {
+    "name": "permission-matrix/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "permission-matrix/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "permission-matrix/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "permission-matrix/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "user-config/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "user-config/dark no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "user-config/dark configuration screen rendered",
+    "pass": true,
+    "detail": "rendered"
+  },
+  {
+    "name": "user-config/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "user-config/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "user-config/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "user-config/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "profile/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "profile/dark no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "profile/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "profile/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "profile/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "profile/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "party-dashboard/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "party-dashboard/dark no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "party-dashboard/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "party-dashboard/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "party-dashboard/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "party-dashboard/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "party-transactions/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "party-transactions/dark no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "party-transactions/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "party-transactions/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "party-transactions/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "party-transactions/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "party-payments/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "party-payments/dark no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "party-payments/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "party-payments/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "party-payments/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "party-payments/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "party-statement/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "party-statement/dark no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "party-statement/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "party-statement/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "party-statement/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "party-statement/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "party-job-work/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "party-job-work/dark no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "party-job-work/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "party-job-work/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "party-job-work/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "party-job-work/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "users-dashboard card surface follows the theme",
+    "pass": true,
+    "detail": "light rgb(250, 249, 253)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgb(18, 19, 22)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "users-dashboard chip surface follows the theme",
+    "pass": true,
+    "detail": "light rgb(226, 241, 251)|rgb(7, 89, 133) / dark rgb(14, 40, 54)|rgb(111, 195, 240)"
+  },
+  {
+    "name": "users card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "roles card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "permission-matrix card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "permission-matrix chip surface follows the theme",
+    "pass": true,
+    "detail": "light rgb(239, 237, 240)|rgb(68, 71, 78) / dark rgb(31, 32, 34)|rgb(162, 163, 173)"
+  },
+  {
+    "name": "user-config card surface follows the theme",
+    "pass": true,
+    "detail": "light rgb(250, 249, 253)|rgb(196, 198, 208)|rgb(26, 27, 31) / dark rgb(18, 19, 22)|rgb(68, 71, 78)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "party-dashboard card surface follows the theme",
+    "pass": true,
+    "detail": "light rgb(250, 249, 253)|rgb(196, 198, 208)|rgb(26, 27, 31) / dark rgb(18, 19, 22)|rgb(68, 71, 78)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "party-transactions card surface follows the theme",
+    "pass": true,
+    "detail": "light rgb(250, 249, 253)|rgb(196, 198, 208)|rgb(26, 27, 31) / dark rgb(18, 19, 22)|rgb(68, 71, 78)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "party-payments card surface follows the theme",
+    "pass": true,
+    "detail": "light rgb(250, 249, 253)|rgb(196, 198, 208)|rgb(26, 27, 31) / dark rgb(18, 19, 22)|rgb(68, 71, 78)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "party-statement card surface follows the theme",
+    "pass": true,
+    "detail": "light rgb(250, 249, 253)|rgb(196, 198, 208)|rgb(26, 27, 31) / dark rgb(18, 19, 22)|rgb(68, 71, 78)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "party-job-work card surface follows the theme",
+    "pass": true,
+    "detail": "light rgb(250, 249, 253)|rgb(196, 198, 208)|rgb(26, 27, 31) / dark rgb(18, 19, 22)|rgb(68, 71, 78)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "no console errors",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "no failed requests",
+    "pass": true,
+    "detail": ""
+  }
+]

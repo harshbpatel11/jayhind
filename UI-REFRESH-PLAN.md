@@ -42,7 +42,7 @@ needs data the API doesn't serve today (see **Backend-side work** and decision 1
 | P4 | Chat | 1 screen | **done, browser-verified 2026-08-19** |
 | P5 | Job Work | ~12 screens | **done, browser-verified 2026-08-19** |
 | P6 | Human Resources | ~15 screens | **done, browser-verified 2026-08-19** |
-| P7 | Users & Roles, Profile, Party Portal | ~8 screens | not started |
+| P7 | Users & Roles, Profile, Party Portal | ~8 screens | **done, browser-verified 2026-08-19** |
 | P8 | Files, Audit Log, Export, Site Config | ~6 screens | not started |
 | P9 | Dialogs sweep | shared dialog partials + 8 dialog categories | not started |
 
@@ -1360,14 +1360,43 @@ remit. Flagged for your call.
 
 ---
 
-# P7 — Users & Roles, Profile, Party Portal
+# P7 — Users & Roles, Profile, Party Portal *(done — browser-verified 2026-08-19)*
 
-**Files:** `users-roles/**` (14), `profile/**`, `party-portal/**` (8)
-- Users & Roles: list shape + the permission matrix, which is the densest grid in
-  the app and the one most likely to need a container query rather than a media
-  query.
-- Party Portal ("My Account") is a distinct audience — check it in its own right,
-  not just as a themed copy.
+**Files:** `users-roles/**`, `profile/**`, `party-portal/**`
+- **No backend change.**
+
+**What shipped**
+
+- **A success ribbon that had been rendering blue.** `user-add-edit.scss`'s
+  `.gst-filled` — the "auto-fill landed" confirmation — read
+  `var(--mat-sys-primary, #2e7d32)`: a *green* fallback behind the **primary**
+  token. Both the comment above it and the fallback said green; the token was
+  simply the wrong one, so every render was blue. It is `var(--success)` now.
+- **An accounting vocabulary borrowed for a user state.** The Users dashboard
+  coloured its active/inactive flag with
+  `[attr.data-nature]="r.isActive ? 'Income' : 'Liability'"` — the ledger's own
+  nature attribute, on a person. Both that and the user-kind badge are
+  `ds-status-chip` now, as is the permission dialog's "Read only" marker.
+- **The permission matrix is verified inside its dialog, not from the list.**
+  It is the densest grid in the app (75 module rows × 6 actions) and it opens
+  in a `MatDialog`, so driving `/users-roles/roles` alone measures the roles
+  list and never the matrix. The pass now opens it and asserts its host really
+  is a query container (`container-type: inline-size`) — the rule that narrows
+  it *must* be a container query, because the dialog sets its width and a
+  viewport query would report "wide" while the matrix is squeezed. Confirmed
+  `inline-size`, 75 rows, no page overflow at any of the four widths in either
+  theme.
+- **The matrix stopped restating its own font stack.** It carried
+  `font-family: "Inter", "Roboto", Arial, sans-serif` — how a screen quietly
+  drifts off the design system's type. It inherits now.
+- **Party Portal driven in its own right** — all five of its screens, not as a
+  themed copy of the staff app.
+
+**P7 verified:** build clean · lint 0 errors · breakpoint guard OK · token guard
+OK · `check-mirrors` in sync · 11 screens (including the matrix dialog) driven
+in Playwright Chromium, light + dark at 480/720/1024/1440 — **160/160 checks
+green**, no console errors, no failed requests, no horizontal overflow.
+Screenshots in [`_ops/ui-refresh/p7/`](_ops/ui-refresh/p7/).
 
 ---
 
