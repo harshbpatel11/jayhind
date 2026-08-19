@@ -41,7 +41,7 @@ needs data the API doesn't serve today (see **Backend-side work** and decision 1
 | P3 | Transaction | ~45 screens (4 gates) | **done — all four gates browser-verified 2026-08-19** |
 | P4 | Chat | 1 screen | **done, browser-verified 2026-08-19** |
 | P5 | Job Work | ~12 screens | **done, browser-verified 2026-08-19** |
-| P6 | Human Resources | ~15 screens | not started |
+| P6 | Human Resources | ~15 screens | **done, browser-verified 2026-08-19** |
 | P7 | Users & Roles, Profile, Party Portal | ~8 screens | not started |
 | P8 | Files, Audit Log, Export, Site Config | ~6 screens | not started |
 | P9 | Dialogs sweep | shared dialog partials + 8 dialog categories | not started |
@@ -276,7 +276,7 @@ into their phase, the ones marked **your call** are written up but not scheduled
 | B-4 | drag-and-drop kanban on the Job Work board | a status-mutation endpoint (`PATCH /job-work/:id/stage`) with lifecycle validation server-side, plus a socket broadcast so two users dragging don't clobber each other | P5 | **your call** (decision 3) |
 | B-5 | filter chips as saved/preset filters rather than hand-declared per screen | preset filter definitions persisted per company + a `filterPresets` field on the list config | — | **your call** — hand-declared chips (decision 8) cover the design as drawn; this is only worth it if you want user-defined presets |
 | B-6 | chat presence / unread counts as the mockup shows them | checked in P4: `chat.service.ts` already returns per-conversation `unreadCount` and serves `GET /chat/unread-count`; the gateway already relays `chat:typing` and tracks per-socket `chat:focus`, and the screen consumes all three. Presence is not broadcast — and the reference shows no presence dots — so nothing is missing | P4 | **none needed** |
-| B-7 | KPI cards / trend chart on the module dashboards (Product, Transaction, Job Work, HR) | the mockup's card set may not match what each dashboard endpoint returns; any gap becomes an added field on that dashboard's existing response, not a new endpoint | P2.1, P3.1, P5, P6 | **Product: revised — see B-12.** P2.1's "no gap" finding was wrong; a full artifact-vs-shipped audit on 2026-08-18 found the Product dashboard's KPI *set* itself didn't match the reference (see mismatch 10). Transaction: checked in P3.1, retheme-in-place (mismatch 13). **Job Work: done — see B-18.** Still to check for HR |
+| B-7 | KPI cards / trend chart on the module dashboards (Product, Transaction, Job Work, HR) | the mockup's card set may not match what each dashboard endpoint returns; any gap becomes an added field on that dashboard's existing response, not a new endpoint | P2.1, P3.1, P5, P6 | **Product: revised — see B-12.** P2.1's "no gap" finding was wrong; a full artifact-vs-shipped audit on 2026-08-18 found the Product dashboard's KPI *set* itself didn't match the reference (see mismatch 10). Transaction: checked in P3.1, retheme-in-place (mismatch 13). **Job Work: done — see B-18.** HR: checked in P6 — the dashboard endpoint already serves everything its screen shows; no gap (mismatch 16) |
 | B-8 | dashboard approval queue readable during billing grace | `@ReadOnlyRequest()` on `POST /approvals/pending/:sourceType` — a genuine read the P0-era sweep of 52 handlers missed; without it a past-due company sees a 402 where its approval queue should be | P1 | **done** |
 | B-9 | Approve button offered only where the server would actually allow it | the queue gates on `canApprove`, but segregation of duties (`allowSelfApproval: 0`) *also* bars approving a voucher you submitted — a per-row `canApprove` flag on the approvals list response would let both this panel and the Pending Approvals screen hide the button instead of failing on click | — | **your call** — see mismatch 6 |
 | B-10 | Business Dashboard "Cash position" breakdown panel — individual bank/cash/UPI/wallet balances, not just the one aggregate `cashBankBalance` figure | `cashByAccount: {name, balance}[]` on `/dashboard/kpis`, reading `TrxAccount.balance` (already engine-maintained, same read `getFundsSummary()` uses) — no new SQL derivation, just a scoped `TrxAccount.findAll()` | P1 (retrofit) | **done** |
@@ -1283,13 +1283,80 @@ a permanently-red guard is one nobody reads.
 
 ---
 
-# P6 — Human Resources
+# P6 — Human Resources *(done — browser-verified 2026-08-19)*
 
-**Screens:** ~15. **Files:** `hr/**` (46 files) — HR dashboard, self-service,
-employees, attendance (daily, reports, shifts), leave (applications, calendar,
-types, holidays), payroll, masters
+**Screens:** 16. **Files:** `hr/**`, `utils/hr-status.util.ts` (new)
 - Reuses dash / list / form / settings shapes wholesale. The calendar screens are
   the only ones needing their own look at density.
+- **No backend change.**
+
+**What shipped**
+
+- **HR had four private status vocabularies and two that said nothing.**
+  `ess-badge`, `pr-pill`, `fd-badge` and `ess-chip` were four separate pill
+  families, and the Daily Attendance and Leave Applications grids used
+  `type: 'tag'` with **no tone at all** — every status the same neutral grey,
+  on the two columns where the tone is perfectly knowable (mismatch 8's exact
+  failure). All six now read from one `utils/hr-status.util.ts`, so a day cell,
+  a grid chip and the dashboard's pending-leave table cannot disagree about
+  what "half day" looks like.
+  - Two calls in that file are deliberate rather than obvious, and are
+    commented as such: **holiday and weekly-off are muted, not success** —
+    nobody was present, and a green company holiday would say they were; and a
+    **pending application is a warning, not neutral** — it is a decision
+    somebody still owes, which is the whole point of the leave list.
+- **The attendance calendar carried a parallel palette of eight frozen hexes.**
+  `attendance.config.ts` set `color: '#16a34a'`, `'#dc2626'`, `'#f59e0b'`,
+  `'#6366f1'`, `'#0ea5e9'`, `'#94a3b8'`, `'#0d9488'`, `'#eab308'` with
+  `textColor: '#ffffff'` — on the most colour-heavy screen in the module. Worse
+  than merely light-mode-frozen: white on `--success` would fail contrast in
+  dark, where that token is a pale green. Every status is now a
+  `var(--<tone>-bg)` fill with its own `var(--<tone>)` as the text — the exact
+  pairing `ds-status-chip` uses, which the design system guarantees is AA on
+  its surface in both schemes. Measured live: light `rgb(227,244,233)` →
+  dark `rgb(18,48,31)`.
+- **The HR dashboard's eleven figures are one strip.** They were a 5-up
+  fund-card grid over a separate 6-item mini-stat row — two visually unrelated
+  blocks and ~200px of card chrome for figures that are read together
+  (decision 14). The fund cards' second lines became each figure's own `hint`,
+  so nothing that was on screen was dropped.
+- **The dashboard itself is rethemed in place, not rebuilt** — the same call
+  P3.1 made for the Transaction dashboard (mismatch 13, now mismatch 16). It is
+  a real analytics workbench: a date-range filter, six charts and two
+  searchable, CSV-exportable tables. Matching the reference's generic `dash`
+  shape exactly would delete all of that to replace it with a duplicate of the
+  Business dashboard.
+- **Test data**: [`qa-artifacts/scripts/seed-hr-fixture.js`](qa-artifacts/scripts/seed-hr-fixture.js)
+  seeds four employees, twelve attendance records **deliberately spanning
+  present / absent / half-day / leave**, and three leave applications left
+  pending / approved / rejected. The spread is the point: a month where
+  everyone was present renders a wall of one colour and is exactly as
+  uninformative as the untoned tag columns this phase fixed, so the pass
+  asserts *more than one tone* and only real, varied data can satisfy it.
+
+**P6 verified:** build clean · lint 0 errors · breakpoint guard OK · token guard
+OK · `check-mirrors` in sync · 16 screens driven in Playwright Chromium, light +
+dark at 480/720/1024/1440 — **243/243 checks green**, no console errors, no
+failed requests, no horizontal overflow. Screenshots in
+[`_ops/ui-refresh/p6/`](_ops/ui-refresh/p6/).
+
+Three harness corrections, all of the same family as the earlier phases' and
+all worth recording because each one was a check passing on nothing:
+the fixture linked no employee to the signed-in account (the login response
+returns `identity`, not `user`, so the optional `userId` was silently omitted
+and every `/ess/*` call answered its correct 404 — self-service rendered empty
+and "chips render" passed on zero chips); `/hr/attendance/daily` loads the
+**calendar** component, which renders tinted day cells rather than
+`ds-status-chip`, so the pass now measures the rendered fills there instead;
+and the expected `/ess/*` 404 is ignored by **explicit pattern** rather than by
+relaxing the console-error check, so any other 404 still fails the pass.
+
+**Noticed, not changed:** `AttendanceDailyComponent`
+(`hr/attendance/attendance-daily/attendance-daily.ts`) is **unreachable** — no
+route loads it, and only its sibling `attendance-manual` dialog is imported
+from that folder. Its status column was given a tone along with the rest, so it
+is correct if it is ever routed, but deleting a component is beyond a retheme's
+remit. Flagged for your call.
 
 ---
 
@@ -1360,6 +1427,7 @@ and what the app can actually do; resolving it is a decision, not a bug fix.
 | 11 | P2.1 | Product/Service list columns diverged: Product's Status column meant catalogue lifecycle where the artifact's means stock health (same header, different data); Category was dropped for Manufacturer; a single Rate became Cost+Sale Price; Service List had no GST column; neither list had the artifact's summary strip | **Fixed — "add what's missing, keep both dimensions"** (your call). Category and a second Stock Health column added rather than replacing anything; Manufacturer and the Cost/Sale split kept; GST% and the summary strip added. See P2.1's addendum above; backend tracked as **B-14/B-15** |
 | 13 | P3.1 | The artifact defines `transaction/dashboard` as literally the same object as the Business dashboard (`S['transaction/dashboard'] = S['dashboard']`) — the generic KPI-strip → queue + breakdown → trend-chart `dash` shape. The real screen is a different thing entirely: a financial analytics workbench with an FY + date-range filter, live Cash/Bank/UPI/Wallet fund cards deep-linking to group statements, three charts and three searchable, CSV-exportable analytics tables (Nature, Top Groups, Accounts) | **Retheme in place — deliberate deviation** (your call). Matching the artifact exactly would have deleted the FY selector, the fund cards and all three analytics tables to replace them with a duplicate of the Business dashboard. The artifact's entry reads as a placeholder (a literal alias of another screen) rather than a considered design for this one, and the shipped screen serves a real job the generic shape does not. It gets the token/mono/breakpoint pass and keeps every feature. Revisit if you'd rather the tables moved to Reports and the dashboard became the generic shape |
 | 15 | P3.2 | The reference's voucher form shows a **Vehicle no** header field and promises "vehicle number captured" on the e-Way Bill compliance line. This app's voucher carries no transport details — a vehicle number lives on the `eway_bills` row, which does not exist until after approval | **Shipped without it, deliberately** (this plan's own rule: no screen displays something the backend did not produce). The preview line says `raise it after approval` instead, and a spec asserts it never mentions a vehicle. Tracked as **B-17** — your call whether to build the transport fields |
+| 16 | P6 | The reference's HR dashboard is the generic `dash` shape (KPI strip → queue + breakdown → trend). The real screen is an analytics workbench: a date-range filter, six charts, and two searchable CSV-exportable tables (headcount by department, pending leave) | **Rethemed in place — deliberate deviation**, the same call mismatch 13 made for the Transaction dashboard and for the same reason: matching the reference exactly would delete the filter, five of six charts and both exportable tables to replace them with a duplicate of the Business dashboard. It gets the KPI strip (decision 14), the shared status vocabulary and the token pass, and keeps every feature. Revisit if you'd rather the tables moved to Reports |
 | 14 | N | The shell shipped two controls doing the same thing — the header's hamburger and the nav panel's own `left_panel_close` button both collapsed the panel, side by side — and the panel head (61px, hairlined) did not match the toolbar beside it (64px, no hairline), so the divider stepped at the seam | **Fixed** (your report, 2026-08-18). One collapse control (the header's); the panel head is toolbar-height and the hairline runs unbroken across rail, panel and toolbar. Mobile's close/X stays — it closes the whole overlay, a different action |
 | 12 | N | Nav panel: 7 of 12 rail short-labels drifted from the artifact's wording; no accordion collapse for modules over the artifact's own 14-item threshold (Transaction's panel was one long flat list); no filter box above panels over 10 items, though the artifact shows one | **Fixed**, no decision needed — pure conformance, no downside. See Phase N's "Corrected 2026-08-18" addendum above |
 
