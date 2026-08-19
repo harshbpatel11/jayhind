@@ -32,6 +32,20 @@ needs data the API doesn't serve today (see **Backend-side work** and decision 1
 
 ## Progress
 
+**Every phase is complete.** P0–P9 all shipped, each browser-verified in light
+and dark at the four governed breakpoints against the running stack, each its
+own commit with its submodule pointers bumped. What remains is your review, plus
+the items still marked **your call** in the backend table (B-4, B-5, B-9, B-13,
+B-17) and the mismatch log.
+
+Running total across the phases driven since 2026-08-19: **1,289 browser checks,
+all green** — P2.2 213, P3.2 33, P3.3 258, P3.4 105, P4 22, P5 157, P6 243,
+P7 160, P8 61, P9 217.
+
+Two CI guards were added along the way and both are wired into `npm run lint`
+with **no grandfather list**: `scripts/breakpoint-guard.js` (from P0) and
+`scripts/token-guard.js` (P3.4).
+
 | # | Phase | Scope | State |
 |---|---|---|---|
 | P0 | Foundation | tokens, fonts, icons, shared primitives | **done, browser-verified, committed** (`84f656c`) |
@@ -44,7 +58,7 @@ needs data the API doesn't serve today (see **Backend-side work** and decision 1
 | P6 | Human Resources | ~15 screens | **done, browser-verified 2026-08-19** |
 | P7 | Users & Roles, Profile, Party Portal | ~8 screens | **done, browser-verified 2026-08-19** |
 | P8 | Files, Audit Log, Export, Site Config | ~6 screens | **done, browser-verified 2026-08-19** |
-| P9 | Dialogs sweep | shared dialog partials + 8 dialog categories | not started |
+| P9 | Dialogs sweep | shared dialog partials + 8 dialog categories | **done, browser-verified 2026-08-19** |
 
 **Done in P0:** bare-name token layer with `--ds-*` kept as aliases; Material
 Symbols + IBM Plex Mono self-hosted (both CDN `<link>`s removed); `ds-status-chip`,
@@ -1439,18 +1453,61 @@ rather than on element counts.
 
 ---
 
-# P9 — Dialogs sweep
+# P9 — Dialogs sweep *(done — browser-verified 2026-08-19)*
 
-- Retheme the shared dialog partials: `src/styles/custom/_form-dialog.scss`,
-  `_resizable-dialog.scss`, `_side-panel-dialog.scss`, `_form-errors.scss`.
-- Walk the mockup's 8 dialog categories (Pickers, Voucher actions, Compliance,
-  Data & grid, Print & share, Stock & shop floor, People & access, System) against
-  the app's real `MatDialog` usages — `confirmation-dialog`,
-  `document-viewer-dialog`, `grid-filter`, `EwayBillDialogService` /
-  `EinvoiceDialogService` dialogs, invite/permission dialogs, and the rest.
-- The route audit found no missing screens, so expect retheme + a confirmation
-  pass, not new dialog builds. Anything genuinely missing gets listed for a
-  separate decision rather than built silently here.
+- Retheme the shared dialog partials plus every dialog carrying its own colour.
+- The route audit found no missing screens, so this was retheme + a
+  confirmation pass, not new dialog builds. **No backend change.**
+
+**What shipped**
+
+- **The shared partial was frozen the *other* way.** `_form-dialog.scss` fell
+  back to **dark-mode literals** — `var(--ds-border, rgba(255,255,255,.08))`,
+  `rgba(255,255,255,.07)` — the opposite direction from every other frozen
+  value in this refresh, which is how a partial written dark-first goes wrong
+  in light. Both partials' hand-rolled `rgba(0,0,0,…)` drop shadows are
+  `--ds-shadow-lg` now.
+- **A dialog that put white text on a pale blue.** The product pricing dialog's
+  summary card was `background: var(--primary); color: #fff` — fine in light,
+  but `--primary` is `#adc6ff` in dark, so white on it fails contrast outright.
+  It is `--primary-container` / `--on-primary-container` now, a pairing the
+  design system guarantees is readable in **both** schemes, with the profit
+  figure keeping `--success` (the old `#bbf7d0` was a pale green chosen for a
+  dark fill). Every dialog's text contrast is now **computed** by the pass, not
+  eyeballed.
+- **Nine more dialogs swept** for `--ds-*` and `--mat-sys-*` frozen fallbacks —
+  pricing, salary structure, payslip, voucher review, document viewer,
+  payment/receipt, print preview, dynamic field, e-Way Bill generate.
+
+**P9 verified:** build clean · lint 0 errors · breakpoint guard OK · token guard
+OK · `check-mirrors` in sync · **9 real dialogs opened from real rows** in
+Playwright Chromium, light + dark at 480/720/1024/1440 — **217/217 checks
+green**: every panel resolves a themed surface, every one passes AA on computed
+contrast, none overflows the viewport at 480, and no hand-rolled pill survives
+inside any of them. Screenshots in [`_ops/ui-refresh/p9/`](_ops/ui-refresh/p9/).
+
+A dialog is the hardest surface in this app to verify, because it only exists
+after an interaction — every earlier phase's pass measured the screen *behind*
+it. This harness opens each one from its real trigger, and a category it cannot
+reach is recorded as a **failure**, never skipped silently: that is how the two
+initially-unreachable triggers (the unlabelled `filter_list` toolbar button and
+the voucher row, which has no View action at all) were found rather than quietly
+counted as covered. The voucher-action dialog is opened and then **escaped,
+never confirmed** — the pass must not submit a voucher for approval as a side
+effect of looking at its dialog.
+
+**Categories driven: 7 of the reference's 8** — Pickers, Voucher actions,
+Data & grid, Print & share, Stock & shop floor, People & access, System.
+**Compliance was not driven**: the e-Way Bill and e-Invoice dialogs need a
+licensed, configured gateway and an approved voucher, and this tenant has both
+gateways switched off (the same limit P3.2 recorded for its compliance strip).
+Those dialogs' stylesheets were swept and are covered by the token guard and
+the build; their rendered surfaces are unverified.
+
+**One accessibility gap noticed, not fixed:** several toolbar actions carry no
+`aria-label` — only their icon ligature — so a screen reader announces them as
+the word "filter_list". Found because the harness could not address them by
+name. Out of scope for a retheme; flagged for your call.
 
 ---
 
