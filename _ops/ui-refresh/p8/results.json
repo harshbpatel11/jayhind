@@ -1,0 +1,307 @@
+[
+  {
+    "name": "file-manager/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "file-manager/light no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "file-manager/light file manager rendered",
+    "pass": true,
+    "detail": "2 item(s), empty-state=undefined"
+  },
+  {
+    "name": "file-manager/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "file-manager/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "file-manager/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "file-manager/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "audit-logs/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "10 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "audit-logs/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 30 ds-status-chip"
+  },
+  {
+    "name": "audit-logs/light no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 30 ds-status-chip"
+  },
+  {
+    "name": "audit-logs/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "audit-logs/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "audit-logs/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "audit-logs/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "company-export/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "company-export/light no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "company-export/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "company-export/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "company-export/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "company-export/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "site-config/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "site-config/light no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "site-config/light configuration screen rendered",
+    "pass": true,
+    "detail": "rendered"
+  },
+  {
+    "name": "site-config/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "site-config/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "site-config/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "site-config/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "file-manager/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "file-manager/dark no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "file-manager/dark file manager rendered",
+    "pass": true,
+    "detail": "2 item(s), empty-state=undefined"
+  },
+  {
+    "name": "file-manager/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "file-manager/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "file-manager/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "file-manager/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "audit-logs/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "10 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "audit-logs/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 30 ds-status-chip"
+  },
+  {
+    "name": "audit-logs/dark no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 30 ds-status-chip"
+  },
+  {
+    "name": "audit-logs/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "audit-logs/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "audit-logs/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "audit-logs/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "company-export/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "company-export/dark no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "company-export/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "company-export/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "company-export/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "company-export/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "site-config/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "site-config/dark no hand-rolled pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "site-config/dark configuration screen rendered",
+    "pass": true,
+    "detail": "rendered"
+  },
+  {
+    "name": "site-config/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "site-config/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "site-config/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "site-config/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "audit-logs card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "audit-logs chip surface follows the theme",
+    "pass": true,
+    "detail": "light rgb(239, 237, 240)|rgb(68, 71, 78) / dark rgb(31, 32, 34)|rgb(162, 163, 173)"
+  },
+  {
+    "name": "company-export card surface follows the theme",
+    "pass": true,
+    "detail": "light rgb(250, 249, 253)|rgb(196, 198, 208)|rgb(26, 27, 31) / dark rgb(18, 19, 22)|rgb(68, 71, 78)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "company-export tints surface follows the theme",
+    "pass": true,
+    "detail": "light rgb(227, 244, 233) / dark rgb(18, 48, 31)"
+  },
+  {
+    "name": "site-config card surface follows the theme",
+    "pass": true,
+    "detail": "light rgb(250, 249, 253)|rgb(196, 198, 208)|rgb(26, 27, 31) / dark rgb(18, 19, 22)|rgb(68, 71, 78)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "no console errors",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "no failed requests",
+    "pass": true,
+    "detail": ""
+  }
+]

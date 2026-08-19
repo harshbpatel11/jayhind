@@ -43,7 +43,7 @@ needs data the API doesn't serve today (see **Backend-side work** and decision 1
 | P5 | Job Work | ~12 screens | **done, browser-verified 2026-08-19** |
 | P6 | Human Resources | ~15 screens | **done, browser-verified 2026-08-19** |
 | P7 | Users & Roles, Profile, Party Portal | ~8 screens | **done, browser-verified 2026-08-19** |
-| P8 | Files, Audit Log, Export, Site Config | ~6 screens | not started |
+| P8 | Files, Audit Log, Export, Site Config | ~6 screens | **done, browser-verified 2026-08-19** |
 | P9 | Dialogs sweep | shared dialog partials + 8 dialog categories | not started |
 
 **Done in P0:** bare-name token layer with `--ds-*` kept as aliases; Material
@@ -1400,14 +1400,42 @@ Screenshots in [`_ops/ui-refresh/p7/`](_ops/ui-refresh/p7/).
 
 ---
 
-# P8 — Files, Audit Log, Export, Site Configuration
+# P8 — Files, Audit Log, Export, Site Configuration *(done — browser-verified 2026-08-19)*
 
 **Files:** `file-manager/**`, `audit-log/**`, `company-export/**`,
 `site-configrations-component/**`
-- Files: the mockup's files variant (breadcrumb + grid/list toggle + preview).
-- Audit Log: dense read-only list, timestamps in mono.
-- Site Configuration: settings shape — and the one place whose assets are served
-  statically (CLAUDE.md §6.4), so no upload-path changes here, styling only.
+- Site Configuration is the one place whose assets are served statically
+  (CLAUDE.md §6.4) — **styling only, no upload-path change**.
+- **No backend change.**
+
+**What shipped**
+
+- **The fifth and sixth private status palettes are gone.** The company-export
+  screen tinted its job rows with four frozen pastels
+  (`#e3f2fd`, `#fff3e0`, `#e8f5e9`, `#ffebee`) built in TypeScript rather than
+  CSS, and the Site Configuration password-strength meter had four more raw
+  hexes. Both are the design system's own `-bg` fills now. Verified live with a
+  real export job: light `rgb(227,244,233)` → dark `rgb(18,48,31)`.
+- **`--mh-error` is gone** — a token from the *hub* console's namespace,
+  referenced in the ERP with a `#c62828` fallback, so it always rendered that
+  literal. It is `--error`.
+- **The company-logo preview stays white on purpose**, and now says so: it
+  previews an asset usually drawn for white paper and letterheads, and showing
+  it on a dark surface would preview something the customer never prints. It is
+  the one deliberate hex left in the module.
+- The remaining sweep across all four screens: every `--ds-*` alias and every
+  `--mat-sys-*` with a frozen fallback resolves to a bare token.
+
+**P8 verified:** build clean · lint 0 errors · breakpoint guard OK · token guard
+OK · 4 screens driven in Playwright Chromium, light + dark at
+480/720/1024/1440 — **61/61 checks green**, no console errors, no failed
+requests, no horizontal overflow. Screenshots in
+[`_ops/ui-refresh/p8/`](_ops/ui-refresh/p8/).
+
+The export-status check was passing on nothing until a real export job was
+requested through the API — the same class of vacuous pass caught in every
+phase since P2.2, and the reason each of these harnesses now asserts on values
+rather than on element counts.
 
 ---
 
