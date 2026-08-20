@@ -323,11 +323,33 @@ authenticated admin creates them (`UsersService.create`), or they are invited
 had no company to join, so it minted an identity that could authenticate and
 then failed `NO_MEMBERSHIP` on every request.
 
-`user_configurations.allowSignup` **survives as a dead column** (no migration,
-no row reshaped) and the update DTO no longer accepts it — see the entity's own
-⚠️. Don't wire it back up without a company-selection story. `defaultRoleId` is
-NOT sign-up specific and stayed: it is what `UsersService.addUserDefaultValue`
-falls back to for any user created without an explicit role.
+`user_configurations.allowSignup` outlived the flag it gated by a few hours;
+the whole table went next (below). Don't wire self sign-up back up without a
+company-selection story for whoever signs up.
+
+#### The User Configuration module is gone — how a new user gets its defaults
+
+Removed outright on **2026-08-20**: the screen (`/users-roles/configuration/
+settings`), the nav item, `GET|PUT /user-configuration`, the service,
+controller, DTO and entity, the `user-configuration` permission key (out of
+`permission-registry.ts`, `ALWAYS_AVAILABLE_PERMISSION_KEYS`,
+`ADMIN_ONLY_PERMISSION_KEYS` and `CONFIG_URLS`), and the table itself
+(migration `20260820100000-drop-user-configurations`, which also stopped
+company provisioning seeding a row). Its three settings each had exactly one
+defensible value, and `UsersService.addUserDefaultValue` is now where all
+three live:
+
+| Was | Is |
+|---|---|
+| `defaultPassword` — one company-wide literal every colleague already knew | a password **generated per user** (`src/const/generated-password.const.ts`), which the Add User form pre-fills, shows and lets the admin copy |
+| `defaultUserVerified` | **always verified.** Switching it off only produced accounts that could not log in and no screen to fix them |
+| `defaultRoleId` | the Add User form **requires** a role; the callers with no human choosing (Tally import parties, a voucher's quick-add party, HR onboarding) fall back to `SAFE_DEFAULT_ROLE_NAME`, resolved by NAME per company — `resolveDefaultRoleId` no longer takes a configured candidate |
+
+The generator's alphabet is exactly what `CreateUpdateUserDto.password`
+accepts, and one character of each required class is placed explicitly, so a
+generated password can never be refused by the endpoint it was generated for.
+`jayhindi-client-front/src/utils/password-generator.util.ts` is the form's own
+copy — the two need not agree on output, only on that rule.
 
 #### One identity, many companies — adding someone who already exists
 
@@ -437,7 +459,8 @@ These status+code pairs are contracts the frontend recognises. Don't change them
   rather than failing the batch).
 - **Migrations**: a squashed `00000000000000-initial-schema.ts` baseline in both
   backends, plus incremental migrations on top of it in `client-back`
-  (`20260820000000-user-details-company-scope` is the first). Add new ones with
+  (`20260820000000-user-details-company-scope`, then
+  `20260820100000-drop-user-configurations`). Add new ones with
   `npm run migration:create <name>`; never edit the squashed baseline. Write
   each step idempotently (check `information_schema` before altering) so a
   re-run is a no-op rather than an error.
@@ -696,10 +719,13 @@ src/
   visible when any child is.
 - **The nav is two columns** (`client-front` only): `app-nav-rail` lists every
   top-level module as an icon and never collapses; `app-sidemenu` beside it lists
-  the ACTIVE module's own pages, grouped by the config's `sub` nodes. Only the
-  panel collapses (`options.sidenavCollapsed`), so every module stays one click
-  away at any width. `MenuService.activeModule` — the URL's first segment matched
-  against the permission-filtered tree — is what both columns read.
+  the ACTIVE module's own pages, grouped **two ways**: a `sub` node becomes a
+  heading (it is a URL segment too), and a run of consecutive leaves sharing a
+  `group` label becomes one as well (a heading with NO url — `PANEL_GROUP`).
+  Only the panel collapses (`options.sidenavCollapsed`), so every module stays
+  one click away at any width. `MenuService.activeModule` — the URL's first
+  segment matched against the permission-filtered tree — is what both columns
+  read.
   - A top-level `NavItem` may declare `subtitle` (panel header caption),
     `shortName` (the rail's ~10-character label; the tooltip and `aria-label`
     keep the full name) and, for a module with **no child routes**, `sections`:
@@ -714,6 +740,17 @@ src/
     empty column or a content margin with nothing under it. The mobile overlay
     keeps its panel (`|| !showToggle`): nothing competes for width there, and
     the panel head carries the drawer's only close button.
+  - **Above 14 pages the panel's groups collapse to an accordion**, except
+    those listed in `PINNED_PANEL_GROUPS` — the everyday destinations, which
+    must never need a click to reveal. Transaction (40 pages) is the reason
+    both mechanisms exist, and since **2026-08-20** its panel reads: Overview ·
+    **Daily Entry** (Sales, Purchase, Receipt, Payment, Journal, Contra — open)
+    · Sales Cycle ▸ · Purchase Cycle ▸ · **Ledgers & GST** (open) · Reports ▸ ·
+    Masters ▸ · Setup ▸. The order of `vouchers.children` in
+    `navigation.config.ts` **is** that layout — it was document-flow order
+    before, which reads well as a diagram and put Sales, the most-used screen
+    in the app, ninth and behind a disclosure triangle. No route moved; only
+    the `group` labels and the order did.
   - **The per-module tab bars are gone.** `ModuleLayoutComponent` is now only a
     `<router-outlet>`; the panel lists the same tree at full width without the
     horizontal scrolling seven tabs forced. Don't reintroduce them.
