@@ -247,6 +247,21 @@ from the schema.
 **Layer 3 — registries + CI guards** (`src/const/tenant-scope-registry.const.ts`,
 `src/const/ci-guards/`). A new entity that isn't classified is a failing test.
 
+> **`user_details` is company-scoped** (migration
+> `20260820000000-user-details-company-scope`, 2026-08-20). The party master —
+> address, GSTIN, PAN — is one row per (company, identity), because the same
+> real supplier legitimately trades with several of our customers and each
+> holds their own copy. GSTIN uniqueness is `UNIQUE(companyId, gstNo)`, **never
+> global**; the old global unique is what produced "A record with this gstNo
+> already exists" when a second company registered a party the first already
+> had. Adding the column is also the only thing that put the table under the
+> hooks at all (they key off `rawAttributes.companyId`), so removing it would
+> silently un-scope every read and write of the party master.
+
+`company_parties` still owns the per-company **balances**; the two tables now
+agree on grain. D-02's full split (moving every reader onto `company_parties`)
+remains unfinished, but the isolation gap it was meant to close is shut.
+
 #### Rules you must follow
 
 1. **Never** add `{ crossCompany: true }` to make an error go away. It is legal in
@@ -297,6 +312,41 @@ the token TTL: bump it on any role/permission change, and the guard returns
 **`User.create()` may only be called in `services/users.service.ts`** — enforced
 by `src/user-module-boundary.spec.ts`. Everything else goes through
 `UsersService.create` / `UserProfileService.findOrLinkUser`.
+
+#### One identity, many companies — adding someone who already exists
+
+`UsersService.create` with an e-mail that already belongs to a platform
+identity **adds a membership to that identity** (`linkExistingIdentity`); it
+never mints a second one. This applies to **every** role — party and staff
+alike — because the person, not the role, is what is shared. It is the same
+thing `CompanyAdminService.add` (the hub's "add an admin") has always done,
+extended to the in-app *Add User* form.
+
+- Already an **active** member of this company → `400`, "already a member".
+  A Pending/Exited/soft-deleted membership is revived in place instead, with
+  `membershipVersion` bumped.
+- The linked membership is **never** `isDefault` — this company's admin does
+  not get to decide where someone else's login lands.
+- The identity row (`name`, `password`, `phone`, …) is **not touched**. Only
+  the per-company records are written: `company_members`, `company_parties`,
+  and `user_details` (see §4.3's note — the party master is company-scoped).
+
+> ⚠️ This **replaced** the previous §11.3 enumeration-safety rule, which
+> swapped a colliding party e-mail for a `@tally-import.invalid` placeholder
+> and created a duplicate identity. That bought secrecy at the cost of making
+> multi-company membership unreachable: a person who administered one company
+> and was a party of another got two unrelated logins and could only sign into
+> one. Product decision, 2026-08-20 — the login company chooser depends on it.
+> Do not re-introduce the placeholder swap for a caller-supplied e-mail.
+>
+> **The bulk Tally import is the deliberate exception** and still never links:
+> `ImportCommitService.resolvePartyEmail` resolves a colliding address to a
+> placeholder *before* `UsersService.create` sees it, so a 500-ledger import
+> cannot attach memberships to real people. Keep it that way.
+
+An **edit** (`UsersService.update`) still refuses a colliding e-mail outright
+for both kinds — pointing an existing row at another identity would be a merge
+(whose vouchers and journal history win?), not a membership.
 
 ### 4.5 Permissions — four independent gates
 
@@ -369,9 +419,12 @@ These status+code pairs are contracts the frontend recognises. Don't change them
   an already-deleted row hard-deletes), `restore`, `bulkRemove`, `bulkRestore`
   (best-effort — a refused row lands in `skipped` with its own service's reason
   rather than failing the batch).
-- **Migrations**: currently a single squashed `00000000000000-initial-schema.ts`
-  in both backends. Add new ones with `npm run migration:create <name>`; never
-  edit the squashed baseline.
+- **Migrations**: a squashed `00000000000000-initial-schema.ts` baseline in both
+  backends, plus incremental migrations on top of it in `client-back`
+  (`20260820000000-user-details-company-scope` is the first). Add new ones with
+  `npm run migration:create <name>`; never edit the squashed baseline. Write
+  each step idempotently (check `information_schema` before altering) so a
+  re-run is a no-op rather than an error.
 - **Transactions**: controllers open `await this.sequelize.transaction()` for
   multi-step writes and pass `{ transaction }` down. Commit on success, rollback
   and rethrow as `ApiException` on failure — see
@@ -644,6 +697,20 @@ src/
     the approval gate) plus Quick Voucher Entry.
 - **Post-login landing** is `menu.getFirstAccessibleRoute()`, never a hardcoded
   dashboard the role may not have.
+- **Choosing a company** is a two-surface story, both driven by
+  `CompanySwitchService`:
+  - **At login**, an identity holding **more than one** live membership is sent
+    to `/auth/select-company` (`SelectCompanyComponent`) instead of landing
+    directly — their role, and so what they may see, differs per company, so
+    the server's `pickDefaultMembership` choice is offered rather than imposed.
+    One membership → no chooser, unchanged. The route is deliberately **not**
+    behind `guestGuard`: the person is already authenticated by then.
+  - **Mid-session**, the header `CompanySwitcherComponent` does the same job,
+    and only renders when there is somewhere else to go.
+  - Both go through `POST auth/switch-company`, so the **server** re-verifies
+    the membership and mints the token. Picking a company is never a
+    client-side preference. Choosing the already-active company (the one login
+    minted) skips the round-trip.
 - **Unsaved changes**: `canDeactivate: [pendingChangesGuard]` on form screens.
 - **Token refresh** is single-flight (`TokenRefreshService`): a 401, a `409
   MEMBERSHIP_STALE`, or the proactive pre-expiry timer all await the *same*
@@ -796,13 +863,14 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
 
 | Layer | Where | Run |
 |---|---|---|
-| Unit (Jest) | `src/**/*.spec.ts` — 94 suites / 1310 tests in client-back, 8 / 160 in admin-back; mostly beside `const/*.const.ts` | `npm test` |
+| Unit (Jest) | `src/**/*.spec.ts` — 96 suites / 1341 tests in client-back, 8 / 160 in admin-back; mostly beside `const/*.const.ts` | `npm test` |
 | Architecture guards | `src/user-module-boundary.spec.ts`, `src/const/ci-guards/*` | `npm test` + `scripts/ci-guard-*.ts` |
 | Cross-repo mirror drift | `scripts/check-mirrors.js` (**this** repo — only it sees both submodules) | `node scripts/check-mirrors.js` |
 | QA harnesses | `scripts/qa-*.ts` (~55 in client-back, 5 in admin-back) | `npx ts-node -r tsconfig-paths/register scripts/qa-<name>.ts` |
 | Style guard | `scripts/breakpoint-guard.js` | `npm run lint` (client-front) |
 | E2E / UI | `qa-artifacts/` (Playwright) | see its README |
 | OCR | `jayhind-ocr-service/tests` (pytest, fake reader/extractor — no model download) | `pytest` |
+| Data repair | `client-back/scripts/fix-duplicate-party-identities.ts` — cleans up the duplicate/orphan identities the pre-2026-08-20 party rule left behind. **Dry-runs by default**; `--apply` writes, `--merge <from>:<to>` folds one identity into another (repointing every FK that actually holds rows, then deleting the source) | `npx ts-node -r tsconfig-paths/register scripts/fix-duplicate-party-identities.ts` |
 
 The QA scripts expect a **running stack** and hit real endpoints; the Jest suite
 needs no DB. When you change a domain rule in `src/const/`, update its `.spec.ts`
@@ -958,6 +1026,9 @@ is one nobody reads.
 | How is a voucher posted? | `src/services/posting.service.ts`, `src/const/posting.const.ts` |
 | What may a voucher have done to it? | `src/const/voucher-lifecycle.const.ts` |
 | Identity vs. membership | `src/entities/company-member.entity.ts` |
+| How one person ends up in several companies | `client-back/src/services/users.service.ts` `linkExistingIdentity`, `company-admin.service.ts` `add` |
+| Choosing/switching company | `client-back/src/services/auth.service.ts` `switchCompany`, `client-front/src/services/company-switch.service.ts`, `components/auth/select-company/` |
+| Why one party has a row per company | `src/entities/user-details.entity.ts`, `src/migrations/20260820000000-user-details-company-scope.ts` |
 | Frontend nav & permissions | `client-front/src/core/navigation/navigation.config.ts`, `guards/permission.guard.ts` |
 | Breakpoints / responsive rules | `client-front/src/styles/design-system/_breakpoints.scss`, `scripts/breakpoint-guard.js` |
 | All routes | `npx ts-node -r tsconfig-paths/register scripts/dump-routes.ts` (client-back) |
