@@ -313,6 +313,22 @@ the token TTL: bump it on any role/permission change, and the guard returns
 by `src/user-module-boundary.spec.ts`. Everything else goes through
 `UsersService.create` / `UserProfileService.findOrLinkUser`.
 
+#### Access is by invitation only — there is no sign-up
+
+`POST /auth/register`, `AuthService.register`, `AuthUserDto`, the `/auth/signup`
+screen and the `signupAllowed` flag on the public site-configuration response
+were **all removed on 2026-08-20**. A user arrives one of two ways: an
+authenticated admin creates them (`UsersService.create`), or they are invited
+(`InvitationService` — in-app, or the Hub's "add an admin"). Public self sign-up
+had no company to join, so it minted an identity that could authenticate and
+then failed `NO_MEMBERSHIP` on every request.
+
+`user_configurations.allowSignup` **survives as a dead column** (no migration,
+no row reshaped) and the update DTO no longer accepts it — see the entity's own
+⚠️. Don't wire it back up without a company-selection story. `defaultRoleId` is
+NOT sign-up specific and stayed: it is what `UsersService.addUserDefaultValue`
+falls back to for any user created without an explicit role.
+
 #### One identity, many companies — adding someone who already exists
 
 `UsersService.create` with an e-mail that already belongs to a platform
@@ -689,12 +705,32 @@ src/
     keep the full name) and, for a module with **no child routes**, `sections`:
     in-page anchors whose `id` MUST exist on that screen. Two sections that share
     a vertical band must be **one** entry — see the Dashboard's `dash-queues`.
+  - **A module with ONE destination renders no panel at all.**
+    `MenuService.activeModuleHasPanel` is false when the (permission-filtered)
+    module has no children and fewer than two `sections`: Chat, Files, Audit
+    Log, Export, Branding. Both `SidebarComponent` (which element to render)
+    and `AdminComponent` (`.matero-nav-panel-hidden`, which narrows the sidenav
+    to the rail) read that ONE signal — if they disagree you get either a stray
+    empty column or a content margin with nothing under it. The mobile overlay
+    keeps its panel (`|| !showToggle`): nothing competes for width there, and
+    the panel head carries the drawer's only close button.
   - **The per-module tab bars are gone.** `ModuleLayoutComponent` is now only a
     `<router-outlet>`; the panel lists the same tree at full width without the
     horizontal scrolling seven tabs forced. Don't reintroduce them.
     Transaction's own right-hand rail is the one survivor, because it also
     carries rules the panel does not (the admin's `hiddenTransactionMenus` and
     the approval gate) plus Quick Voucher Entry.
+- **Company settings are split by what they're FOR** (2026-08-20).
+  `/site-configrations` ("Branding") keeps only the logo and favicon. Company
+  name, GSTIN, PAN, address and the e-Way Bill / e-Invoice gateway cards live in
+  **Transaction ▸ Configuration** (`/transaction/transaction-config`) as
+  in-page sections beside the voucher settings — every one of them is printed on
+  a voucher or applied to one, and the GSTIN is what splits CGST/SGST from IGST.
+  Consequence, decided deliberately: the **Transaction licence now gates Company
+  & GST** (that route's key is `transaction-config`). Both screens still call the
+  same `PUT /site-configuration`, which applies **exactly the keys it is
+  handed** — so each posts only its own half and neither may echo back the
+  other's fields. `UpdateSiteConfigurationDto.name` is optional for that reason.
 - **Post-login landing** is `menu.getFirstAccessibleRoute()`, never a hardcoded
   dashboard the role may not have.
 - **Choosing a company** is a two-surface story, both driven by
