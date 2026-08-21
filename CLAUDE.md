@@ -267,7 +267,21 @@ remains unfinished, but the isolation gap it was meant to close is shut.
 1. **Never** add `{ crossCompany: true }` to make an error go away. It is legal in
    exactly two situations: (a) the query that *establishes* tenant context
    (`TenantContextGuard`), and (b) genuinely company-agnostic reads. Every use
-   needs a comment saying why.
+   needs a comment saying why — and the comment should name **the caller**, not
+   the query, because that is where the safety actually lives. Whether the flag
+   is safe depends entirely on where the id came from: off a membership the guard
+   has already verified, or typed into a URL by whoever made the request.
+   > ⚠️ The dangerous shape is a **shared private reader** with `crossCompany`
+   > inside it. `role-permission.service.ts` had one, correctly justified for the
+   > guard (its `roleId` comes from a verified membership, and it may run with no
+   > context at all). A second caller then reused it from
+   > `GET /role-permissions/:roleId`, where the id is caller-supplied — and any
+   > company could read any other's role permission matrix, while the comment
+   > went on being true. Nothing at the call site says the hooks are off. When a
+   > route takes an id and the read underneath it is cross-company, look up the
+   > owning row through the **scoped** model first and 404 on a miss; that is
+   > what the matching write path was already doing, which is why only the read
+   > was exposed.
 2. Code that runs **outside an HTTP request** — cron ticks, queue workers,
    seeders, `scripts/*.ts` — has **no store**. It must wrap work in
    `TenantContext.run({ companyId, … }, fn)` (see `due-reminder.service.ts`,
@@ -832,7 +846,20 @@ conventions.
     (`UniqueConstraintError` → 409, `ForeignKeyConstraintError` → 409,
     `ValidationError` → 400) and suppresses stacks under `NODE_ENV=production`.
     Note the subclass ordering in that filter — `UniqueConstraintError` before
-    `ValidationError`, `ForeignKeyConstraintError` before `DatabaseError`.
+    `ValidationError`, `ForeignKeyConstraintError` before `DatabaseError`. Two
+    more rules live in the same filter, both in **both** backends:
+    - **A middleware error keeps its own status.** An error carrying
+      `expose === true` and a 4xx `status`/`statusCode` (the `http-errors`
+      contract that body-parser and multer follow) is answered with that status,
+      so an oversized body is a 413 rather than a 500. `expose` is the safety
+      condition — the library sets it false for 5xx — so a 5xx still becomes the
+      generic 'Internal Server Error'.
+    - **`request.url` is never recorded raw**, in the error body's `path` or in
+      the audit row's `description`. It can BE a credential: the
+      `@AllowQueryToken()` routes (§8.6) accept a live bearer token in the query
+      string, and echoing the failing URL handed it back to the caller and
+      persisted it into `audit_logs`. Use `redactUrl()`
+      (`src/const/redact-url.const.ts`) for anything that copies a URL.
 12. **Passwords are argon2**, tuned by `ARGON2_*` env vars. Never swap in bcrypt
     or hand-rolled hashing.
 
