@@ -223,7 +223,7 @@ and Sequelize hooks registered at bootstrap aren't in the DI graph at all.
 - `TenantContextMiddleware` opens an empty store on **every** request.
 - `TenantContextGuard` fills the *same object* in place via `populate()` once
   `request.user` exists, carrying `companyId`, `membershipId`,
-  `membershipVersion`, `identityId`, `licence`, `billingRestricted`.
+  `membershipVersion`, `identityId`, `userKind`, `licence`, `billingRestricted`.
 - `licence` and `billingRestricted` ride along **because the `companies` row is
   already loaded** — so a licence/billing change made in the hub console is live
   on the very next request, with no cache TTL to wait out.
@@ -435,6 +435,7 @@ for both kinds — pointing an existing row at another identity would be a merge
 | `RoleMenuGuard` + `@Permissions(key, actions)` | **opt-in** `@UseGuards` | per module key × action | **yes** — Admin is never locked out |
 | `ModuleLicenceGuard` | global | licensed module | **no** — provider's decision |
 | `BillingRestrictionGuard` | global | HTTP method | no |
+| `PartyOnlyGuard` | **opt-in** `@UseGuards` (the party portal, class-level) | identity **kind** | **no** — an admin is not a party |
 
 **`@Permissions('<key>', ['canView'|'canAdd'|'canEdit'|'canDelete'|'canViewDelete'|'canApprove'])`**
 keys are stable strings listed in `src/const/permission-registry.ts` — the single
@@ -450,6 +451,18 @@ of accounts feeding posting, employees feeding payroll). It bypasses both
 couldn't be sold without Product. **Security contract: only ever on read-only
 handlers (GET, or POST `list`/search). Never on create/update/delete/restore.**
 It is handler-scoped on purpose; a controller may not claim it wholesale.
+
+**`PartyOnlyGuard`** (`src/guards/party-only.guard.ts`) is the one gate that asks
+*who the caller is* rather than *what their role may do*. `/party-portal/*` is
+written for a trading party reading their own documents — the self-scope comes
+from `req.user.id`, not from a permission — so a permission key would have been
+the wrong instrument (an admin could grant it to a staff role and aim the portal
+at nobody). It reads `userKind` off `TenantContext`, i.e. off the live
+`company_members` row, **not** off the JWT, so a kind change does not wait out the
+token TTL. `403 { code: 'PARTY_ONLY' }`. It is class-level on purpose: unlike
+`@SharedRead()`/`@ReadOnlyRequest()`, which are handler-scoped because they
+*widen*, this one narrows. Mirrored on the frontend by
+`guards/party-user.guard.ts`, which also does not exempt admins.
 
 **`ADMIN_ONLY_PERMISSION_KEYS`** (`src/const/admin-only-permissions.const.ts`)
 denies every non-admin outright, even one the permission table grants — used for
@@ -488,6 +501,7 @@ These status+code pairs are contracts the frontend recognises. Don't change them
 | `COMPANY_SUSPENDED` | 403 | company suspended/archived | blocked |
 | `FEATURE_DISABLED` | 403 | module not licensed | "your provider turned this off" |
 | `SUBSCRIPTION_PAST_DUE` | 402 | billing read-only grace | reads still work |
+| `PARTY_ONLY` | 403 | a staff/system account called a `/party-portal/*` route | the SPA never routes staff there (`partyUserGuard`) |
 
 ### 4.8 Data layer
 
@@ -991,7 +1005,7 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
 | Layer | Where | Run |
 |---|---|---|
 | Unit (Jest) | `src/**/*.spec.ts` — 96 suites / 1341 tests in client-back, 8 / 160 in admin-back; mostly beside `const/*.const.ts` | `npm test` |
-| Architecture guards | `src/user-module-boundary.spec.ts`, `src/const/ci-guards/*` | `npm test` + `scripts/ci-guard-*.ts` |
+| Architecture guards | `src/user-module-boundary.spec.ts`, `src/const/ci-guards/*` — raw-SQL, cached-state, scope-registry, marker-decorator and **`@Body()`-is-a-DTO** | `npm test` + `scripts/ci-guard-*.ts` |
 | Cross-repo mirror drift | `scripts/check-mirrors.js` (**this** repo — only it sees both submodules) | `node scripts/check-mirrors.js` |
 | QA harnesses | `scripts/qa-*.ts` (~55 in client-back, 5 in admin-back) | `npx ts-node -r tsconfig-paths/register scripts/qa-<name>.ts` |
 | Style guard | `scripts/breakpoint-guard.js` | `npm run lint` (client-front) |
@@ -1019,7 +1033,13 @@ in the same commit — that's where the rules are actually tested.
 
 ### A new endpoint
 1. DTO in `src/dto/` with class-validator decorators (`whitelist` strips
-   anything undeclared).
+   anything undeclared). It must be a **class**: `ValidationPipe` reads
+   class-validator metadata off the body's runtime class, so an inline
+   `@Body() b: { … }`, an `interface`, a `Partial<Dto>` and a bare array all erase
+   to `Object` and the raw JSON reaches the handler unchecked.
+   `scripts/ci-guard-body-dto.ts` fails on all four (a bare array whose wire
+   format cannot change may instead be validated in place with
+   `@Body(new ParseArrayPipe({ items: Number }))`).
 2. Service method in `src/services/` — pure domain rules go in
    `src/const/<x>.const.ts` with a `.spec.ts`.
 3. Controller handler returning `{ status: true, data, message? }`.
