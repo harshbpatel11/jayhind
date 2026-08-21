@@ -376,6 +376,57 @@ Don't "tidy" that.
 the token TTL: bump it on any role/permission change, and the guard returns
 `409 MEMBERSHIP_STALE`, which the frontend turns into a silent refresh.
 
+> **"Any permission change" includes the permission MATRIX, not just the role
+> assignment** (D-40). `RolePermissionService.upsertRolePermissions` busts its
+> own 5-minute server cache, and for a long time that was all it did — so the
+> server enforced the new matrix immediately while every holder of the role kept
+> drawing its nav rail and its buttons from the map it fetched at sign-in, for
+> the rest of the token's life. It now bumps `membershipVersion` on **every**
+> membership holding the role, so the next request refreshes. Two consequences
+> worth knowing before you read a `409` as a bug: a caller in flight when the
+> matrix is saved trades an in-flight `403` for a `409` (both frozen contracts,
+> §4.7 — the refreshed token answers `403` on the retry anyway), and **a test
+> that edits a matrix and then reuses a cached token must follow the 409 with a
+> refresh**, which is what the SPA does. The increment states `companyId`
+> explicitly because `Model.increment` fires `beforeIncrement`, which the
+> tenant-scoping hooks do not register for (§4.3).
+
+**Access transitions are written to the MEMBERSHIP; only the Hub bars an
+identity** (D-39). `PUT /users/:id/lifecycle`, the `status` field on
+`PUT /users/:id`, and `DELETE /users/:id` all used to write the global `users`
+row — the one ADR-004 gives no `companyId` and shares with every company the
+person belongs to. One tenant's admin deactivating a shared person refused their
+login *everywhere*; one tenant's admin deleting them removed them from another
+tenant's Users grid, whose admin was never consulted, could not see why, and
+could not undo it (the restore route belongs to the company that deleted them).
+Meanwhile both `company_members` rows sat there `active` — so the column
+`TenantContextGuard` actually enforces was never written by the endpoints named
+for the job, and `NO_MEMBERSHIP` (§4.7, frozen) was **unreachable from the ERP**.
+
+| Grain | Column | Written by | Read by |
+|---|---|---|---|
+| per company | `company_members.status` | the ERP's Users screen — lifecycle, edit-form `status`, delete | `TenantContextGuard` → `NO_MEMBERSHIP`; `listActiveMemberships` |
+| platform-wide | `users.isActive` / `users.status` | **the Hub's `/internal/*` plane only** | `AuthService.login` |
+| credential | `users.lockedUntil`, `failedLoginCount`, `mustChangePassword` | `AuthService.validateLogin` (5 failed sign-ins); *cleared* by activate/unlock | `AuthService.validateLogin` |
+
+Three things that fall out of it, all deliberate:
+
+- **`lock` and `deactivate` now do the same thing.** The only difference was
+  ever the `users.status` label the ERP no longer writes, and both mean "not in
+  this company". A lockout proper is the credential row, set by five failed
+  sign-ins, and activate/unlock is what clears it.
+- **A delete tombstones the `company_members` row**, and follows it with the
+  identity **only when that was its last live membership anywhere** — which
+  keeps the single-company case (nearly everyone) exactly as it was: archived
+  view, `deletedBy`, restore. A shared identity just leaves this company's grid;
+  re-adding them through `POST /users` revives the soft-deleted membership in
+  place. Because Sequelize does not propagate `paranoid: false` into an include,
+  `UsersService.findAll`/`findOne` pass it down to the `membership` join
+  explicitly — without that the archived view and `loadTarget` both answer empty.
+- **`CreateUpdateUserDto.status` accepts `active | inactive | exited` only.**
+  `locked` is not a membership state, and `pending` belongs to
+  `InvitationService`, which mints the token that makes it recoverable.
+
 **`users.tokenVersion` is the same pattern for the identity, and it is what makes
 sign-out actually end a session** (SEC-021). `AuthGuard` verifies a signature and
 consults nothing else, so a signed-out access token used to keep reading the API
