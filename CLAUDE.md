@@ -1006,6 +1006,27 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
     grace. **Only ever put it on a handler that writes nothing** — see the
     decorator's SECURITY CONTRACT. Forgetting it is safe (the handler just stays
     blocked during grace); adding it to a mutating handler is not.
+- **`pageSize` is capped at 1,000, and it CLAMPS rather than refusing.**
+  `MAX_PAGE_SIZE` / `boundedPageSize()` in *both* backends'
+  `src/const/pagination.const.ts`. It had no `@Max` at all, and one authenticated
+  request could ask for a whole table — `POST /audit-logs/list
+  { pageSize: 1000000 }` returned 19,381 rows and 12.64 MiB from a process that
+  serves every tenant. Clamping is what makes the bound safe to add without
+  breaking a caller (the response echoes the **clamped** value, and `totalPages`
+  is computed from it), and it is also the one way it bites: **asking for more
+  does not fail, it silently returns 1,000.** Anything that genuinely wants every
+  row must page — `jayhindi-client-front/src/utils/fetch-all-pages.ts`, which
+  eleven callers use. That is only sound because `withStableOrder` appends the
+  primary key to every list's `ORDER BY`, so two pages of one query cannot
+  overlap or skip a row. `PlatformUsersService` keeps a tighter 200 of its own,
+  deliberately — it is the only list that reads across every company.
+- **A filter naming a column no model declares is a `400`**, the same answer an
+  undeclared *sort* column already got; it used to be dropped silently, which
+  returned the **unfiltered** table to a caller who asked for a subset. A dotted
+  `alias.column` key whose alias *this* query does not include is still applied
+  to nothing — the frontend sends conditional dotted keys, so refusing it would
+  break screens — but it is named in the response's `ignoredFilters`, present
+  only when something was ignored.
 - `@HttpCode(200)` on POST list endpoints so they don't return 201.
 - Route params validated with `ParseIntPipe`.
 - Bulk endpoints take `BulkIdsDto` and return `bulkDeleteResponse` /
