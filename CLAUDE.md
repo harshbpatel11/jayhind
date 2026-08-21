@@ -1022,6 +1022,25 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
 { status: false, message: string, statusCode: number, path, timestamp, code? }
 ```
 
+- **The audit trail's scope is a decision, and it is enforced.** `@Audit()` is
+  opt-in (a verb-only rule would log every `POST …/list` as a create), so the
+  coverage is a choice rather than an accident: **money and identity first**
+  (D-36). `payroll`, `employee`, `files`, `stock-conversion`, `users` and the three
+  voucher controllers are inside the line and `src/const/ci-guards/audit-coverage.const.ts`
+  keeps them there — a new mutating handler in one of them fails a DB-free unit
+  test. Masters, job work, chat and notifications are deliberately outside it for
+  now. Two things to know before reading a handler as unaudited: the voucher
+  lifecycle transitions are audited from **`ApprovalService`**, inside the same
+  transaction as the posting they perform (better than a decorator, and invisible
+  to a static check — hence `SERVICE_AUDITED_HANDLERS`), and a `@Post` that reads
+  needs `@ReadOnlyRequest()` rather than `@Audit()`.
+- **A voucher line is written through `POST|PUT /trx`, and nowhere else.**
+  `POST /trx-items` and `PUT /trx-items/:id` were removed (D-38) along with the
+  `DELETE`/`restore` pair before them: they wrote a line without re-deriving the
+  voucher's money or re-running posting, so an edit to a **posted** line left its
+  journal entries untouched — a voucher silently out of step with the ledger it had
+  already written. `trx-item-taxes` still has its writers because the SPA's list
+  surface sits next to them; both check that every id they name is the caller's own.
 - **`POST` is used for paginated list/search endpoints** (`POST /products/list`)
   because pagination + filters need a body. Two consequences:
   - Audit is **opt-in** via `@Audit()` rather than verb-sniffing — a verb-only
