@@ -333,6 +333,20 @@ remains unfinished, but the isolation gap it was meant to close is shut.
    takes a parent id from the caller and a `findOrCreate`, a `create` or an
    `update` follows.
 
+   > ⚠️ **It reached the voucher line, which is the busiest write in the product**
+   > (BUG-0015). `productItems[].productId` and `productItems[].taxes[].taxId`
+   > were both accepted from another company: the row was stamped with the
+   > caller's `companyId` while its foreign key pointed into somebody else's
+   > catalogue, and on approve stock moved and a price was captured against
+   > *their* item. The product half looked guarded and was not — a foreign id
+   > missed the tenant-scoped catalogue lookup and the voucher was refused by the
+   > **HSN branch**, because the product it could not find had no `hsnCode`. So
+   > the refusal depended on the client not sending the optional `hsnCode`, and
+   > sending it walked straight through. **A check that exists as a side-effect of
+   > an unrelated one is not a check**, and a refusal whose message does not
+   > describe the actual problem ("HSN/SAC code missing for: Item #1663") is the
+   > tell. `TrxWriteService.assertLineReferencesAreOurs` is the explicit one.
+
 ### 4.4 Identity vs. membership (ADR-004)
 
 - `users` = one **identity** per email, global (no `companyId`).
@@ -914,15 +928,26 @@ conventions.
       so an oversized body is a 413 rather than a 500. `expose` is the safety
       condition — the library sets it false for 5xx — so a 5xx still becomes the
       generic 'Internal Server Error'.
-    - **A `catch` that rethrows must preserve an `ApiException`'s own status.**
-      The rollback-and-rethrow shape at the end of a transactional controller
-      method — `catch (err) { await transaction.rollback(); throw new
-      ApiException(err.message, HttpStatus.BAD_REQUEST); }` — silently overrides
-      every status the block above it chose, so a deliberate `404` eleven lines
-      up reached the caller as a `400`. Nine sites did this and it is why D-5
-      looked like it had not landed on those routes. Write
-      `throw err instanceof ApiException ? err : new ApiException(err.message,
-      HttpStatus.BAD_REQUEST);` — the shape `approval.service.ts` already used.
+    - **A `catch` that rethrows calls `rethrowAfterRollback(err)`**
+      (`src/utility/rethrow-after-rollback.ts`), and nothing else. The
+      rollback-and-rethrow shape at the end of a transactional method — `catch
+      (err) { await transaction.rollback(); throw new ApiException(err.message,
+      HttpStatus.BAD_REQUEST); }` — got two things wrong at once, and the helper
+      is where both answers now live:
+      - it **overrode every status the block above it chose**, so a deliberate
+        `404` eleven lines up reached the caller as a `400`. Nine sites did this
+        and it is why D-5 looked like it had not landed on those routes.
+      - it **laundered a Sequelize error's message onto the wire** (API-023).
+        `err.message` there is raw MySQL: *"Cannot add or update a child row: a
+        foreign key constraint fails (`jayhind_client_development`.`trx_item_taxes`,
+        CONSTRAINT `fk_trx_item_taxes_taxId` …)"*, or *"Out of range value for
+        column 'unitPrice' at row 1"* — the database name, table, constraint and
+        column, to any authenticated caller. Worse, wrapping it **erased the class
+        the filter switches on**, so the careful mapping four lines above
+        (Unique → 409, FK → 409, Validation → 400, DatabaseError → 400 "Invalid
+        request parameters") never ran. A Sequelize error must be rethrown
+        **untouched**; a plain `Error` is still wrapped as a 400 with its own
+        message, because those are written for people.
     - **`request.url` is never recorded raw**, in the error body's `path` or in
       the audit row's `description`. It can BE a credential: the
       `@AllowQueryToken()` routes (§8.6) accept a live bearer token in the query
