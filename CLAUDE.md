@@ -914,6 +914,15 @@ conventions.
       so an oversized body is a 413 rather than a 500. `expose` is the safety
       condition — the library sets it false for 5xx — so a 5xx still becomes the
       generic 'Internal Server Error'.
+    - **A `catch` that rethrows must preserve an `ApiException`'s own status.**
+      The rollback-and-rethrow shape at the end of a transactional controller
+      method — `catch (err) { await transaction.rollback(); throw new
+      ApiException(err.message, HttpStatus.BAD_REQUEST); }` — silently overrides
+      every status the block above it chose, so a deliberate `404` eleven lines
+      up reached the caller as a `400`. Nine sites did this and it is why D-5
+      looked like it had not landed on those routes. Write
+      `throw err instanceof ApiException ? err : new ApiException(err.message,
+      HttpStatus.BAD_REQUEST);` — the shape `approval.service.ts` already used.
     - **`request.url` is never recorded raw**, in the error body's `path` or in
       the audit row's `description`. It can BE a credential: the
       `@AllowQueryToken()` routes (§8.6) accept a live bearer token in the query
