@@ -305,6 +305,18 @@ remains unfinished, but the isolation gap it was meant to close is shut.
    didn't. Sequelize silently flips `required: true` when an include carries a
    `where`, turning LEFT JOINs into INNER JOINs and making rows with nullable FKs
    vanish. The hooks already default it to `false`; don't undo that.
+   > ⚠️ **That default cuts both ways, and the second direction is the quiet
+   > one.** The hooks pin `required: false` on any include the caller left
+   > unset — which is right for a read, and wrong for an include whose `where`
+   > **is** the filter. Sequelize's own flip is what such a query is relying on;
+   > the hook removes it, the predicate lands in the `ON` clause of a LEFT JOIN,
+   > and it filters *nothing*. `assertKeepsAnAdmin` counted every active member
+   > of the company instead of every active **admin**, so FR-017 never once
+   > refused and the Hub could remove a company's last administrator (BUG-0018);
+   > `resolveBillingAdminUserId` named whichever member sorted first — usually a
+   > trading party — as a subscription invoice's preparer. Neither query was
+   > wrong on its face and neither threw. **If an include's `where` decides
+   > which rows come back, say `required: true` out loud.**
 7. **The hooks scope by `companyId`. They do not scope by *parentage*.** A
    caller-supplied **parent id** — an `employeeId`, a `productId`, a `trxId` off
    the URL or the body — must be checked by the service before anything is
