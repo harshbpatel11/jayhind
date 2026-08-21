@@ -1026,7 +1026,36 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
   `alias.column` key whose alias *this* query does not include is still applied
   to nothing — the frontend sends conditional dotted keys, so refusing it would
   break screens — but it is named in the response's `ignoredFilters`, present
-  only when something was ignored.
+  only when something was ignored. The grid renders that key, so a filter that
+  did nothing says so on screen — which is the whole reason it may answer 200.
+- **A filter on a JOINED column marks that alias's include `required`, and that
+  is deliberate.** Sequelize emits the entire top-level `where` inside the
+  subquery it builds for a limited query with a duplicating include, while an
+  include that is not `required` is joined in the OUTER query — so the condition
+  and the join it names land in different halves of the statement and MySQL
+  answers `ER_BAD_FIELD_ERROR`, which surfaces as a 400 (API-019). `required` is
+  the only lever that moves the join in with the condition; `include.subQuery`
+  is recomputed from it and spelling the condition Sequelize's own
+  `$alias.column$` way changes nothing. The cost is an INNER JOIN on that alias,
+  invisible for every positive match mode (`NULL LIKE '%x%'` is NULL, so a
+  LEFT JOIN discarded those rows too) and visible only in a mixed `Op.or` group.
+  A **HasMany** alias is not rescued by this — its condition would have to move
+  into `include.where`. Sorting resolves the same aliases but never marks them
+  required: a sort must order rows, never drop them.
+- **Alias resolution asks the include tree, not the `as` key.** `resolveIncludeRef`
+  (both backends) resolves an include declared without `as` (`{ model: TrxNature }`),
+  one declared as `{ association: 'x' }`, and an alias nested a level down —
+  `role` lives under `membership`, because `User.roleId` is retired, and Sequelize
+  names that join `` `membership->role` ``. A blind `x.as` lookup is what made two
+  grids' filters silently return every row (API-020), and it hit `commonSearch`
+  too: an **unqualified** column key is resolved against the ROOT model, so the
+  root's own columns were searched twice and the included model's never (API-022).
+  An include whose alias cannot be resolved is skipped, never emitted unqualified.
+- **A searched page returns the same shape as an unsearched one.** `commonSearch`
+  and dotted sorts strip the HasMany includes so their own references resolve;
+  `hydrateStrippedIncludes` re-reads the page's ids with the tree the caller asked
+  for before the response goes out. Without it the Products grid's Category column
+  blanked whenever someone typed in the search box (API-021).
 - `@HttpCode(200)` on POST list endpoints so they don't return 201.
 - Route params validated with `ParseIntPipe`.
 - Bulk endpoints take `BulkIdsDto` and return `bulkDeleteResponse` /
