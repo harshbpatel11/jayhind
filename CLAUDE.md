@@ -350,6 +350,24 @@ Don't "tidy" that.
 the token TTL: bump it on any role/permission change, and the guard returns
 `409 MEMBERSHIP_STALE`, which the frontend turns into a silent refresh.
 
+**`users.tokenVersion` is the same pattern for the identity, and it is what makes
+sign-out actually end a session** (SEC-021). `AuthGuard` verifies a signature and
+consults nothing else, so a signed-out access token used to keep reading the API
+until it expired. The counter is minted into the token as a `tokenVersion` claim
+and compared by `TenantContextGuard` against the live column — off the membership
+row it already loads, so the check costs nothing extra — and answers
+`401 SESSION_REVOKED` when they differ. Bump it on logout, logout-all and any
+password change; a token minted before the column existed carries no claim and
+reads as version 0, so a deploy signs nobody out.
+
+**A session is two credentials, and they are revoked at different grains.** The
+access token dies identity-wide (above); the refresh chain dies **per device**,
+by `refresh_tokens.familyId` — the id of the first token in a rotation chain,
+carried forward on each rotation and minted into the access token as
+`sessionFamilyId`. So signing out on the laptop leaves the phone able to refresh:
+it takes one 401 and recovers by itself. Presenting an **already-rotated** refresh
+token is treated as reuse and revokes the whole family (SEC-022).
+
 **`User.create()` may only be called in `services/users.service.ts`** — enforced
 by `src/user-module-boundary.spec.ts`. Everything else goes through
 `UsersService.create` / `UserProfileService.findOrLinkUser`.
@@ -502,6 +520,7 @@ These status+code pairs are contracts the frontend recognises. Don't change them
 | `FEATURE_DISABLED` | 403 | module not licensed | "your provider turned this off" |
 | `SUBSCRIPTION_PAST_DUE` | 402 | billing read-only grace | reads still work |
 | `PARTY_ONLY` | 403 | a staff/system account called a `/party-portal/*` route | the SPA never routes staff there (`partyUserGuard`) |
+| `SESSION_REVOKED` | 401 | the access token predates the identity's last sign-out / password change (`users.tokenVersion`) | refresh, which succeeds on a device that did not sign out and fails on the one that did |
 
 ### 4.8 Data layer
 
