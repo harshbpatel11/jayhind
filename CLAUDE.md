@@ -1056,6 +1056,22 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
   `hydrateStrippedIncludes` re-reads the page's ids with the tree the caller asked
   for before the response goes out. Without it the Products grid's Category column
   blanked whenever someone typed in the search box (API-021).
+- **`isDeleted` is the archived VIEW, not a hint.** Both paginators answer it with
+  `paranoid: false` **plus** a `deletedAt IS NOT NULL` predicate — a caller's own
+  `paranoid: false` shows both sides, so it cannot stand in for the predicate
+  (that is how the hub's `/companies/list` answered the archived view with ten
+  live companies). A model with no `deletedAt` gets an **empty page**, never the
+  live list. Implement it in the paginator and nowhere else: the hub had a second
+  copy in `hsn.service.ts`, and because the paginator strips the archived
+  predicate back off the `where` to count the opposite view, the caller's copy
+  survived the strip and the archived view reported `activeCount: 0` beside 22,609
+  live rows.
+- **The platform directory sorts and filters on an allow-list.** `/users/list`
+  (hub → `/internal/users/list`) is the one read that spans every customer, and
+  `User` declares `password`, `tokenVersion` and the reset-token columns. Sorting
+  or filtering by any of them is a `400`, not a silent drop — and `commonSearch`
+  there stays hand-written (name/email) rather than `applySearches`, which would
+  expand to every string column the model has.
 - `@HttpCode(200)` on POST list endpoints so they don't return 201.
 - Route params validated with `ParseIntPipe`.
 - Bulk endpoints take `BulkIdsDto` and return `bulkDeleteResponse` /
