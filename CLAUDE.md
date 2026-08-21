@@ -305,6 +305,33 @@ remains unfinished, but the isolation gap it was meant to close is shut.
    didn't. Sequelize silently flips `required: true` when an include carries a
    `where`, turning LEFT JOINs into INNER JOINs and making rows with nullable FKs
    vanish. The hooks already default it to `false`; don't undo that.
+7. **The hooks scope by `companyId`. They do not scope by *parentage*.** A
+   caller-supplied **parent id** — an `employeeId`, a `productId`, a `trxId` off
+   the URL or the body — must be checked by the service before anything is
+   written against it. Both hooks will behave perfectly while the row you create
+   crosses the boundary:
+
+   ```ts
+   // GET /leave/balance/:employeeId, with employeeId belonging to ANOTHER company
+   await LeaveBalance.findOrCreate({ where: { employeeId, leaveTypeId, year }, defaults: {…} });
+   // beforeFind  → AND companyId = <mine>  → correctly finds nothing
+   // beforeCreate → stamps  companyId = <mine> → creates a row pointing at THEIR employee
+   ```
+
+   That was a **read** writing four rows with a cross-company foreign key, on a
+   route that provisions on read. The check is one line and belongs at the
+   service's entry point, not in the shared helper underneath it:
+
+   ```ts
+   const employee = await Employee.findByPk(employeeId, { attributes: ['id'] });
+   if (!employee) throw new ApiException('Employee not found', HttpStatus.NOT_FOUND);
+   ```
+
+   `findByPk` runs under the hooks, so "not found" already means "not this
+   company's" — the two are the same sentence, and the 404 tells someone poking
+   at ids nothing they did not know. Look for this shape wherever a service
+   takes a parent id from the caller and a `findOrCreate`, a `create` or an
+   `update` follows.
 
 ### 4.4 Identity vs. membership (ADR-004)
 
