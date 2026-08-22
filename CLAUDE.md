@@ -425,6 +425,41 @@ remains unfinished, but the isolation gap it was meant to close is shut.
    > the party's own row. `preparedByUserId` never reaches the row: the controller
    > overwrites it with the authenticated caller.
 
+   > ⚠️ **The seventh was in the SAME MODULE as the fifth, and that is the part to
+   > learn from** (BUG-0032). The job-work *masters* were fixed by BUG-0022; its
+   > three ownership checks were written as **module-local functions** in
+   > `job-work-masters.service.ts`, and nothing carried them the twenty lines to
+   > the module's **transactional** writes. So the order, its inline operations,
+   > the dispatch, the split, the challan and the material issue took **nine**
+   > caller-supplied ids between them and checked none. Six named `users.id` and
+   > `POST /job-work/board/list` — the module's landing screen — rendered the
+   > stranger's own **name** (and the list its phone), because it reads them from a
+   > raw `LEFT JOIN users` with no `companyId` predicate, correctly, since `users`
+   > has none to predicate on.
+   >
+   > Two consequences worth carrying:
+   >
+   > - **Put the check where a new route cannot fail to import it.**
+   >   `src/services/job-work-ownership.ts` is now the single definition of all of
+   >   them (`assertMemberIsOurs` for a `*UserId`, `findByPk`-based helpers for the
+   >   company-scoped tables), and it is wired at the **seams** rather than the
+   >   call sites: `writeRouting`, which every routing write funnels through, and
+   >   `split`, which `create` delegates to. This is the same failure as BUG-0024
+   >   and BUG-0028 — **one rule enforced at the places somebody thought of** — so
+   >   when a fix adds a check, ask what else in that module takes the same id.
+   > - **The silent kind is not always harmless.** A foreign `operationTypeId`
+   >   reads back `null` in BUG-0019's usual way, and that *also* empties the
+   >   board's `progressLabel` and every refusal message that names the step
+   >   (*"Nothing is ready for Shaping"* names nothing). One field's ownership check
+   >   was load-bearing for the module's error messages.
+   >
+   > `job_work_orders.productId` is safe and deliberately has **no** added check —
+   > `resolvePartName`'s `Product.findByPk` runs under the hooks — and the material
+   > issue's `productId` was refused only **by accident**, by
+   > `product_quantity`'s `UNIQUE(productId)`, answering *"A record with this
+   > productId already exists"*. Rule 7's refrain, for the third time: **a check
+   > that exists as a side-effect of an unrelated one is not a check.**
+
 ### 4.4 Identity vs. membership (ADR-004)
 
 - `users` = one **identity** per email, global (no `companyId`).
@@ -775,6 +810,26 @@ touching `InventoryService`:
   stock leg). That is what makes it a repair rather than a re-posting exercise, and
   `qa-artifacts/tests/transactions/recosting.spec.ts` asserts it rather than
   assuming it — if the ledger ever grows a stock leg, that test is what notices.
+- **A conversion is costed AS OF ITS OWN DATE, and that is not a detail**
+  (BUG-0033). A stock conversion is component OUTs *and* one finished IN, so both
+  halves of the rule above apply to it at once — and it used to price the
+  finished good's IN from `onHandFor`, i.e. the average at the **end** of the
+  ledger, while the engine re-costed its OUTs to the average prevailing on the
+  conversion's date. The two agreed only while the conversion sat last in every
+  component's ledger; back-dated by a day past a purchase that moved an average,
+  a conversion silently destroyed or invented inventory value, with no error and
+  no GL trace (a conversion has no journal entry, so nothing reconciles it).
+  `InventoryService.applyAsOfDateCost` is the fix, called from
+  `planAndValidate` (create **and** edit, the latter excluding the conversion's
+  own movements) and from `preview`, so the screen and the save agree.
+  ⚠️ **It moves `avgCost` only.** Availability stays a question about *now* — a
+  component bought last week can pay for an assembly back-dated to last month,
+  and a shortage check against the older balance would refuse a run the company
+  can plainly perform. The two questions have different tenses; conflating them
+  is what caused the bug. The general form is worth keeping: **when a service
+  snapshots a derived figure, ask what else the derivation depends on** — here
+  `date`, which had become load-bearing in a different file two decisions
+  earlier.
 - ⚠️ **The negative-stock check is order-blind** and is a known open finding
   (BUG-0027): it compares against the product's *current total*, so an issue
   back-dated before the receipt that supplied it is accepted, and the ledger is
@@ -809,7 +864,15 @@ somebody is capturing an invoice found in a drawer; it simply may not be approve
 > does not, deliberately — a conversion is value-neutral and posts no GL, so a
 > closed year's *books* cannot move, but its *stock* can. **When you add a writer
 > of `journal_entries` or `stock_movements`, ask what gates the existing ones
-> clear** — `grep -rn "reverseSource\|inventoryService.reverse"` names all three.
+> clear** — `grep -rn "reverseSource\|inventoryService.reverse"` names **four**, not
+> three: `ApprovalService`, `TrxWriteService`, `StockConversionService` and
+> **`JobWorkMaterialService.cancel`**, which was missing from this list until
+> Phase 6D counted them. Its `issue` dates the movement `new Date()` so it cannot
+> be back-dated, but its cancel reverses on the **original movement's date** like
+> every other reversal — so cancelling an issue made before a year closed writes
+> into that closed year. Whether stock should have a period at all is an open
+> product decision (**D-49**); what is not open is that this list must name every
+> writer.
 
 **`trx.paidAmount` is DERIVED and the client may not state it** (BUG-0030).
 `CreateUpdateTrxDto` declares it required, so it arrives on every request, and for
@@ -1433,6 +1496,7 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
 |---|---|---|
 | Unit (Jest) | `src/**/*.spec.ts` — 104 suites / 1464 tests in client-back, 9 / 176 in admin-back; mostly beside `const/*.const.ts` | `npm test` |
 | Architecture guards | `src/user-module-boundary.spec.ts`, `src/const/ci-guards/*` — raw-SQL, cached-state, scope-registry, marker-decorator and **`@Body()`-is-a-DTO** | `npm test` + `scripts/ci-guard-*.ts` |
+| Rule-7 parent ids | `qa-artifacts/tests/transactions/jobwork-scope.spec.ts` and `tests/api/parent-scope.spec.ts` — every caller-supplied parent id on a write, probed with a stranger resolved from `company_members` (never from a fixture: the QA world **shares** an identity between two tenants on purpose) | `npm run qa:transactions` |
 | Shared-read exposure | `qa-artifacts/tests/permissions/shared-read-party.spec.ts` — sweeps **every** `@SharedRead()` route as a trading party and asserts the allow-list exactly (D-46). Route list comes from the regenerated inventory, so a new shared read is swept the day it lands | `npm run qa:permissions` |
 | Cross-repo mirror drift | `scripts/check-mirrors.js` (**this** repo — only it sees both submodules) | `node scripts/check-mirrors.js` |
 | QA harnesses | `scripts/qa-*.ts` (~55 in client-back, 5 in admin-back) | `npx ts-node -r tsconfig-paths/register scripts/qa-<name>.ts` |
@@ -1658,6 +1722,9 @@ is one nobody reads.
 | When may it post? | `src/const/financial-year.const.ts`, `src/services/financial-year.service.ts` `assertPostingAllowed` |
 | What does a document still owe — and owe back? | `src/const/outstanding.const.ts` (D-18) |
 | Which stock movements went negative on a date? | `src/const/inventory.const.ts` `negativeOnDates` (D-44) |
+| What did a component cost on the day it was consumed? | `src/services/inventory.service.ts` `applyAsOfDateCost` (BUG-0033) |
+| What may a job work order / dispatch / challan have done to it? | `src/const/job-work-flow.const.ts` (the quantity rule everything derives from), `job-work-dispatch.const.ts` (the three invariants), `job-work-challan.const.ts` (the purpose table) |
+| Is this job-work id the caller supplied actually ours? | `src/services/job-work-ownership.ts` (BUG-0022, BUG-0032) |
 | Identity vs. membership | `src/entities/company-member.entity.ts` |
 | How one person ends up in several companies | `client-back/src/services/users.service.ts` `linkExistingIdentity`, `company-admin.service.ts` `add` |
 | Choosing/switching company | `client-back/src/services/auth.service.ts` `switchCompany`, `client-front/src/services/company-switch.service.ts`, `components/auth/select-company/` |
