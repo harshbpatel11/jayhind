@@ -762,6 +762,56 @@ Two lifecycle rules (`voucher-lifecycle.const.ts`):
    `stock_movements` reference vouchers by a `sourceType`/`sourceId` pair, not a
    FK, so a hard delete silently orphans them. Such a voucher **archives**.
 
+**The financial-period gate is on POSTING, not on the document** (BR-ACC-5, D-30).
+`FinancialYearService.assertPostingAllowed` refuses a date that no year covers, one
+in a `closed` year, or one on/before a year's soft `lockedUpTo`. A **draft** dated
+inside a closed year is legitimate and `POST /trx` allows it deliberately —
+somebody is capturing an invoice found in a drawer; it simply may not be approved.
+
+> ⚠️ **Un-posting is a posting event too, and that cost a High** (BUG-0028). Three
+> code paths write a reversal into a voucher's own period —
+> `ApprovalService`'s Cancel boundary, `TrxWriteService`'s **approved-edit** branch
+> (which reverses the live GL and stock before superseding the row with a draft),
+> and `StockConversionService`. The gate was on the first only. So editing an
+> approved voucher dated inside a closed year answered `200`, moved that closed
+> year's books, left the voucher a draft — and the re-approve was then refused by
+> the very gate the edit had walked past. A posted voucher in a closed period,
+> silently un-posted and stranded, by someone correcting a remark. The edit branch
+> now checks **both** dates: the existing one because that is where the reversal
+> lands, the new one because the replacement has to be able to post on it (which
+> turns a half-finished edit into a clean refusal). `StockConversionService` still
+> does not, deliberately — a conversion is value-neutral and posts no GL, so a
+> closed year's *books* cannot move, but its *stock* can. **When you add a writer
+> of `journal_entries` or `stock_movements`, ask what gates the existing ones
+> clear** — `grep -rn "reverseSource\|inventoryService.reverse"` names all three.
+
+**`trx.paidAmount` is DERIVED and the client may not state it** (BUG-0030).
+`CreateUpdateTrxDto` declares it required, so it arrives on every request, and for
+a long time nothing between the DTO and Sequelize touched it — any caller who
+could raise a voucher could mark it paid, with **no allocation row, no payment
+voucher, no cash leg and no audit trail**, while the trial balance still balanced
+(the receivable control head carried the full amount). `TrxWriteService` now forces
+it to 0 alongside the four totals it already re-derives;
+`ApprovalService.applyReceiptSettlement` is the only writer, exactly as it is the
+only writer of the allocation rows it must agree with. That method also takes
+`FOR UPDATE` on each target and **re-checks the over-payment cap inside the
+transaction** — the create-time cap in `TrxPaymentReceiptController.buildAllocation`
+reads a snapshot outside any lock, so two receipts of 60% each against one invoice
+both landed (BUG-0029). The create-time cap is the courtesy; the approve-time one
+is the enforcement.
+
+**What a document owes is `outstanding.const.ts`, and it has two signs** (D-18,
+BUG-0013). `allocated = Σ payments + Σ (note.grandTotal − note.paidAmount)` — a
+return note reduces what is owed exactly as a payment does, but only **while it is
+unrefunded**, because a note is itself a settleable document and settling it *is*
+refunding it. Where the allocation exceeds the document, the excess is a **refund
+due**, reported beside the receivable and never netted into it: a party with
+₹50,000 of 90-day debt who is owed ₹50,000 back is not a party with nothing
+outstanding, and the ageing buckets total the receivable alone. A note attached to
+a document is **not** an open item of its own — listing it as one, on the positive
+side, while the invoice it offset read as closed, is what made a party's total come
+out overstated by the note's full value and pointing the wrong way.
+
 ### 4.10 Async work
 
 - **BullMQ + Redis** for the audit queue and the invoice-scan queue, registered
@@ -1398,6 +1448,15 @@ in the same commit — that's where the rules are actually tested.
    skips on an update and MySQL fills on an insert. A payload that genuinely
    replaces a collection wholesale (`CreateUpdateProductPricingDto`'s
    `prices = []`) is the legitimate exception — say so in a comment.
+   ⚠️ **A DERIVED column must never be taken from the body, even when the DTO
+   declares it.** `whitelist` only strips fields nobody declared, so a declared
+   field the server owns sails straight into the row: `trx.paidAmount` did exactly
+   that, and any caller who could raise a voucher could mark it paid with no
+   payment behind it (BUG-0030). The pattern to copy is the one the voucher totals
+   already follow — `totalAmount`, `totalTax`, `chargesTotal` and `grandTotal` are
+   all re-derived from the persisted lines in `TrxWriteService` and the body's
+   values ignored. Leave the DTO field if a client sends it; overwrite it in the
+   service. **A figure the server owns is a figure the server writes.**
 2. Service method in `src/services/` — pure domain rules go in
    `src/const/<x>.const.ts` with a `.spec.ts`.
 3. Controller handler returning `{ status: true, data, message? }`.
@@ -1485,6 +1544,16 @@ nobody re-opens a settled question.
    > `voucher-lifecycle.const.spec.ts` asserts the two give the *same sentence*,
    > because that equality is the property that broke. When you add a rule to one
    > of these two files, ask what the *other* one already does.
+   >
+   > ⚠️ **BUG-0028 is the same gap in a different subsystem, and it is worth
+   > reading beside BUG-0024.** Neither is a mirror drifting from a mirror; both
+   > are **one rule enforced at some of the places that need it**. BUG-0024:
+   > `allowDelete` honoured by the archive stage and not the erase. BUG-0028: the
+   > financial-period gate honoured by `ApprovalService` and not by
+   > `TrxWriteService`'s approved-edit branch, which performs the same reversal by
+   > a different route. The check that finds both is the same question — *what are
+   > all the writers of this effect, and which of them clear this gate?* — and it
+   > is a grep, not a code review.
 
 ### Closed on 2026-08-17
 
@@ -1541,6 +1610,9 @@ is one nobody reads.
 | How are files stored? | `client-back/src/const/hub-upload.const.ts`, `admin-back/src/services/storage/` |
 | How is a voucher posted? | `src/services/posting.service.ts`, `src/const/posting.const.ts` |
 | What may a voucher have done to it? | `src/const/voucher-lifecycle.const.ts` |
+| When may it post? | `src/const/financial-year.const.ts`, `src/services/financial-year.service.ts` `assertPostingAllowed` |
+| What does a document still owe — and owe back? | `src/const/outstanding.const.ts` (D-18) |
+| Which stock movements went negative on a date? | `src/const/inventory.const.ts` `negativeOnDates` (D-44) |
 | Identity vs. membership | `src/entities/company-member.entity.ts` |
 | How one person ends up in several companies | `client-back/src/services/users.service.ts` `linkExistingIdentity`, `company-admin.service.ts` `add` |
 | Choosing/switching company | `client-back/src/services/auth.service.ts` `switchCompany`, `client-front/src/services/company-switch.service.ts`, `components/auth/select-company/` |
