@@ -392,6 +392,39 @@ remains unfinished, but the isolation gap it was meant to close is shut.
    > describe the actual problem ("HSN/SAC code missing for: Item #1663") is the
    > tell. `TrxWriteService.assertLineReferencesAreOurs` is the explicit one.
 
+   > ⚠️ **And then it reached the same write's HEADER, where the unchecked id
+   > decides which ledger the money lands in** (BUG-0025 — rule 7's sixth, and the
+   > first whose symptom is a `journal_lines` row). `trx.groupId`,
+   > `charges[].groupId` and a journal voucher's `lines[].trxGroupId` were all
+   > accepted from another company and all **posted**: the line carried the
+   > caller's `companyId` and the other tenant's `trxGroupId`. BUG-0019's
+   > consolation — that a rule-7 bug on a company-scoped table leaks nothing,
+   > because the read joins through the same hooks and answers `null` — **does not
+   > apply here**, because `ReportsService.trialBalance` and `.profitAndLoss`
+   > aggregate on `journal_lines.trxGroupId` and then `JOIN trx_groups g ON g.id =
+   > agg.trxGroupId` with no `companyId` predicate: the other tenant's ledger NAME
+   > is what this company's own trial balance renders, and their group's
+   > `accountNature` decides whether the figure lands in income or in expenses.
+   > `TrxWriteService.assertHeaderReferencesAreOurs`,
+   > `TrxPaymentReceiptController.assertReferencesAreOurs` and the two account
+   > checks at the top of `TrxContraController.saveContra` are the explicit ones.
+   >
+   > Two of that write's ids were already refused **by accident**, which is the
+   > part worth remembering: a foreign `trxAccountId` failed `preApprove`'s funds
+   > guard because `trxAccountService.findOne` runs under the hooks, so `!acc` and
+   > "not enough money" share a branch — the answer was *"Low Balance To Settle
+   > This Voucher"*, the draft stayed in the table with its cross-company FK, and
+   > the TO side of a contra was not covered at all. **A check that exists as a
+   > side-effect of an unrelated one is not a check.**
+   >
+   > Two more header ids are safe and deliberately have **no** added check, so
+   > don't add one and assume it was missing: `supplierUserId` has
+   > `assertSupplierIsCompanyMember` (it names `users.id` — §4.4 — so a `findByPk`
+   > would prove nothing), and `supplierUserDetailsId` is *resolved* rather than
+   > trusted by `resolveSupplierDetails`, which drops a foreign id and substitutes
+   > the party's own row. `preparedByUserId` never reaches the row: the controller
+   > overwrites it with the authenticated caller.
+
 ### 4.4 Identity vs. membership (ADR-004)
 
 - `users` = one **identity** per email, global (no `companyId`).
@@ -665,6 +698,62 @@ These status+code pairs are contracts the frontend recognises. Don't change them
 double-entry `journal_entries` / `journal_lines`, resolving accounts by
 `systemKey` from the seeded chart of accounts, splitting GST intra/inter-state
 from GSTIN state codes.
+
+> **A journal line names a GROUP, not an account.** `journal_lines` carries both
+> `trxGroupId` and `trxAccountId`, and in this schema the **group** is the
+> postable leaf of the chart of accounts: every ordinary leg (party control, the
+> GST heads, sales/purchase, an expense) names a `trx_groups` row and leaves
+> `trxAccountId` **NULL**. Only the cash/bank leg of a payment, receipt, journal
+> or contra names an account — and it names a group too. Anything that aggregates
+> the ledger therefore groups by `trxGroupId`; keying by `trxAccountId` collapses
+> the whole book into one anonymous bucket while every total stays right, which is
+> how it goes unnoticed (it did, in the QA harness's own trial balance, until
+> Phase 6B).
+
+**CGST and SGST are two levies, not one figure halved** (BUG-0026). Each is
+imposed at **half the rate on the line's own taxable value**, so on any one line
+they are the same figure computed twice and are equal by construction.
+`gstLineTax` in `src/const/gst.const.ts` is the primitive that charges them;
+`splitGst` only divides a total that has already been arrived at. Computing one
+full-rate tax per line and halving the *document* total instead made the two heads
+differ by a paisa whenever the full-rate figure was odd — 882 of 2,534 intra-state
+vouchers in the QA world — and GSTR-1, GSTR-3B and the recipient's ITC all carry
+the heads separately, so a return whose CGST and SGST differ does not reconcile.
+Charging each head separately also makes a line total exactly `2 × half`, which is
+why `PostingService.computeTrxTaxAmounts` can still halve the document total with
+**no rounding at all**; don't reintroduce a full-rate line tax and expect that
+division to stay exact. Mirrored in `jayhindi-client-front/src/services/
+pricing-engine.ts`, because the voucher form's preview is written to equal what
+the server stores to the paisa.
+
+**Stock is sequenced by DOCUMENT DATE, not by insertion** (BUG-0012, D-17).
+`replayStockLedger` / `byDateThenId` in `src/const/inventory.const.ts` is the one
+place that defines the sequence, and the live buckets, each movement's stored
+`runningBalance` / `valuationCost`, the closing-stock valuation and the
+"what if this were reversed" preview all go through it, so they cannot disagree
+about a product's weighted average. Two consequences worth knowing before
+touching `InventoryService`:
+
+- **A back-dated movement re-costs everything after it**, inside the same
+  transaction — `writeMovement` asks `hasLaterMovement` and calls
+  `rebuildBalances(productId, tx)` when the answer is yes. The ordinary case
+  (today's voucher, a run of same-day lines) skips the replay, which is what keeps
+  a 200-line invoice from rewriting a whole history 200 times. `MovementLike.date`
+  is **required** for exactly this reason: a caller that selects movements without
+  it cannot replay them.
+- **An OUT's `unitCost` is derived and is re-written by the replay; an IN's is
+  not.** A receipt's cost is the price on the document, a fact. An issue's is the
+  average prevailing on its own date — which is what back-dating changes.
+  Re-costing touches no journal entry, because stock valuation has **no leg in
+  this ledger** (the goods head takes the line net; there is no COGS leg and no
+  stock leg). That is what makes it a repair rather than a re-posting exercise, and
+  `qa-artifacts/tests/transactions/recosting.spec.ts` asserts it rather than
+  assuming it — if the ledger ever grows a stock leg, that test is what notices.
+- ⚠️ **The negative-stock check is order-blind** and is a known open finding
+  (BUG-0027): it compares against the product's *current total*, so an issue
+  back-dated before the receipt that supplied it is accepted, and the ledger is
+  negative in the middle of its own history while ending up correct. Don't read a
+  negative running balance as corruption without checking the dates first.
 
 Two lifecycle rules (`voucher-lifecycle.const.ts`):
 1. **Nothing leaves the books while a live document depends on it** — an active
@@ -1249,7 +1338,7 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
 
 | Layer | Where | Run |
 |---|---|---|
-| Unit (Jest) | `src/**/*.spec.ts` — 96 suites / 1341 tests in client-back, 8 / 160 in admin-back; mostly beside `const/*.const.ts` | `npm test` |
+| Unit (Jest) | `src/**/*.spec.ts` — 104 suites / 1464 tests in client-back, 9 / 176 in admin-back; mostly beside `const/*.const.ts` | `npm test` |
 | Architecture guards | `src/user-module-boundary.spec.ts`, `src/const/ci-guards/*` — raw-SQL, cached-state, scope-registry, marker-decorator and **`@Body()`-is-a-DTO** | `npm test` + `scripts/ci-guard-*.ts` |
 | Cross-repo mirror drift | `scripts/check-mirrors.js` (**this** repo — only it sees both submodules) | `node scripts/check-mirrors.js` |
 | QA harnesses | `scripts/qa-*.ts` (~55 in client-back, 5 in admin-back) | `npx ts-node -r tsconfig-paths/register scripts/qa-<name>.ts` |
@@ -1356,7 +1445,7 @@ nobody re-opens a settled question.
 ### Still open
 
 1. **Test coverage is uneven — a program of work, not a bug.** `src/const/` is
-   well covered (1310 unit tests across 94 suites in client-back, 160 in
+   well covered (1464 unit tests across 104 suites in client-back, 176 in
    admin-back, all passing and needing no DB). Services and controllers rely
    mostly on the `qa-*.ts` harnesses, which need a live stack and aren't run in
    CI. Neither frontend has meaningful component tests (`admin-front` has no
@@ -1378,13 +1467,24 @@ nobody re-opens a settled question.
    (see closed #8), but whether a DB outage should also authorise billable
    outbound GSP calls is a **product decision**, not a code cleanup — it needs
    the owner, so it was deliberately not changed.
-4. **`voucher-lifecycle` parity is checked by name, not behaviour.**
-   `scripts/check-mirrors.js` verifies both sides export the same decision
-   functions, but the two signatures differ by design
+4. **`voucher-lifecycle` parity is checked by name, not behaviour — and it has
+   now cost a bug.** `scripts/check-mirrors.js` verifies both sides export the
+   same decision functions, but the two signatures differ by design
    (`(VoucherLifecycleState) => ActionVerdict` vs
    `(VoucherLifecycleRow, VoucherTypeFlags) => boolean`), so semantic drift
    between the rules is still possible. The real fix is a shared JSON table of
    test vectors both repos' suites run against.
+   > ⚠️ **BUG-0024** is what that gap looks like in practice. The type-level
+   > `allowDelete` switch was honoured by `canArchiveVoucher` and **not** by
+   > `canEraseVoucher`, while the frontend mirror checked it in *both* — so with
+   > deletion switched off for a voucher type, the first `DELETE` was refused
+   > ("Deletion is disabled for this transaction type") and the second erased the
+   > row permanently. Nothing on screen ever offered it, because the mirror was
+   > the correct one: this is the **server being wider than the mirror**, the
+   > direction §9's rule does not cover. Both stages now check the flag, and
+   > `voucher-lifecycle.const.spec.ts` asserts the two give the *same sentence*,
+   > because that equality is the property that broke. When you add a rule to one
+   > of these two files, ask what the *other* one already does.
 
 ### Closed on 2026-08-17
 
