@@ -345,6 +345,22 @@ remains unfinished, but the isolation gap it was meant to close is shut.
    takes a parent id from the caller and a `findOrCreate`, a `create` or an
    `update` follows.
 
+   > ⚠️ **The version that leaks is the easy one. Watch for the version that does
+   > not** (BUG-0019). `POST|PUT /products` took **five** satellite ids from the
+   > body — `measurementUnitId`, `manufacturerId`, `returnPolicyId`,
+   > `productConditionId`, `productWarrantyId` — and checked none of them, and
+   > `POST /product-tags` took three more. Nothing leaked, because the read path
+   > includes those associations through the same hooks and answers `null`: the
+   > only symptom was a product whose unit and manufacturer were **silently
+   > blank** on the grid, on the Edit form, on the print preview and on the GST
+   > invoice line, with no error anywhere. It also wedges the company hard delete
+   > (§6.5) — those columns are `ON DELETE RESTRICT`, so erasing the *other*
+   > company is refused by a row in this one. `ProductService
+   > .assertSatellitesAreOurs` and `ProductTagsService.assertMappingIsOurs` are
+   > the explicit checks; the latter runs **before** the `destroy` that clears the
+   > existing mapping, because a guard placed after it wipes the product's tags on
+   > the way to the 404.
+
    > ⚠️ **It reached the voucher line, which is the busiest write in the product**
    > (BUG-0015). `productItems[].productId` and `productItems[].taxes[].taxId`
    > were both accepted from another company: the row was stamped with the
@@ -1234,7 +1250,14 @@ in the same commit — that's where the rules are actually tested.
 
 ### A new endpoint
 1. DTO in `src/dto/` with class-validator decorators (`whitelist` strips
-   anything undeclared). It must be a **class**: `ValidationPipe` reads
+   anything undeclared). ⚠️ **A `@ValidateIf` may only read a field the CALLER
+   sets.** `CreateUpdateProductDto` is shared by `POST /products` and
+   `POST /services`, and each controller overrides `itemType` with its own — so a
+   predicate reading `o.itemType` was reading the caller's value, not the row's,
+   and `POST /services` refused a body for want of a measurement unit while
+   D-9's mismatch refusal became unreachable (BUG-0019). A rule that depends on
+   something the route decides belongs in the **service**, which is the first
+   place that knows it. It must be a **class**: `ValidationPipe` reads
    class-validator metadata off the body's runtime class, so an inline
    `@Body() b: { … }`, an `interface`, a `Partial<Dto>` and a bare array all erase
    to `Object` and the raw JSON reaches the handler unchecked.
