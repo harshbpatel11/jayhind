@@ -606,12 +606,37 @@ editable permission matrix, and upsert validation. Rows live in
 caches a role's whole map for 5 minutes.
 
 **`@SharedRead()`** is the second lane: a **read-only** data source any
-authenticated user may call (the product picker feeding voucher lines, the chart
-of accounts feeding posting, employees feeding payroll). It bypasses both
-`RoleMenuGuard`'s module check and `ModuleLicenceGuard` — otherwise Transaction
-couldn't be sold without Product. **Security contract: only ever on read-only
-handlers (GET, or POST `list`/search). Never on create/update/delete/restore.**
-It is handler-scoped on purpose; a controller may not claim it wholesale.
+authenticated **colleague** may call (the product picker feeding voucher lines,
+the chart of accounts feeding posting, employees feeding payroll). It bypasses
+both `RoleMenuGuard`'s module check and `ModuleLicenceGuard` — otherwise
+Transaction couldn't be sold without Product. **Security contract: only ever on
+read-only handlers (GET, or POST `list`/search). Never on
+create/update/delete/restore.** It is handler-scoped on purpose; a controller may
+not claim it wholesale.
+
+> ⚠️ **"Any authenticated user" never meant a trading party** (D-46, BUG-0031).
+> Customers log into the same ERP as the staff who invoice them — that is the
+> premise of the party portal — so that phrase quietly handed a customer every
+> shared lookup in the application. **38 endpoints answered a party**, including
+> the company's bank accounts with their **account numbers and IFSC codes**, the
+> full staff list, the salary-component structure, the inventory valuation, the
+> job-work machines' hourly cost rates, and **every other party's GSTIN, PAN and
+> outstanding balance** — one customer reading another's tax identity inside the
+> same tenant. Four of them had been filed separately (SEC-051/053/054/055)
+> before anyone counted the rest.
+>
+> So `@SharedRead()` takes `{ parties?: boolean }`, defaulting to **false**, and
+> `SharedReadPartyGuard` — **global**, unlike `RoleMenuGuard` — answers a party
+> `403 PARTY_FORBIDDEN`. Global on purpose: `RoleMenuGuard` is opt-in per
+> controller, which is right for a rule that *widens* access, and this one
+> **narrows** it. A narrowing rule a controller can forget to install is not a
+> rule. It is the mirror of `PartyOnlyGuard`, so "is this caller a party?" is now
+> asked on both sides of the boundary.
+>
+> **The allow-list is one route** — `GET /print-config`, because the party portal
+> prints the invoice they are entitled to. Before adding a second, ask the
+> question this decorator got wrong the first time: **not "does a party need to
+> read this?" but "would I put this figure in an e-mail to a customer?"**
 
 **`PartyOnlyGuard`** (`src/guards/party-only.guard.ts`) is the one gate that asks
 *who the caller is* rather than *what their role may do*. `/party-portal/*` is
@@ -663,6 +688,7 @@ These status+code pairs are contracts the frontend recognises. Don't change them
 | `FEATURE_DISABLED` | 403 | module not licensed | "your provider turned this off" |
 | `SUBSCRIPTION_PAST_DUE` | 402 | billing read-only grace | reads still work |
 | `PARTY_ONLY` | 403 | a staff/system account called a `/party-portal/*` route | the SPA never routes staff there (`partyUserGuard`) |
+| `PARTY_FORBIDDEN` | 403 | a trading party called a `@SharedRead()` handler that is not party-readable (D-46) | not offered on screen; the party SPA calls only `/party-portal/*` and `GET /print-config` |
 | `SESSION_REVOKED` | 401 | the access token predates the identity's last sign-out / password change (`users.tokenVersion`) | refresh, which succeeds on a device that did not sign out and fails on the one that did |
 
 ### 4.8 Data layer
@@ -1268,6 +1294,23 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
 { status: false, message: string, statusCode: number, path, timestamp, code? }
 ```
 
+- **An audit row written from a SERVICE looks like one written by the
+  interceptor** (D-48). `AuditInterceptor` has the `Request`, so it states the
+  actor, the module and the category; a service writing inside a transaction —
+  `ApprovalService` does, correctly, so the status change and its audit row commit
+  together — has only a `userId`. That left **4,000+ transition rows** with no
+  `module`, no `category` and no `username`, so the Audit Log's own module filter
+  returned not one approval. `AuditService.withDefaults` now fills all of it:
+  module/category from `moduleFor`/`categoryFor` (pure), and the actor from
+  `TenantContext.actor`, which `TenantContextGuard` populates from the same
+  `request.user`. **Put defaults in the service, not in each caller** — patching
+  `ApprovalService` alone would have left the next service to repeat the omission.
+  An explicitly-stated value always wins (`??`), `enqueue` fills them *before* the
+  queue hop (the worker has no context, same reason it snapshots `companyId`), and
+  **outside an HTTP request no actor is invented**. One more trap: the two paths
+  used different words for one document — `auditEntityForSource` reconciles
+  `JournalSourceType` onto the **controller's** `@Audit()` vocabulary, because
+  that is what the screen filters by and what `ENTITY_CATEGORY_MAP` is keyed by.
 - **The audit trail's scope is a decision, and it is enforced.** `@Audit()` is
   opt-in (a verb-only rule would log every `POST …/list` as a create), so the
   coverage is a choice rather than an accident: **money and identity first**
@@ -1390,6 +1433,7 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
 |---|---|---|
 | Unit (Jest) | `src/**/*.spec.ts` — 104 suites / 1464 tests in client-back, 9 / 176 in admin-back; mostly beside `const/*.const.ts` | `npm test` |
 | Architecture guards | `src/user-module-boundary.spec.ts`, `src/const/ci-guards/*` — raw-SQL, cached-state, scope-registry, marker-decorator and **`@Body()`-is-a-DTO** | `npm test` + `scripts/ci-guard-*.ts` |
+| Shared-read exposure | `qa-artifacts/tests/permissions/shared-read-party.spec.ts` — sweeps **every** `@SharedRead()` route as a trading party and asserts the allow-list exactly (D-46). Route list comes from the regenerated inventory, so a new shared read is swept the day it lands | `npm run qa:permissions` |
 | Cross-repo mirror drift | `scripts/check-mirrors.js` (**this** repo — only it sees both submodules) | `node scripts/check-mirrors.js` |
 | QA harnesses | `scripts/qa-*.ts` (~55 in client-back, 5 in admin-back) | `npx ts-node -r tsconfig-paths/register scripts/qa-<name>.ts` |
 | Style guard | `scripts/breakpoint-guard.js` | `npm run lint` (client-front) |
@@ -1605,6 +1649,7 @@ is one nobody reads.
 | What runs when a request arrives? | `client-back/src/app.module.ts` (doc comment) |
 | How is tenancy enforced? | `src/utility/tenant-context.ts`, `src/database/tenant-scoping.hooks.ts` |
 | Who can call what? | `src/const/permission-registry.ts`, `src/guards/role-menu-permissions.guard.ts` |
+| May a trading party read this? | `src/guards/shared-read.decorator.ts`, `src/guards/shared-read-party.guard.ts` (D-46) |
 | Which modules are licensed? | `src/const/module-licence.const.ts`, `src/services/company-licence.service.ts` |
 | How do the two servers talk? | `client-back/src/services/master-hub/master-hub.client.ts`, both `guards/internal-service.guard.ts` |
 | How are files stored? | `client-back/src/const/hub-upload.const.ts`, `admin-back/src/services/storage/` |
