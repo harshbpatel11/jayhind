@@ -361,6 +361,23 @@ remains unfinished, but the isolation gap it was meant to close is shut.
    > existing mapping, because a guard placed after it wipes the product's tags on
    > the way to the 404.
 
+   > ⚠️ **Which table the foreign key points at decides whether the same bug is
+   > invisible or a leak** (BUG-0022). The job-work masters took **seven**
+   > caller-supplied ids and checked none — `machines.operationTypeId` and
+   > `.vendorUserId`, `vendor_capabilities`' two, and a route template's
+   > `items[].operationTypeId` / `.defaultMachineId` / `.defaultVendorUserId` —
+   > and `PUT /transaction-config/:trxType` took `defaultPaymentTermsId`. Five of
+   > those name a **company-scoped** table and were silent in exactly BUG-0019's
+   > way. The three naming **`users.id`** were not: `users` is the global identity
+   > table (§4.4) and has **no `companyId` for the hooks to scope by**, so the
+   > read resolved the association and answered it — `POST /vendor-capabilities`
+   > with a stranger's identity id came back with that person's **name**, making a
+   > master's create an enumeration oracle over every identity on the platform. So
+   > when you audit a parent id, ask what it points at: a `*UserId` has no hook
+   > behind it at all and needs a `CompanyMember` lookup
+   > (`assertPartyIsOurs`, and `JobWorkPartySettingsService.assertParty` before
+   > it), not a `findByPk`.
+
    > ⚠️ **It reached the voucher line, which is the busiest write in the product**
    > (BUG-0015). `productItems[].productId` and `productItems[].taxes[].taxId`
    > were both accepted from another company: the row was stamped with the
@@ -775,6 +792,17 @@ served statically because the login screen renders them before the app knows
 whether the hub is reachable. The old `app.use('/uploads', express.static(...))`
 handed any customer's invoices to anyone who could guess a filename — it is
 **deliberately gone, not relocated. Do not add it back.**
+
+> ⚠️ **The filename in that directory carries the company id**
+> (`company-<id>-logo.png`, `company-<id>-favicon.png`) — BUG-0023. It used to be
+> a constant (`aakhaja-logo.png`), so the whole installation had one logo and one
+> favicon: every `companies` row stored the same path, and one tenant's upload
+> silently replaced every other tenant's brand on their login screen, their
+> letterhead and the company switcher — while the upload handler's cleanup loop
+> deleted the previous tenant's file first. The directory being **public** is the
+> documented exception and is not the problem; a **shared name** is. Keep the id
+> in the name, and keep the `.`/`-` terminator in the cleanup match, which is
+> what stops `company-2-logo` matching `company-28-logo.png`.
 
 Category strings (`scanned-invoices`, `attachments`, …) must match the hub's
 `src/const/storage-key.const.ts` exactly or DTO validation rejects the upload.
@@ -1264,6 +1292,23 @@ in the same commit — that's where the rules are actually tested.
    `scripts/ci-guard-body-dto.ts` fails on all four (a bare array whose wire
    format cannot change may instead be validated in place with
    `@Body(new ParseArrayPipe({ items: Number }))`).
+   ⚠️ **Never give an `@IsOptional()` field a property INITIALISER on a DTO an
+   update route shares.** `ValidationPipe` runs with `transform: true`, so it
+   *instantiates* the class: `status?: Status = Open` is not "the default when
+   creating", it is a value the pipe supplies on **every** request that omits the
+   field, `PUT` included — and the service then hands the whole object to
+   Sequelize, which cannot tell "the caller said open" from "the caller said
+   nothing". That is BUG-0020: renaming a **closed** financial year reopened it
+   (defeating BR-ACC-5), editing the **active** one cleared `isActive` and left
+   the company with no active year, and a rename of a tax slab reset its scope,
+   calculation type, compounding, priority and `status` — un-archiving it into
+   every rate picker. `whitelist: true` cannot help, because the property is
+   declared rather than unknown. Put the default on the **column**
+   (`@Column({ defaultValue })`), which is the one place a default cannot also be
+   an instruction; an omitted field then arrives `undefined`, which Sequelize
+   skips on an update and MySQL fills on an insert. A payload that genuinely
+   replaces a collection wholesale (`CreateUpdateProductPricingDto`'s
+   `prices = []`) is the legitimate exception — say so in a comment.
 2. Service method in `src/services/` — pure domain rules go in
    `src/const/<x>.const.ts` with a `.spec.ts`.
 3. Controller handler returning `{ status: true, data, message? }`.
