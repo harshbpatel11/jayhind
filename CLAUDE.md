@@ -787,6 +787,39 @@ division to stay exact. Mirrored in `jayhindi-client-front/src/services/
 pricing-engine.ts`, because the voucher form's preview is written to equal what
 the server stores to the paisa.
 
+**A voucher line snapshots its CLASSIFICATION from the item master, and both
+halves of that are load-bearing** (BUG-0034). `trx_items` carries two facts
+copied off `products` at save time — `hsnCode` and `gstSupplyClass` — and
+`TrxWriteService.applyCatalogueSnapshots` is the one place that stamps them,
+from a single read, deliberately together. Neither may be trusted from the
+client: a stated `gstSupplyClass` let a **taxed** line be declared exempt, so
+the ledger said taxable while GSTR-1 table 8 and GSTR-3B 3.1(c) said exempt
+about the same line. And neither may be left to be resolved later: the column
+was NULL on 21,554 of 21,569 lines (the SPA sets the field only on the product
+form), so `GstReturnAssemblyService`'s fallback read the product's **live**
+class and re-classifying an item rewrote the classification of invoices already
+raised — and already filed. The fallback stays, because it is what keeps those
+rows readable; the fix is forward-only, the same doctrine D-19 set for the
+CGST/SGST split. **When you copy a fact from a master onto a document, ask what
+reads it if you don't.**
+
+**The rate schedule has a date, and this schema has nowhere to put it**
+(GST-002/003, D-50). The 56th GST Council replaced 12 % and 28 % with 5 % and
+18 % and added a **40 %** demerit rate, effective **22-09-2025**. Two
+consequences that look like tidiness invitations and are not:
+
+- `TAX_SLABS` (`src/const/provisioning/company-defaults.const.ts`) seeds
+  **both** schedules, superseded rates included. A voucher is taxed by the
+  schedule in force on its **own document date**, so a credit note against a
+  pre-reform invoice and a Tally opening import both need 12 % and 28 % to
+  resolve — `voucher-import.const.ts` can only map a rate it finds a slab for.
+  Deleting a superseded rate is not a cleanup; it breaks history.
+- Neither `tax` (ERP) nor `hsn_codes` (hub) has an effective-from column, so
+  **one master answers for every document date**. What limits the damage is that
+  the rate charged comes from the line's own tax **citation**, not from the
+  master — a line citing 5 % on an 18 % product is charged 5 % — so documents
+  already raised are safe whatever the master says next.
+
 **Stock is sequenced by DOCUMENT DATE, not by insertion** (BUG-0012, D-17).
 `replayStockLedger` / `byDateThenId` in `src/const/inventory.const.ts` is the one
 place that defines the sequence, and the live buckets, each movement's stored
@@ -1494,10 +1527,11 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
 
 | Layer | Where | Run |
 |---|---|---|
-| Unit (Jest) | `src/**/*.spec.ts` — 104 suites / 1464 tests in client-back, 9 / 176 in admin-back; mostly beside `const/*.const.ts` | `npm test` |
+| Unit (Jest) | `src/**/*.spec.ts` — 106 suites / 1491 tests in client-back, 9 / 176 in admin-back; mostly beside `const/*.const.ts` | `npm test` |
 | Architecture guards | `src/user-module-boundary.spec.ts`, `src/const/ci-guards/*` — raw-SQL, cached-state, scope-registry, marker-decorator and **`@Body()`-is-a-DTO** | `npm test` + `scripts/ci-guard-*.ts` |
 | Rule-7 parent ids | `qa-artifacts/tests/transactions/jobwork-scope.spec.ts` and `tests/api/parent-scope.spec.ts` — every caller-supplied parent id on a write, probed with a stranger resolved from `company_members` (never from a fixture: the QA world **shares** an identity between two tenants on purpose) | `npm run qa:transactions` |
 | Shared-read exposure | `qa-artifacts/tests/permissions/shared-read-party.spec.ts` — sweeps **every** `@SharedRead()` route as a trading party and asserts the allow-list exactly (D-46). Route list comes from the regenerated inventory, so a new shared read is swept the day it lands | `npm run qa:permissions` |
+| GST rules vs. the statute | `qa-artifacts/tests/gst/` — `gst-rules.ts` restates the rules from the Acts and notifications, and four specs measure the rate schedule, GSTIN validation, the computation matrix and the HSN master against it. Every rule is cited, with the date it was checked, in `qa-artifacts/docs/findings/gst.md` — **check that file before defending a GST number**, because rates and thresholds change by notification | `npx playwright test --project=api tests/gst` |
 | Cross-repo mirror drift | `scripts/check-mirrors.js` (**this** repo — only it sees both submodules) | `node scripts/check-mirrors.js` |
 | QA harnesses | `scripts/qa-*.ts` (~55 in client-back, 5 in admin-back) | `npx ts-node -r tsconfig-paths/register scripts/qa-<name>.ts` |
 | Style guard | `scripts/breakpoint-guard.js` | `npm run lint` (client-front) |
@@ -1612,7 +1646,7 @@ nobody re-opens a settled question.
 ### Still open
 
 1. **Test coverage is uneven — a program of work, not a bug.** `src/const/` is
-   well covered (1464 unit tests across 104 suites in client-back, 176 in
+   well covered (1491 unit tests across 106 suites in client-back, 176 in
    admin-back, all passing and needing no DB). Services and controllers rely
    mostly on the `qa-*.ts` harnesses, which need a live stack and aren't run in
    CI. Neither frontend has meaningful component tests (`admin-front` has no
@@ -1718,6 +1752,9 @@ is one nobody reads.
 | How do the two servers talk? | `client-back/src/services/master-hub/master-hub.client.ts`, both `guards/internal-service.guard.ts` |
 | How are files stored? | `client-back/src/const/hub-upload.const.ts`, `admin-back/src/services/storage/` |
 | How is a voucher posted? | `src/services/posting.service.ts`, `src/const/posting.const.ts` |
+| Which tax does this supply bear, and why? | `src/const/gst.const.ts` (`isInterStateSupply`, `gstLineTax`), `src/const/gst-returns/gst-classification.const.ts` (the deemed-inter-state set) |
+| Is this GSTIN real, and what does it say? | `src/const/gstin.const.ts` (grammar, check digit, state, PAN) |
+| Is a GST rule we implement still the current one? | `qa-artifacts/docs/findings/gst.md` — every rule cited to an official source with the date it was checked (Phase 7A) |
 | What may a voucher have done to it? | `src/const/voucher-lifecycle.const.ts` |
 | When may it post? | `src/const/financial-year.const.ts`, `src/services/financial-year.service.ts` `assertPostingAllowed` |
 | What does a document still owe — and owe back? | `src/const/outstanding.const.ts` (D-18) |
