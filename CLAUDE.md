@@ -296,6 +296,19 @@ remains unfinished, but the isolation gap it was meant to close is shut.
    populate an entry decides what every other company reads. If a cache is
    genuinely needed, key it `` `${companyId}:${…}` `` and expect
    `scripts/ci-guard-cached-state.ts` to require an allow-list entry.
+   > ⚠️ **A single row is worse than a Map, and the guard used to miss it**
+   > (BUG-0036). `PrintConfigurationService` held `private cached:
+   > PrintConfiguration | null = null` — no Map, so nothing flagged it — and
+   > `print_configurations` is company-scoped. The first company to call
+   > `GET /print-config` after a boot decided what every other company read,
+   > and that route is the **one shared read a trading party may call** (D-46),
+   > so what leaked was a tenant's `bankDetails` to another tenant's customers.
+   > The write half was refused by `assertInstanceInScope` — layer 2 doing its
+   > job — which turned it into a 500 nobody connected to the read. The guard
+   > now also flags a class field whose **name** claims a lifetime (`cache`,
+   > `cached`, `memo`, `snapshot`) whatever it holds. **The cheapest correct
+   > answer is usually no cache**: one indexed read per request beats being
+   > wrong, and it is the only shape that stays right when the row is edited.
 5. `where` composition: use `andCompose`-style AND nesting, and count keys with
    `Reflect.ownKeys`, **not** `Object.keys` — an `Op.and`/`Op.or` where (search
    clauses, and Sequelize's own paranoid-delete wrapper) is keyed by a *symbol*,
@@ -524,6 +537,17 @@ Three things that fall out of it, all deliberate:
   place. Because Sequelize does not propagate `paranoid: false` into an include,
   `UsersService.findAll`/`findOne` pass it down to the `membership` join
   explicitly — without that the archived view and `loadTarget` both answer empty.
+  > ⚠️ **The same omission cost a whole print route** (BUG-0038).
+  > `JobWorkChallanPrintService.loadChallan` read with `paranoid: false` —
+  > correctly, because a challan outlives its order and an archived one still
+  > has to print — and did not pass it into the `order` include. An archived
+  > order came back `null`, a cast to `JobWorkOrder` got it past the compiler,
+  > and the next line dereferenced `order.id`: **every** challan's Rule 55 print
+  > was a 500, because most finished orders are archived. Its sibling
+  > `groupForPrint` wrote `order?.partyUserId`, so it did not throw — an
+  > archived companion just **dropped off the printed sheet**. When you write
+  > `paranoid: false`, write it on the includes too, and ask which of the two
+  > shapes you are in: the one that throws, or the one that quietly returns less.
 - **`CreateUpdateUserDto.status` accepts `active | inactive | exited` only.**
   `locked` is not a membership state, and `pending` belongs to
   `InvitationService`, which mints the token that makes it recoverable.
@@ -1527,10 +1551,11 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
 
 | Layer | Where | Run |
 |---|---|---|
-| Unit (Jest) | `src/**/*.spec.ts` — 106 suites / 1491 tests in client-back, 9 / 176 in admin-back; mostly beside `const/*.const.ts` | `npm test` |
+| Unit (Jest) | `src/**/*.spec.ts` — 107 suites / 1505 tests in client-back, 9 / 176 in admin-back; mostly beside `const/*.const.ts` | `npm test` |
 | Architecture guards | `src/user-module-boundary.spec.ts`, `src/const/ci-guards/*` — raw-SQL, cached-state, scope-registry, marker-decorator and **`@Body()`-is-a-DTO** | `npm test` + `scripts/ci-guard-*.ts` |
 | Rule-7 parent ids | `qa-artifacts/tests/transactions/jobwork-scope.spec.ts` and `tests/api/parent-scope.spec.ts` — every caller-supplied parent id on a write, probed with a stranger resolved from `company_members` (never from a fixture: the QA world **shares** an identity between two tenants on purpose) | `npm run qa:transactions` |
 | Shared-read exposure | `qa-artifacts/tests/permissions/shared-read-party.spec.ts` — sweeps **every** `@SharedRead()` route as a trading party and asserts the allow-list exactly (D-46). Route list comes from the regenerated inventory, so a new shared read is swept the day it lands | `npm run qa:permissions` |
+| GSP path, mocked at the hub's outbound HTTP | `qa-artifacts/tests/gst/gsp-stub.ts` — a **schema-strict** WhiteBooks stub (D-2). Everything above the `fetch` is real: `MasterHubClient`, `InternalServiceGuard`, the hub's licence and GSTIN assertions, the session cache and retry, the error mapper, the metering. It validates the payload against the *restated* INV-01 / NIC schemas, so a green conformance test means the portal would have accepted it | `npm run qa:gst` |
 | GST rules vs. the statute | `qa-artifacts/tests/gst/` — `gst-rules.ts` restates the rules from the Acts and notifications, and four specs measure the rate schedule, GSTIN validation, the computation matrix and the HSN master against it. Every rule is cited, with the date it was checked, in `qa-artifacts/docs/findings/gst.md` — **check that file before defending a GST number**, because rates and thresholds change by notification | `npx playwright test --project=api tests/gst` |
 | Cross-repo mirror drift | `scripts/check-mirrors.js` (**this** repo — only it sees both submodules) | `node scripts/check-mirrors.js` |
 | QA harnesses | `scripts/qa-*.ts` (~55 in client-back, 5 in admin-back) | `npx ts-node -r tsconfig-paths/register scripts/qa-<name>.ts` |
@@ -1646,7 +1671,7 @@ nobody re-opens a settled question.
 ### Still open
 
 1. **Test coverage is uneven — a program of work, not a bug.** `src/const/` is
-   well covered (1491 unit tests across 106 suites in client-back, 176 in
+   well covered (1505 unit tests across 107 suites in client-back, 176 in
    admin-back, all passing and needing no DB). Services and controllers rely
    mostly on the `qa-*.ts` harnesses, which need a live stack and aren't run in
    CI. Neither frontend has meaningful component tests (`admin-front` has no
@@ -1753,6 +1778,7 @@ is one nobody reads.
 | How are files stored? | `client-back/src/const/hub-upload.const.ts`, `admin-back/src/services/storage/` |
 | How is a voucher posted? | `src/services/posting.service.ts`, `src/const/posting.const.ts` |
 | Which tax does this supply bear, and why? | `src/const/gst.const.ts` (`isInterStateSupply`, `gstLineTax`), `src/const/gst-returns/gst-classification.const.ts` (the deemed-inter-state set) |
+| What unit code does a statutory document declare? | `src/const/uqc.const.ts` `resolveUqc` — the portal's own list, used by GSTR-1 table 12, the IRN payload and the e-way bill alike (BUG-0037) |
 | Is this GSTIN real, and what does it say? | `src/const/gstin.const.ts` (grammar, check digit, state, PAN) |
 | Is a GST rule we implement still the current one? | `qa-artifacts/docs/findings/gst.md` — every rule cited to an official source with the date it was checked (Phase 7A) |
 | What may a voucher have done to it? | `src/const/voucher-lifecycle.const.ts` |
