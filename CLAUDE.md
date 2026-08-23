@@ -1784,6 +1784,7 @@ is one nobody reads.
 | What may a voucher have done to it? | `src/const/voucher-lifecycle.const.ts` |
 | When may it post? | `src/const/financial-year.const.ts`, `src/services/financial-year.service.ts` `assertPostingAllowed` |
 | What does a document still owe — and owe back? | `src/const/outstanding.const.ts` (D-18) |
+| What does "today" mean on this server? | `src/const/local-day.const.ts` `todayIso` — the LOCAL day, not `new Date().toISOString().slice(0,10)`, which names yesterday between 00:00 and 05:30 IST (API-033) |
 | Which stock movements went negative on a date? | `src/const/inventory.const.ts` `negativeOnDates` (D-44) |
 | What did a component cost on the day it was consumed? | `src/services/inventory.service.ts` `applyAsOfDateCost` (BUG-0033) |
 | What may a job work order / dispatch / challan have done to it? | `src/const/job-work-flow.const.ts` (the quantity rule everything derives from), `job-work-dispatch.const.ts` (the three invariants), `job-work-challan.const.ts` (the purpose table) |
