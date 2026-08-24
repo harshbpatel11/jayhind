@@ -980,19 +980,25 @@ somebody is capturing an invoice found in a drawer; it simply may not be approve
 > silently un-posted and stranded, by someone correcting a remark. The edit branch
 > now checks **both** dates: the existing one because that is where the reversal
 > lands, the new one because the replacement has to be able to post on it (which
-> turns a half-finished edit into a clean refusal). `StockConversionService` still
-> does not, deliberately — a conversion is value-neutral and posts no GL, so a
-> closed year's *books* cannot move, but its *stock* can. **When you add a writer
-> of `journal_entries` or `stock_movements`, ask what gates the existing ones
-> clear** — `grep -rn "reverseSource\|inventoryService.reverse"` names **four**, not
-> three: `ApprovalService`, `TrxWriteService`, `StockConversionService` and
-> **`JobWorkMaterialService.cancel`**, which was missing from this list until
-> Phase 6D counted them. Its `issue` dates the movement `new Date()` so it cannot
-> be back-dated, but its cancel reverses on the **original movement's date** like
-> every other reversal — so cancelling an issue made before a year closed writes
-> into that closed year. Whether stock should have a period at all is an open
-> product decision (**D-49**); what is not open is that this list must name every
-> writer.
+> turns a half-finished edit into a clean refusal).
+>
+> **`stock_movements` has a period too, on all FOUR of its writers** (D-49,
+> ruled 2026-08-24). `grep -rn "reverseSource\|inventoryService.reverse"` names
+> `ApprovalService`, `TrxWriteService`, `StockConversionService` and
+> **`JobWorkMaterialService.cancel`** — the last of which was documented nowhere
+> until Phase 6D counted them. The old reasoning for exempting a conversion was
+> real as far as it went (it is value-neutral and posts no GL, so a closed year's
+> *books* cannot move) and stopped one step short: its **stock** can, and closing
+> stock is a figure the accounts the year was closed to fix actually carry. So a
+> conversion is gated on create, on edit (**both** dates, BUG-0028's shape) and on
+> cancel; and `JobWorkMaterialService.cancel` is gated on the **original
+> movement's date**, because that is where its reversal lands — its `issue` dates
+> the movement `new Date()` and so cannot be back-dated, but cancelling an issue
+> made before a year closed used to write into that closed year.
+>
+> **When you add a writer of `journal_entries` or `stock_movements`, ask what
+> gates the existing ones clear** — and that grep is the check, not a code
+> review. This list must name every writer.
 
 **`trx.paidAmount` is DERIVED and the client may not state it** (BUG-0030).
 `CreateUpdateTrxDto` declares it required, so it arrives on every request, and for
