@@ -809,6 +809,24 @@ These status+code pairs are contracts the frontend recognises. Don't change them
   `npm run migration:create <name>`; never edit the squashed baseline. Write
   each step idempotently (check `information_schema` before altering) so a
   re-run is a no-op rather than an error.
+  > ⚠️ **Write the SQL for MySQL 8's DEFAULT `sql_mode`, which includes
+  > `ONLY_FULL_GROUP_BY`.** A non-aggregated column beside a `GROUP BY` is an
+  > *error* there, not an arbitrary pick — D-52's `rcm-payable-head` selected
+  > `n.id` beside `GROUP BY n.companyId` and **aborted on every stock MySQL 8**,
+  > so `RCM_PAYABLE` existed in no company and the ruling was code-only
+  > (BUG-0051; `MIN(n.id)` is the fix). A migration that cannot run is not a late
+  > schema change, it is a release that does not install — and nothing in the
+  > loop compares the applied set against the directory, so `npm run migrate`
+  > after pulling is on you.
+- **The DB session runs in UTC.** No `timezone` is set on the Sequelize config,
+  so Sequelize's `+00:00` default applies and every raw **`CURDATE()` / `NOW()`
+  is the UTC day**. Against a business `DATE` column — `trx.date`, `dueDate`,
+  `journal_entries.date` — that names *yesterday* between 00:00 and 05:30 IST,
+  which is API-033's defect one layer below where `todayIso()` fixed it
+  (BUG-0050: the dashboard's "Today" tiles, its month-to-date windows, the
+  overdue cut; on the 1st of a month inside that window, "this month" reports the
+  whole of last month). `NOW()` against a stored UTC timestamp — `updatedAt`,
+  `lockedUntil`, `lastLoginAt` — is correct and is not the same question.
 - **Transactions**: controllers open `await this.sequelize.transaction()` for
   multi-step writes and pass `{ transaction }` down. Commit on success, rollback
   and rethrow as `ApiException` on failure — see
@@ -940,6 +958,22 @@ correction is a sign, not an exclusion (dropping `isReversal = 1` alone leaves
 the original, which is what inflated the bar). When you add a gross aggregate over
 `stock_movements`, ask what `liveEntrySql` would have done.
 
+**A KPI card and the breakdown drawn under it must count the same rows, and a
+doc comment saying so is not a mechanism** (BUG-0043, BUG-0045, D-56).
+`DashboardService` answers "what is our stock worth" and "what is in the bank"
+from more than one query each, and twice the narrow one sat directly beneath a
+comment promising the wide one. `stockValueByCategory` joined `products ON
+deletedAt IS NULL` while `inventoryValue` summed every bucket; `cashByAccount`
+filtered `isActive: true` while `cashBankBalance` summed the ledger unfiltered —
+under the words *"same scope … so the breakdown always sums to the KPI card
+above it"*. D-56's ruling covers both: **archiving a product does not empty the
+warehouse and deactivating an account is not a withdrawal**, so the money stays
+counted and the panel adds up. Two things to carry — the second half of a fix
+like this lives in a *different method of the same file*, so the check is *which
+other reads answer this question* (a grep, not a review); and **a filter with
+nothing to exclude is not a tested filter**, which is why the cash half survived
+nine QA phases in a world where no tenant had an inactive account.
+
 **Stock is sequenced by DOCUMENT DATE, not by insertion** (BUG-0012, D-17).
 `replayStockLedger` / `byDateThenId` in `src/const/inventory.const.ts` is the one
 place that defines the sequence, and the live buckets, each movement's stored
@@ -983,6 +1017,17 @@ touching `InventoryService`:
   snapshots a derived figure, ask what else the derivation depends on** — here
   `date`, which had become load-bearing in a different file two decisions
   earlier.
+- ⚠️ **The replay SKIPS a cancelled pair, so neither of its rows ever gets a
+  running balance written** — a known open finding (BUG-0049). `writeMovement`
+  creates a reversal with `runningBalance: 0` and the comment *"backfilled by
+  `rebuildBalances` below"*; `rebuildBalances` iterates `replay.rows`, and
+  `replayStockLedger` drops the cancelled pair before it gets there — correctly,
+  because a cancelled pair must not move the balance, and that is exactly why the
+  backfill never happens. Every reversal row in the database reads `0`, the row
+  it reverses keeps a figure that stopped being true when it was cancelled, and
+  where the pair is **last** the stock ledger's visible closing contradicts the
+  product's own bucket. The buckets, the valuation and COGS are unaffected —
+  they come from the replay.
 - ⚠️ **The negative-stock check is order-blind** and is a known open finding
   (BUG-0027): it compares against the product's *current total*, so an issue
   back-dated before the receipt that supplied it is accepted, and the ledger is
@@ -1960,7 +2005,7 @@ is one nobody reads.
 | What does a document still owe — and owe back? | `src/const/outstanding.const.ts` (D-18) |
 | What does a PARTY owe, and which of the two answers am I reading? | `src/services/party-statement.service.ts` — the ledger side is the two control heads, the document side is `trx` (BUG-0040) |
 | Why does the funds summary disagree with the trial balance? | the caches, not the ledger — §4.9, `POST /trx-accounts/rebuild-balances` (BUG-0042) |
-| What does "today" mean on this server? | `src/const/local-day.const.ts` `todayIso` — the LOCAL day, not `new Date().toISOString().slice(0,10)`, which names yesterday between 00:00 and 05:30 IST (API-033) |
+| What does "today" mean on this server? | `src/const/local-day.const.ts` `todayIso` — the LOCAL day, not `new Date().toISOString().slice(0,10)`, which names yesterday between 00:00 and 05:30 IST (API-033). ⚠️ **`CURDATE()` in raw SQL is still the UTC day** — BUG-0050, §4.8 |
 | Which stock movements went negative on a date? | `src/const/inventory.const.ts` `negativeOnDates` (D-44) |
 | What did a component cost on the day it was consumed? | `src/services/inventory.service.ts` `applyAsOfDateCost` (BUG-0033) |
 | What may a job work order / dispatch / challan have done to it? | `src/const/job-work-flow.const.ts` (the quantity rule everything derives from), `job-work-dispatch.const.ts` (the three invariants), `job-work-challan.const.ts` (the purpose table) |
