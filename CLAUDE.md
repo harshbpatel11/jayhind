@@ -291,8 +291,9 @@ remains unfinished, but the isolation gap it was meant to close is shut.
    carry an explicit `companyId` bind — `TenantContext.requireCompanyId()`
    threaded into `replacements`. `npx ts-node scripts/ci-guard-raw-sql.ts`
    enforces this and judges *new* sites automatically.
-   > ⚠️ **The guard judges a STATEMENT, and a statement can scope one table
-   > while joining three others unscoped** (BUG-0047). `HrDashboardService`'s
+   > ⚠️ **The guard used to judge only a STATEMENT, and a statement can scope one
+   > table while joining three others unscoped** (BUG-0047; the guard now checks
+   > the joins too, and the sweep that added it closed 53 of them). `HrDashboardService`'s
    > four breakdowns bind `companyId` on `employees`/`leave_applications` — so
    > the guard passes — and then `LEFT JOIN departments d ON d.id =
    > e.departmentId` with no predicate at all, likewise `designations`,
@@ -880,11 +881,43 @@ consequences that look like tidiness invitations and are not:
   pre-reform invoice and a Tally opening import both need 12 % and 28 % to
   resolve — `voucher-import.const.ts` can only map a rate it finds a slab for.
   Deleting a superseded rate is not a cleanup; it breaks history.
-- Neither `tax` (ERP) nor `hsn_codes` (hub) has an effective-from column, so
-  **one master answers for every document date**. What limits the damage is that
-  the rate charged comes from the line's own tax **citation**, not from the
-  master — a line citing 5 % on an 18 % product is charged 5 % — so documents
-  already raised are safe whatever the master says next.
+- **Both masters now carry `effectiveFrom`/`effectiveTo`** (D-50), inclusive
+  document dates with NULL open at either end. `tax-validity.const.ts` is the
+  pure rule and `GET /tax/active?asOfDate=` is how a picker asks; the hub's
+  `hsn_codes` is keyed `(code, effectiveFrom)` so one code can carry a row per
+  schedule — `effectiveFrom` is NOT NULL with a `1900-01-01` sentinel because
+  MySQL treats NULLs in a unique index as *distinct*, which would have silently
+  dropped the duplicate-code guarantee. What limits the blast radius either way
+  is that the rate charged comes from the line's own tax **citation**, not from
+  the master — a line citing 5 % on an 18 % product is charged 5 % — so documents
+  already raised are safe whatever the master says next. Validity decides what a
+  picker **offers**.
+  ⚠️ **The hub's HSN data is still the pre-reform schedule** (598 codes at 12 %,
+  185 at 28 %, none at 40 % — GST-002). The dating that makes a safe re-import
+  possible has landed; the import itself needs the current CBIC file.
+
+**Reverse charge is modelled, and the recipient owes the tax** (D-52). Under
+§9(3)/§9(4) the supplier charges nothing, so an RCM **purchase** carries two
+obligations where an ordinary one carries a single creditor balance: `buildLegs`
+credits the party `net + charges` and credits `SystemGroupKey.RcmPayable` the
+tax, leaving the input-GST legs on the debit side (GSTR-3B declares the same tax
+twice — 3.1(d) as the liability, 4(A)(3) as the credit — so the books carry
+both). `RCM_PAYABLE` is its **own** head, never a `*_OUTPUT` one: an RCM
+liability is discharged in cash and may not be set off against ITC, so netting it
+into output GST would let it be paid with credit on the very report someone
+computes the cash payment from. It carries no `partyUserId` — the creditor is the
+government. Reverse charge is **purchase-only**, matching the scope
+`gstr3b.const.ts` already uses, so the ledger, the return and §31(3)(f)'s
+self-invoice (`gst-returns/self-invoice.const.ts`, rendered by the print payload)
+all agree about what an RCM document is. Forward-only: vouchers posted before
+this are not re-posted.
+
+**Compensation cess is not modelled** (D-53). `trx_items.cessAmount` is dropped —
+it was a client-stated figure the server never derived, never billed and posted
+to no head, read straight into GSTR-1's `csamt`. The **portal** field stays at a
+literal `0`, because GSTR-1's schema requires `csamt`. Don't reintroduce a
+client-supplied cess: if it is ever wanted, it is a rate on the item master
+derived beside `gstLineTax`, not a column the client fills in.
 
 **A cancelled voucher leaves a PAIR in BOTH ledgers, and only one of them has a
 shared primitive for saying so** (BUG-0044). `journal_entries` carries
@@ -1398,10 +1431,14 @@ conventions.
 3. **Never disable or bypass the tenant-scoping hooks**, and never add
    `crossCompany` without a comment justifying it.
 4. **Raw SQL must bind `companyId` — for every company-scoped table it names,
-   not only the one it selects from.** No exceptions. CI enforces the first half
-   only: `ci-guard-raw-sql.ts` judges a statement, and a statement that binds
-   `companyId` for its driving table passes while joining others unscoped
-   (§4.3 rule 3's warning, BUG-0047).
+   not only the one it selects from.** No exceptions, and **CI now enforces both
+   halves**: `ci-guard-raw-sql.ts` judges the statement *and* every joined
+   company-scoped table, deriving the scoped-table set from the entity files on
+   disk (`tableName` + a declared `companyId`) — the same proxy the hooks
+   themselves use, so it cannot drift from the schema. The sweep that closed
+   this gap found **53** unscoped joins, not the four BUG-0047 was filed for,
+   including `ReportsService.trialBalance`'s `JOIN trx_groups` (the read half of
+   BUG-0025, §4.9). The join allow-list is empty; keep it that way.
 5. **`INTERNAL_SERVICE_KEY` fails closed.** Don't add a "if unset, allow"
    fallback. (This is the deliberate opposite of the licence doctrine, where a
    missing flag reads as ON — an ungranted licence must not black out a working
@@ -1903,6 +1940,10 @@ is one nobody reads.
 | Which tax does this supply bear, and why? | `src/const/gst.const.ts` (`isInterStateSupply`, `gstLineTax`), `src/const/gst-returns/gst-classification.const.ts` (the deemed-inter-state set) |
 | What unit code does a statutory document declare? | `src/const/uqc.const.ts` `resolveUqc` — the portal's own list, used by GSTR-1 table 12, the IRN payload and the e-way bill alike (BUG-0037) |
 | Is this GSTIN real, and what does it say? | `src/const/gstin.const.ts` (grammar, check digit, state, PAN) |
+| May this GSTIN be SAVED on a master? | `src/const/gstin.const.ts` `gstinProblems` — all four checks at once (D-51). The OCR/import lanes keep the old tolerance deliberately |
+| Was this tax rate in force on that date? | `src/const/tax-validity.const.ts` `isInForceOn` (D-50) — mirrored on the frontend; the hub's HSN master is dated too |
+| Which book does this account appear in? | `src/const/account-type.const.ts` `bookForAccountType` (D-54) — derived, so a new type cannot fall out of both |
+| Who owes the tax on this purchase? | `src/const/posting.const.ts` `LegRole.RcmPayable` + `gst-returns/self-invoice.const.ts` (D-52) |
 | Is a GST rule we implement still the current one? | `qa-artifacts/docs/findings/gst.md` — every rule cited to an official source with the date it was checked (Phase 7A) |
 | What may a voucher have done to it? | `src/const/voucher-lifecycle.const.ts` |
 | When may it post? | `src/const/financial-year.const.ts`, `src/services/financial-year.service.ts` `assertPostingAllowed` |
