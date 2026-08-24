@@ -1583,6 +1583,20 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
   break screens — but it is named in the response's `ignoredFilters`, present
   only when something was ignored. The grid renders that key, so a filter that
   did nothing says so on screen — which is the whole reason it may answer 200.
+- **A NEGATIVE filter is widened with `OR col IS NULL`, and it has to be**
+  (BUG-0048). `notContains`, `notEquals` and `dateIsNot` are the three negations
+  the shared grid filter offers on **every** list screen, and SQL's three-valued
+  logic makes `NULL NOT LIKE '%x%'` NULL rather than true — so a bare `NOT LIKE`
+  silently drops every row whose column is empty, with no error and nothing in
+  `ignoredFilters` to say so. On `products.availabilityDate`, empty on all 587 of
+  a QA tenant's goods, *"is not 01/01/2000"* returned an **empty grid**. The rule
+  it restores is the one to remember: **a filter and its negation must partition
+  the population** — `contains X` + `notContains X` equals the grid's own row
+  count. `notNull()` is the single definition, and **both backends have a copy**
+  (`client-back/src/services/common-data.service.ts`,
+  `admin-back/src/services/pagination.service.ts`); `scripts/check-mirrors.js`
+  does not compare them, so a fourth negative match mode needs the same treatment
+  in both places by hand.
 - **A filter on a JOINED column marks that alias's include `required`, and that
   is deliberate.** Sequelize emits the entire top-level `where` inside the
   subquery it builds for a limited query with a duplicating include, while an
