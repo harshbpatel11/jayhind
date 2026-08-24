@@ -958,6 +958,41 @@ a document is **not** an open item of its own — listing it as one, on the posi
 side, while the invoice it offset read as closed, is what made a party's total come
 out overstated by the note's full value and pointing the wrong way.
 
+> ⚠️ **A party's position exists TWICE, and only one of the two knows about
+> opening balances** (BUG-0040). The ledger side is `journal_lines.partyUserId` on
+> the two control heads (`SUNDRY_DEBTORS_CONTROL` / `SUNDRY_CREDITORS_CONTROL`) —
+> what the party statement, the summary's `receivable`/`payable` and the
+> Vendor/Customer Outstanding reports all read. The document side is `trx` and its
+> allocation rows — what the bill-wise annexure and the list summary strips read.
+> Neither is derived from the other, so they reconcile only if every term is
+> accounted for, and one is not: a party's **opening balance** is posted straight
+> to the control head (`sourceType: 'party-opening'`) with **no `trx` row behind
+> it**. A report built from `trx` alone therefore loses it silently — the annexure
+> shows no bills and every ageing bucket at zero for a party whose statement closes
+> at ₹5,000 Dr. When you write a report about what a party owes, say which of the
+> two sides you are reading and what the other one would answer.
+
+**`trx_accounts.balance` and `trx_groups.currentBalance` are CACHES of
+`journal_lines`, not facts** (BUG-0042). `PostingService.persistLines` increments
+both by exactly the figures it writes to the ledger, in the same transaction, and
+nothing else writes them — so each column is a duplicate of a Σ. Every statement
+in `ReportsService` reads the lines (its header says the caches are *"deliberately
+not consulted"*); `getFundsSummary` and the Financial Dashboard read the caches.
+Two consequences:
+
+- **A divergence is invisible to every ledger-derived report**, which is how nine
+  drifted caches across two tenants survived eight QA phases. What sees it is one
+  query comparing the column with the Σ — `qa-artifacts/tests/reports/
+  outstanding.spec.ts` now runs it over every account and every group of every
+  company.
+- **The repair is `PostingService.rebuildBalances`**, reachable through
+  `POST /trx-accounts/rebuild-balances` (`trx-accounts` `canEdit`) — the door
+  `POST /inventory/rebuild-balances` has always had for the stock buckets. It had
+  **no caller at all** until 2026-08-24, so a drifted cache could not be fixed
+  through the application. If you add a writer of `journal_lines`, it must go
+  through `persistLines`, or both caches are wrong from that moment on and nothing
+  will tell you.
+
 ### 4.10 Async work
 
 - **BullMQ + Redis** for the audit queue and the invoice-scan queue, registered
@@ -1557,6 +1592,7 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
 | Shared-read exposure | `qa-artifacts/tests/permissions/shared-read-party.spec.ts` — sweeps **every** `@SharedRead()` route as a trading party and asserts the allow-list exactly (D-46). Route list comes from the regenerated inventory, so a new shared read is swept the day it lands | `npm run qa:permissions` |
 | GSP path, mocked at the hub's outbound HTTP | `qa-artifacts/tests/gst/gsp-stub.ts` — a **schema-strict** WhiteBooks stub (D-2). Everything above the `fetch` is real: `MasterHubClient`, `InternalServiceGuard`, the hub's licence and GSTIN assertions, the session cache and retry, the error mapper, the metering. It validates the payload against the *restated* INV-01 / NIC schemas, so a green conformance test means the portal would have accepted it | `npm run qa:gst` |
 | GST rules vs. the statute | `qa-artifacts/tests/gst/` — `gst-rules.ts` restates the rules from the Acts and notifications, and four specs measure the rate schedule, GSTIN validation, the computation matrix and the HSN master against it. Every rule is cited, with the date it was checked, in `qa-artifacts/docs/findings/gst.md` — **check that file before defending a GST number**, because rates and thresholds change by notification | `npx playwright test --project=api tests/gst` |
+| Every displayed figure is reproducible | `qa-artifacts/tests/reports/` — the statements and books against `statement-rules.ts`, the party account and the stock position against `party-rules.ts`, both **restated** rather than imported. Includes the two census tests that compare the derived balance caches with `journal_lines` (BUG-0042) and the delta tests that ask whether a figure *moves* by the right amount, which is the half an equality test cannot see | `npm run qa:reports` |
 | Cross-repo mirror drift | `scripts/check-mirrors.js` (**this** repo — only it sees both submodules) | `node scripts/check-mirrors.js` |
 | QA harnesses | `scripts/qa-*.ts` (~55 in client-back, 5 in admin-back) | `npx ts-node -r tsconfig-paths/register scripts/qa-<name>.ts` |
 | Style guard | `scripts/breakpoint-guard.js` | `npm run lint` (client-front) |
@@ -1784,6 +1820,8 @@ is one nobody reads.
 | What may a voucher have done to it? | `src/const/voucher-lifecycle.const.ts` |
 | When may it post? | `src/const/financial-year.const.ts`, `src/services/financial-year.service.ts` `assertPostingAllowed` |
 | What does a document still owe — and owe back? | `src/const/outstanding.const.ts` (D-18) |
+| What does a PARTY owe, and which of the two answers am I reading? | `src/services/party-statement.service.ts` — the ledger side is the two control heads, the document side is `trx` (BUG-0040) |
+| Why does the funds summary disagree with the trial balance? | the caches, not the ledger — §4.9, `POST /trx-accounts/rebuild-balances` (BUG-0042) |
 | What does "today" mean on this server? | `src/const/local-day.const.ts` `todayIso` — the LOCAL day, not `new Date().toISOString().slice(0,10)`, which names yesterday between 00:00 and 05:30 IST (API-033) |
 | Which stock movements went negative on a date? | `src/const/inventory.const.ts` `negativeOnDates` (D-44) |
 | What did a component cost on the day it was consumed? | `src/services/inventory.service.ts` `applyAsOfDateCost` (BUG-0033) |
