@@ -1060,8 +1060,8 @@ a document is **not** an open item of its own — listing it as one, on the posi
 side, while the invoice it offset read as closed, is what made a party's total come
 out overstated by the note's full value and pointing the wrong way.
 
-> ⚠️ **A party's position exists TWICE, and only one of the two knows about
-> opening balances** (BUG-0040). The ledger side is `journal_lines.partyUserId` on
+> ⚠️ **A party's position exists TWICE, and reconciling them needs every term
+> accounted for** (BUG-0040, closed by D-55). The ledger side is `journal_lines.partyUserId` on
 > the two control heads (`SUNDRY_DEBTORS_CONTROL` / `SUNDRY_CREDITORS_CONTROL`) —
 > what the party statement, the summary's `receivable`/`payable` and the
 > Vendor/Customer Outstanding reports all read. The document side is `trx` and its
@@ -1069,10 +1069,20 @@ out overstated by the note's full value and pointing the wrong way.
 > Neither is derived from the other, so they reconcile only if every term is
 > accounted for, and one is not: a party's **opening balance** is posted straight
 > to the control head (`sourceType: 'party-opening'`) with **no `trx` row behind
-> it**. A report built from `trx` alone therefore loses it silently — the annexure
-> shows no bills and every ageing bucket at zero for a party whose statement closes
-> at ₹5,000 Dr. When you write a report about what a party owes, say which of the
-> two sides you are reading and what the other one would answer.
+> it**. A report built from `trx` alone therefore lost it silently — the annexure
+> showed no bills and every ageing bucket at zero for a party whose statement
+> closes at ₹5,000 Dr.
+>
+> **D-55 makes it an open item of its own**, aged from the opening entry's own
+> date. `PartyStatementService.openingBalanceBill` synthesises the row from
+> `journal_lines`, deliberately rather than from `company_parties.openingBalance`:
+> both sides then derive from the same rows and cannot drift, and it honours
+> `liveEntrySql`, which the stored column would not — re-editing a party re-posts
+> the opening entry as a reversal plus a replacement. The row carries `source:
+> 'party-opening'` and `id: 0`, because there is no document to open.
+>
+> When you write a report about what a party owes, say which of the two sides you
+> are reading and what the other one would answer.
 
 **`trx_accounts.balance` and `trx_groups.currentBalance` are CACHES of
 `journal_lines`, not facts** (BUG-0042). `PostingService.persistLines` increments
