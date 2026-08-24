@@ -291,6 +291,27 @@ remains unfinished, but the isolation gap it was meant to close is shut.
    carry an explicit `companyId` bind — `TenantContext.requireCompanyId()`
    threaded into `replacements`. `npx ts-node scripts/ci-guard-raw-sql.ts`
    enforces this and judges *new* sites automatically.
+   > ⚠️ **The guard judges a STATEMENT, and a statement can scope one table
+   > while joining three others unscoped** (BUG-0047). `HrDashboardService`'s
+   > four breakdowns bind `companyId` on `employees`/`leave_applications` — so
+   > the guard passes — and then `LEFT JOIN departments d ON d.id =
+   > e.departmentId` with no predicate at all, likewise `designations`,
+   > `employment_types` and `leave_types`. Feed it an `employeeId` satellite
+   > belonging to another company (rule 7, unchecked on `EmployeeService`) and
+   > **that company's department NAME renders on this one's dashboard**.
+   >
+   > This is where BUG-0019's consolation stops applying. A rule-7 bug on a
+   > company-scoped table is normally *silent*, because the read joins the
+   > association through the same hooks and answers `null` — but **raw SQL is
+   > not under the hooks**, so the join resolves and answers with a name. So
+   > BUG-0022's question (*what does this id point at?*) has a second half:
+   > **how is it READ?** The same unchecked id is invisible through Sequelize
+   > and a disclosure through `sequelize.query`.
+   >
+   > `UsersDashboardService` is the one that gets it right and says why —
+   > every `roles` join there carries its own `AND r.companyId = :companyId`
+   > — and `FinancialDashboardService` scopes all of its. **Scope every joined
+   > company-scoped table, not just the driving one.**
 4. **Never keep per-company state in a service field.** `@Injectable()` is a
    process singleton; a `private cache = new Map()` means the first company to
    populate an entry decides what every other company reads. If a cache is
@@ -551,6 +572,27 @@ Three things that fall out of it, all deliberate:
 - **`CreateUpdateUserDto.status` accepts `active | inactive | exited` only.**
   `locked` is not a membership state, and `pending` belongs to
   `InvitationService`, which mints the token that makes it recoverable.
+
+> ⚠️ **D-39 was applied to every WRITER of those columns and to the guard. It was
+> not applied to the READERS, and one of them is still counting the wrong one**
+> (BUG-0046). `UsersDashboardService` answers *"Active users"* with
+> `SUM(u.isActive = 1)` — the platform-wide column the ERP no longer writes,
+> on a row it shares with every other company the person belongs to. So the
+> Users **dashboard** and the Users **grid** on the next screen disagree about
+> who is active, and the dashboard is wrong in **both** directions at once:
+> people this company deactivated are counted Active, and people barred by
+> another tenant's Hub operator are counted Inactive. Its `deletedUsers` is the
+> complement of the right answer — it counts globally-deleted identities who are
+> still live members here, and misses every membership this company actually
+> tombstoned, which the population filter has already dropped.
+>
+> The three counters that genuinely belong on the identity are `lockedUsers`
+> (a **credential** fact, set by five failed sign-ins), `neverLoggedIn` and
+> `activeLast30Days` (properties of the login, which is platform-wide). Everything
+> else about *this company's* roster is `company_members.status`.
+>
+> **When a decision moves a column's meaning, grep for its readers, not only its
+> writers.**
 
 **`users.tokenVersion` is the same pattern for the identity, and it is what makes
 sign-out actually end a session** (SEC-021). `AuthGuard` verifies a signature and
@@ -843,6 +885,27 @@ consequences that look like tidiness invitations and are not:
   the rate charged comes from the line's own tax **citation**, not from the
   master — a line citing 5 % on an 18 % product is charged 5 % — so documents
   already raised are safe whatever the master says next.
+
+**A cancelled voucher leaves a PAIR in BOTH ledgers, and only one of them has a
+shared primitive for saying so** (BUG-0044). `journal_entries` carries
+`isReversal` + `reversedEntryId`, and `liveEntrySql` in `posting.const.ts` is the
+one definition of "this entry did not happen" — `FinancialDashboardService` uses
+it on all five of its queries. `stock_movements` carries the **identical** two
+columns, `isReversal` + `reversedMovementId`, and has **no such primitive**, so
+every reader has to remember on its own. `DashboardService.stockInOutTrend` did
+not: it buckets movements by raw `direction`, so a cancelled purchase adds its
+value to *received* (its original IN) **and** to *issued* (its reversal OUT) —
+the chart reports material issued that was never received, and on the QA world
+that is ₹250bn over twelve months. `cogsMtd`, 44 lines above it in the same file,
+signs by direction for exactly this reason and its comment says so.
+
+Two things fall out of it. **The rule only bites on a GROSS figure** — a balance,
+a running total or a signed sum cancels the pair by itself, which is why
+forgetting it survives so long. And a reversal belongs in **neither** bucket of a
+two-series chart: it cancels the one its *original* was filed under, so the
+correction is a sign, not an exclusion (dropping `isReversal = 1` alone leaves
+the original, which is what inflated the bar). When you add a gross aggregate over
+`stock_movements`, ask what `liveEntrySql` would have done.
 
 **Stock is sequenced by DOCUMENT DATE, not by insertion** (BUG-0012, D-17).
 `replayStockLedger` / `byDateThenId` in `src/const/inventory.const.ts` is the one
@@ -1328,7 +1391,11 @@ conventions.
    revocation.
 3. **Never disable or bypass the tenant-scoping hooks**, and never add
    `crossCompany` without a comment justifying it.
-4. **Raw SQL must bind `companyId`.** No exceptions; CI enforces it.
+4. **Raw SQL must bind `companyId` — for every company-scoped table it names,
+   not only the one it selects from.** No exceptions. CI enforces the first half
+   only: `ci-guard-raw-sql.ts` judges a statement, and a statement that binds
+   `companyId` for its driving table passes while joining others unscoped
+   (§4.3 rule 3's warning, BUG-0047).
 5. **`INTERNAL_SERVICE_KEY` fails closed.** Don't add a "if unset, allow"
    fallback. (This is the deliberate opposite of the licence doctrine, where a
    missing flag reads as ON — an ungranted licence must not black out a working
