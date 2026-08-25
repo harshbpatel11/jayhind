@@ -605,6 +605,17 @@ row it already loads, so the check costs nothing extra — and answers
 password change; a token minted before the column existed carries no claim and
 reads as version 0, so a deploy signs nobody out.
 
+> ⚠️ **There are exactly TWO minters of a JWT in this backend, and only one of
+> them sets the claim** — a known open finding (BUG-0056). `AuthService` does;
+> `ImpersonationService.start` builds its payload by hand and does not, so an
+> absent claim reads as 0 and every support token is refused
+> `401 SESSION_REVOKED` the moment the impersonated administrator's counter
+> leaves zero — i.e. the first time they sign out or change their password. The
+> session is opened, audited in the customer's own trail as somebody having come
+> in, and then cannot read a single row. `grep -rn "signAsync\|jwtService.sign"
+> src` names both minters, and that grep is the check rather than a code review.
+> **When you add a claim the guard enforces, ask what else mints a token.**
+
 **A session is two credentials, and they are revoked at different grains.** The
 access token dies identity-wide (above); the refresh chain dies **per device**,
 by `refresh_tokens.familyId` — the id of the first token in a rotation chain,
@@ -1324,10 +1335,17 @@ none of them carrying a tenant context (same doctrine as provisioning):
     exact current name (`confirmName`). Both `CompanyService.hardDelete`
     (admin-back) and `CompanyHardDeleteService` (client-back) check the
     archived state independently.
-  - `user_details` is deliberately excluded from the delete graph — it has no
-    `companyId` (keyed by the global `userId`, D-02) and can be referenced by
-    another company's `trx` rows, so it is left alone even though
-    `trx.supplierUserDetailsId → user_details` is `RESTRICT`.
+  - **`user_details` IS in the delete graph** — and this line used to say the
+    opposite, which is worth knowing if you are reading an older copy. It was
+    excluded while the party master had no `companyId`; the 2026-08-20 migration
+    gave it one (§4.3), so this company's rows are this company's to delete, and
+    `company-hard-delete-order.const.ts` carries the edge with its own note on
+    why it once did not. The original worry — that another company's `trx` can
+    reference the same row — is answered by the `trx → user_details` edge in that
+    same graph. `qa-artifacts/tests/cross-service/hard-delete.spec.ts` asserts a
+    deleted company is left with **zero** rows in every `companyId`-bearing
+    table, taken from `information_schema`, so an exclusion here is a failing
+    test rather than a silent orphan.
   - **Orphaned identities are deleted too, but never someone else's login.**
     After the table purge, every identity who WAS a member of this company is
     re-checked: if `company_members` now has zero rows for them anywhere
@@ -1770,6 +1788,7 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
 | Rule-7 parent ids | `qa-artifacts/tests/transactions/jobwork-scope.spec.ts` and `tests/api/parent-scope.spec.ts` — every caller-supplied parent id on a write, probed with a stranger resolved from `company_members` (never from a fixture: the QA world **shares** an identity between two tenants on purpose) | `npm run qa:transactions` |
 | Shared-read exposure | `qa-artifacts/tests/permissions/shared-read-party.spec.ts` — sweeps **every** `@SharedRead()` route as a trading party and asserts the allow-list exactly (D-46). Route list comes from the regenerated inventory, so a new shared read is swept the day it lands | `npm run qa:permissions` |
 | GSP path, mocked at the hub's outbound HTTP | `qa-artifacts/tests/gst/gsp-stub.ts` — a **schema-strict** WhiteBooks stub (D-2). Everything above the `fetch` is real: `MasterHubClient`, `InternalServiceGuard`, the hub's licence and GSTIN assertions, the session cache and retry, the error mapper, the metering. It validates the payload against the *restated* INV-01 / NIC schemas, so a green conformance test means the portal would have accepted it | `npm run qa:gst` |
+| The hub↔ERP control plane | `qa-artifacts/tests/cross-service/` — a company's whole life across **both** databases, as ten agreement properties: provisioning is all-or-nothing *and* leaves a company that can post; a licence flip is live on the next request; hard delete is total (the census comes from `information_schema`, so a new table is covered the day it is created) and bounded (a shared login survives). ⚠️ It **creates and destroys companies** — every one is a `QA·9A …` scratch tenant and `destroyScratch` refuses anything else | `npm run qa:cross-service` |
 | GST rules vs. the statute | `qa-artifacts/tests/gst/` — `gst-rules.ts` restates the rules from the Acts and notifications, and four specs measure the rate schedule, GSTIN validation, the computation matrix and the HSN master against it. Every rule is cited, with the date it was checked, in `qa-artifacts/docs/findings/gst.md` — **check that file before defending a GST number**, because rates and thresholds change by notification | `npx playwright test --project=api tests/gst` |
 | Every displayed figure is reproducible | `qa-artifacts/tests/reports/` — the statements and books against `statement-rules.ts`, the party account and the stock position against `party-rules.ts`, both **restated** rather than imported. Includes the two census tests that compare the derived balance caches with `journal_lines` (BUG-0042) and the delta tests that ask whether a figure *moves* by the right amount, which is the half an equality test cannot see | `npm run qa:reports` |
 | Cross-repo mirror drift | `scripts/check-mirrors.js` (**this** repo — only it sees both submodules) | `node scripts/check-mirrors.js` |
