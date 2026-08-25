@@ -613,16 +613,26 @@ row it already loads, so the check costs nothing extra — and answers
 password change; a token minted before the column existed carries no claim and
 reads as version 0, so a deploy signs nobody out.
 
-> ⚠️ **There are exactly TWO minters of a JWT in this backend, and only one of
-> them sets the claim** — a known open finding (BUG-0056). `AuthService` does;
-> `ImpersonationService.start` builds its payload by hand and does not, so an
-> absent claim reads as 0 and every support token is refused
-> `401 SESSION_REVOKED` the moment the impersonated administrator's counter
-> leaves zero — i.e. the first time they sign out or change their password. The
-> session is opened, audited in the customer's own trail as somebody having come
-> in, and then cannot read a single row. `grep -rn "signAsync\|jwtService.sign"
-> src` names both minters, and that grep is the check rather than a code review.
-> **When you add a claim the guard enforces, ask what else mints a token.**
+> ⚠️ **There are exactly TWO minters of a JWT in this backend, and for a while
+> only one of them set the claim** (BUG-0056, fixed 2026-08-25). `AuthService`
+> did; `ImpersonationService.start` builds its payload by hand and did not, so an
+> absent claim read as 0 and every support token was refused
+> `401 SESSION_REVOKED` the moment the impersonated administrator's counter left
+> zero — i.e. the first time they signed out or changed their password. The
+> session opened, was audited in the customer's own trail as somebody having come
+> in, and then could not read a single row.
+>
+> **A logout or password change now deliberately ENDS an in-flight support
+> session**, which is what carrying the *live* counter implements. There is no
+> snapshot-and-exempt: that would make a support token the one credential a
+> sign-out cannot revoke. The customer can cut a session they can see in their
+> own trail; the operator re-opens one, audited again.
+>
+> `grep -rn "signAsync\|jwtService.sign" src` names both minters — and that grep
+> is now a **test**: `src/const/ci-guards/jwt-claims-guard.const.ts` fails
+> `npm test` if any minter omits a claim `TenantContextGuard` enforces. **When
+> you add such a claim, add it to `REQUIRED_JWT_CLAIMS` in the same commit** and
+> the guard tells you which minters need it.
 
 **A session is two credentials, and they are revoked at different grains.** The
 access token dies identity-wide (above); the refresh chain dies **per device**,
@@ -792,6 +802,15 @@ adding an enum member without a column is a compile error.
 - Unlicensed → `403 { code: 'FEATURE_DISABLED', module }`.
 - **A missing/unknown flag reads as ON** (`ALL_ON`) — a company row predating a
   newly-added module must never go dark.
+  > ⚠️ **The fail-open is not uniform any more** (ruled 2026-08-25, closing
+  > §13's still-open #3). When the `companies` **read throws**, the six nav
+  > modules still resolve ON — a database hiccup must not black out a working
+  > ERP — but the three *billable* gateway capabilities (`ewb`, `einvoice`,
+  > `ocr`) resolve **OFF**: an outage is not authorisation to spend money at a
+  > government portal on a customer's behalf. `MODULES_ON_GATEWAYS_OFF` in
+  > `company-licence.service.ts` carries the whole argument. A company row that
+  > is simply **missing** is deliberately still `ALL_ON` — that is a stale id or
+  > a deleted company, not an outage.
 - Mirrored on the frontend in
   `jayhindi-client-front/src/core/navigation/module-licence.ts`. **Keep the two
   in sync.** The server is the enforcement; the frontend copy exists only so the
@@ -837,15 +856,27 @@ These status+code pairs are contracts the frontend recognises. Don't change them
   > schema change, it is a release that does not install — and nothing in the
   > loop compares the applied set against the directory, so `npm run migrate`
   > after pulling is on you.
-- **The DB session runs in UTC.** No `timezone` is set on the Sequelize config,
-  so Sequelize's `+00:00` default applies and every raw **`CURDATE()` / `NOW()`
-  is the UTC day**. Against a business `DATE` column — `trx.date`, `dueDate`,
-  `journal_entries.date` — that names *yesterday* between 00:00 and 05:30 IST,
-  which is API-033's defect one layer below where `todayIso()` fixed it
-  (BUG-0050: the dashboard's "Today" tiles, its month-to-date windows, the
-  overdue cut; on the 1st of a month inside that window, "this month" reports the
-  whole of last month). `NOW()` against a stored UTC timestamp — `updatedAt`,
-  `lockedUntil`, `lastLoginAt` — is correct and is not the same question.
+- **The DB session runs in UTC**, and that is why **raw SQL binds the day
+  instead of asking for it** (BUG-0050, fixed 2026-08-25). No `timezone` is set
+  on the Sequelize config, so its `+00:00` default applies and `CURDATE()` is the
+  **UTC** day. Against a business `DATE` column — `trx.date`, `dueDate`,
+  `journal_entries.date` — that names *yesterday* between 00:00 and 05:30 IST:
+  the dashboard's "Today" tiles, its month-to-date windows and the overdue cut
+  were all a day out for 5½ hours of every 24, and on the 1st of a month inside
+  that window "this month" reported the whole of last month.
+
+  Thirteen sites across seven services now thread `today: todayIso()` into
+  `replacements` and compare against `:today` — the shape §4.3 rule 3 already
+  requires for `companyId`. Setting `timezone` on the config was the one-line
+  alternative and was **rejected**: it also changes how Sequelize *serialises*
+  every `Date` on the way IN, a wider blast radius than the defect.
+  `ci-guard-raw-sql` enforces it, with no allow-list — no statement here
+  legitimately wants the UTC calendar day.
+
+  ⚠️ **`NOW()` and `CURRENT_TIMESTAMP` are deliberately NOT flagged.** Against a
+  stored UTC timestamp — `updatedAt`, `lockedUntil`, `lastLoginAt` — asking the
+  database for the current instant is correct, and is a different question from
+  the calendar day.
 - **Transactions**: controllers open `await this.sequelize.transaction()` for
   multi-step writes and pass `{ transaction }` down. Commit on success, rollback
   and rethrow as `ApiException` on failure — see
@@ -1036,17 +1067,27 @@ touching `InventoryService`:
   snapshots a derived figure, ask what else the derivation depends on** — here
   `date`, which had become load-bearing in a different file two decisions
   earlier.
-- ⚠️ **The replay SKIPS a cancelled pair, so neither of its rows ever gets a
-  running balance written** — a known open finding (BUG-0049). `writeMovement`
-  creates a reversal with `runningBalance: 0` and the comment *"backfilled by
-  `rebuildBalances` below"*; `rebuildBalances` iterates `replay.rows`, and
-  `replayStockLedger` drops the cancelled pair before it gets there — correctly,
-  because a cancelled pair must not move the balance, and that is exactly why the
-  backfill never happens. Every reversal row in the database reads `0`, the row
-  it reverses keeps a figure that stopped being true when it was cancelled, and
-  where the pair is **last** the stock ledger's visible closing contradicts the
-  product's own bucket. The buckets, the valuation and COGS are unaffected —
-  they come from the replay.
+- **The replay emits EVERY movement, and a cancelled pair carries a `tookPart`
+  flag** (BUG-0049, fixed 2026-08-25). It used to drop the pair — correctly for
+  the totals, and fatally for the one caller that writes rows back:
+  `writeMovement` creates a reversal with `runningBalance: 0` and the comment
+  *"backfilled by `rebuildBalances` below"*, `rebuildBalances` iterates
+  `replay.rows`, and the pair was dropped before it got there. So **every
+  reversal row in the database read `0`**, the row it reversed kept a figure that
+  stopped being true when it was cancelled, and where the pair was last the stock
+  ledger's visible closing contradicted the product's own bucket.
+
+  A cancelled row now carries the balance **prevailing around it** — the pair
+  moved nothing, so the balance beside it is the balance that was already there.
+  `quantity` and `avgCost` still exclude it.
+
+  > ⚠️ **The flag is what separates the two kinds of consumer, and the
+  > distinction is the thing to carry.** Anything that asks a QUESTION about the
+  > sequence — was the product ever short, what did this issue consume at —
+  > considers only `tookPart` rows. Anything that WRITES a row's stored columns
+  > writes all of them. `negativeOnDates` therefore filters **inside itself**
+  > rather than at its call site, so a second reader cannot forget; that is the
+  > same reasoning that made `cancelledMovementIds` shared in the first place.
 - ⚠️ **The negative-stock check is order-blind** and is a known open finding
   (BUG-0027): it compares against the product's *current total*, so an issue
   back-dated before the receipt that supplied it is accepted, and the ledger is
@@ -1554,6 +1595,16 @@ src/
   one click away at any width. `MenuService.activeModule` — the URL's first
   segment matched against the permission-filtered tree — is what both columns
   read.
+  > ⚠️ **"Collapsed" clips the panel; it does not hide it** — which matters to
+  > anything that measures the shell. The sidenav narrows to the rail's width and
+  > the panel keeps its full layout box behind `overflow-x: hidden`, so
+  > `isVisible()` and `boundingBox()` both answer as if it were on screen. The
+  > number that means anything is the **sidenav's own width** (72px = one column,
+  > 288px = two), which is also what the content margin is set from. Note too
+  > that `.matero-sidenav-collapsed` and `.matero-nav-panel-hidden` produce the
+  > same width for different reasons, so the wrapper class is the only thing that
+  > tells them apart — and hovering the rail peeks the panel back without
+  > changing the setting.
   - A top-level `NavItem` may declare `subtitle` (panel header caption),
     `shortName` (the rail's ~10-character label; the tooltip and `aria-label`
     keep the full name) and, for a module with **no child routes**, `sections`:
@@ -1579,6 +1630,21 @@ src/
     before, which reads well as a diagram and put Sales, the most-used screen
     in the app, ninth and behind a disclosure triangle. No route moved; only
     the `group` labels and the order did.
+  - **The shell's widths are decided on ARRIVAL, and they are no longer
+    remembered** (BUG-0064, fixed 2026-08-25). `AdminComponent`'s observer
+    collapses the panel between 720 and 1023 and opens it at or above 1024 —
+    and that branch is now **symmetric**. It used to set only `true`, with
+    nothing anywhere writing it back, so one visit at a tablet width collapsed
+    the panel for every desktop session afterwards.
+
+    Two rules fall out, and the second is the general one. **A branch that is a
+    statement about width must be able to make that statement in both
+    directions.** And `sidenavCollapsed`/`sidenavOpened` are **derived from the
+    viewport, not chosen**, so `EPHEMERAL_SETTINGS` in `settings.service.ts`
+    strips them from `localStorage` on the way out *and on the way in* — the
+    second half is what recovers a browser that already has the old shape
+    stored. `setOptions()` persists everything it is handed, which is how a
+    derived value acquired a memory nobody decided to give it.
   - **The per-module tab bars are gone.** `ModuleLayoutComponent` is now only a
     `<router-outlet>`; the panel lists the same tree at full width without the
     horizontal scrolling seven tabs forced. Don't reintroduce them.
@@ -1598,6 +1664,30 @@ src/
   other's fields. `UpdateSiteConfigurationDto.name` is optional for that reason.
 - **Post-login landing** is `menu.getFirstAccessibleRoute()`, never a hardcoded
   dashboard the role may not have.
+- **`permissionGuard` checks the LICENCE first, and it now AWAITS it**
+  (BUG-0065 + SEC-002, fixed 2026-08-25). The order is deliberate — a provider
+  decision precedes even the Admin bypass — but `LicenceService.state` is `null`
+  until `GET company/licence` resolves and nothing awaited it, so on every
+  **document** load (a bookmark, a typed URL, a refresh) `undefined !== false`
+  read as licensed and the screen opened. An in-app navigation was correctly
+  refused, which is what made it a race rather than a missing check — and what
+  let it survive review, since clicking around gives the right answer.
+
+  All-on-while-unknown stays right for the *menu* (`ALL_LICENSED`: a pessimistic
+  default blanks the app on a transient error) and is wrong for a **gate**,
+  which has to decide now. `load()` never throws, so a genuinely unreachable
+  licence still fails open rather than locking anyone out.
+  > ⚠️ **The gate also keyed off `data.permission.apiUrl`, so a route declaring
+  > none was outside it entirely** — 54 screens under the six licensed modules,
+  > including every voucher list and New form, all twelve financial reports and
+  > the six product masters. Same field the permission check reads, which is why
+  > SEC-002 and this were one fix. It now falls back to the route's **first URL
+  > segment** (`MODULE_BY_URL_SEGMENT` / `isRouteLicensed`), so a new route lands
+  > **inside** the gate by saying nothing rather than outside it — the shape
+  > §4.3's hooks already use, keying off `rawAttributes.companyId` so a new
+  > entity cannot drift out of scope by omission. **The safe behaviour has to be
+  > the one you get for free.** The permission key still wins where it has an
+  > entry: it is the more specific statement.
 - **Choosing a company** is a two-surface story, both driven by
   `CompanySwitchService`:
   - **At login**, an identity holding **more than one** live membership is sent
@@ -1931,10 +2021,12 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
 | Layer | Where | Run |
 |---|---|---|
 | Unit (Jest) | `src/**/*.spec.ts` — 112 suites / 1572 tests in client-back, 9 / 176 in admin-back; mostly beside `const/*.const.ts` | `npm test` |
-| Architecture guards | `src/user-module-boundary.spec.ts`, `src/const/ci-guards/*` — raw-SQL, cached-state, scope-registry, marker-decorator and **`@Body()`-is-a-DTO** | `npm test` + `scripts/ci-guard-*.ts` |
+| Architecture guards | `src/user-module-boundary.spec.ts`, `src/const/ci-guards/*` — raw-SQL (statement · joins · **the calendar day**), cached-state, scope-registry, marker-decorator, `@Body()`-is-a-DTO and **every-JWT-minter-sets-every-claim**. `admin-back` has its own **undecorated-DTO-property** guard | `npm test` + `scripts/ci-guard-*.ts` |
 | Rule-7 parent ids | `qa-artifacts/tests/transactions/jobwork-scope.spec.ts` and `tests/api/parent-scope.spec.ts` — every caller-supplied parent id on a write, probed with a stranger resolved from `company_members` (never from a fixture: the QA world **shares** an identity between two tenants on purpose) | `npm run qa:transactions` |
 | Shared-read exposure | `qa-artifacts/tests/permissions/shared-read-party.spec.ts` — sweeps **every** `@SharedRead()` route as a trading party and asserts the allow-list exactly (D-46). Route list comes from the regenerated inventory, so a new shared read is swept the day it lands | `npm run qa:permissions` |
 | The storage seam | `qa-artifacts/tests/storage/` — nine properties over the tree the ERP now owns (§6.4): the index against the **disk** as a census, keys inside their own company's folder, traversal refusals, the spool drained on refusal too, no static serving, who may be handed the bytes (BUG-0057), and every owned file still having its owner (BUG-0058) | `npm run qa:storage` |
+| The shell, in a browser | `qa-artifacts/tests/ui/shell/` — the frame all 155 screens are read through, against `shell-rules.ts` (the layout rules **restated**, never imported). Four breakpoints, panel presence read from BOTH of its readers at once, the accordion and its pinned groups, deep links, back/forward, the post-login landing per role, and the licence/permission gates by URL. ⚠️ Each width opens a **clean context**: `setViewportSize` reproduces a user *resizing to* a width, not *arriving at* one, and the shell writes some of that choice to `localStorage` (BUG-0064) | `npm run qa:shell` |
+| Every master & configuration screen | `qa-artifacts/tests/ui/masters/screen-sweep.ui.spec.ts` — the per-screen checklist over 29 routes, one test each so a failure names the screen. Structural only (loads · shell agrees · no sideways scroll at 1440 **and 1024** · en-IN money · no leaked date · search narrows *and recovers*); per-screen business rules stay beside their own oracle. ⚠️ A page from `browser.newContext()` is **not** the `page` fixture and carries none of its console/5xx instrumentation | `npm run qa:screens` |
 | GSP path, mocked at the hub's outbound HTTP | `qa-artifacts/tests/gst/gsp-stub.ts` — a **schema-strict** WhiteBooks stub (D-2). Everything above the `fetch` is real: `MasterHubClient`, `InternalServiceGuard`, the hub's licence and GSTIN assertions, the session cache and retry, the error mapper, the metering. It validates the payload against the *restated* INV-01 / NIC schemas, so a green conformance test means the portal would have accepted it | `npm run qa:gst` |
 | The hub↔ERP control plane | `qa-artifacts/tests/cross-service/` — a company's whole life across **both** databases, as ten agreement properties: provisioning is all-or-nothing *and* leaves a company that can post; a licence flip is live on the next request; hard delete is total (the census comes from `information_schema`, so a new table is covered the day it is created) and bounded (a shared login survives). ⚠️ It **creates and destroys companies** — every one is a `QA·9A …` scratch tenant and `destroyScratch` refuses anything else | `npm run qa:cross-service` |
 | GST rules vs. the statute | `qa-artifacts/tests/gst/` — `gst-rules.ts` restates the rules from the Acts and notifications, and four specs measure the rate schedule, GSTIN validation, the computation matrix and the HSN master against it. Every rule is cited, with the date it was checked, in `qa-artifacts/docs/findings/gst.md` — **check that file before defending a GST number**, because rates and thresholds change by notification | `npx playwright test --project=api tests/gst` |
@@ -2069,15 +2161,7 @@ nobody re-opens a settled question.
    deployed. The moment one is, incremental migrations become mandatory and the
    baseline must never be edited again. Nothing to do today — this is a tripwire,
    not a defect.
-3. **Licence flags fail open on a database read failure.** `licenceFor()`
-   returns `ALL_ON` when the `companies` read throws, which grants the three
-   *billable* gateway capabilities (`ewb`, `einvoice`, `ocr`) as well as the six
-   nav modules. The fail-open itself is deliberate and documented ("a database
-   hiccup must not black out an ERP") and is now loudly logged and attributable
-   (see closed #8), but whether a DB outage should also authorise billable
-   outbound GSP calls is a **product decision**, not a code cleanup — it needs
-   the owner, so it was deliberately not changed.
-4. **One rule enforced at some of the places that need it.** Not a single
+3. **One rule enforced at some of the places that need it.** Not a single
    defect — a *shape*, and the one this codebase has produced most often:
    BUG-0024 (`allowDelete` honoured by the archive stage and not the erase),
    BUG-0028 (the financial-period gate honoured by `ApprovalService` and not by
@@ -2089,9 +2173,62 @@ nobody re-opens a settled question.
    same unreachable fallback in **both** queues, fixed with one shared rule).
    The check that finds all of them is the same question — *what are all the
    writers of this effect, and which of them clear this gate?* — and **it is a
-   grep, not a code review**. There is no mechanism for it, which is why it is
-   still open; what there is, is the habit, and the doc comments in each of those
-   files now name their siblings.
+   grep, not a code review**.
+
+   It is still open because there is no *general* mechanism, and there probably
+   cannot be one. What changed on **2026-08-25** is that three of its instances
+   stopped relying on the habit, and the pattern is worth copying:
+
+   - `src/const/ci-guards/jwt-claims-guard.const.ts` — BUG-0056's grep
+     (`signAsync|jwtService.sign`), run by `npm test`. Its first test asserts the
+     guard still finds **both** minters, because a guard that matches nothing
+     reports nothing and reads as coverage.
+   - `src/const/posting-source-lifecycle.const.ts` — BUG-0059's rule, generalised
+     past vouchers, carrying `POSTING_SOURCE_OWNERS`: a list naming every other
+     owner of a posting record. **A list is what makes a grep answerable.**
+   - `admin-back/src/const/dto-decorator-guard.const.ts` — BUG-0052's, on the
+     other backend.
+
+   Three shapes for the same problem: turn the grep into a test, name the
+   siblings in a list beside the rule, or make the safe branch the default. The
+   third is the strongest and BUG-0065 is its example — the licence gate now
+   derives its module from the URL segment, so a new route falls *into* the gate
+   by saying nothing.
+4. **GST-002 — the hub's HSN master is still the pre-reform rate schedule.**
+   598 codes at 12 %, 185 at 28 %, none at 40 %. Everything around it is done:
+   `HsnService.importCsv` takes an `effectiveFrom` and writes a **dated
+   generation** rather than overwriting (it ignored the column entirely before,
+   so D-50's dating was unreachable in practice and a refresh would have
+   destroyed the history it exists to protect). What is missing is the data.
+   `scripts/refresh-hsn-gst-rates.ts` harvests from a rate **lookup**, which
+   answers `"18,28"` and `"5,18"` — the old and new rates as undated
+   alternatives — so it cannot say which is in force on a date. Needs
+   Notification 9/2025-CT(Rate)'s own schedules; the published reproductions
+   give illustrative entries only, and re-rating 22,610 codes from those would
+   be inventing tax data.
+
+### Closed on 2026-08-25 (evening)
+
+1. ~~Licence flags fail open on a database read failure, including the three
+   BILLABLE gateway capabilities~~ → **split.** The six nav modules still resolve
+   ON when the `companies` read throws, because a database hiccup must not black
+   out a working ERP; `ewb`, `einvoice` and `ocr` now resolve **OFF**, because an
+   outage is not authorisation to spend money at a government portal on a
+   customer's behalf. `MODULES_ON_GATEWAYS_OFF` in `company-licence.service.ts`
+   carries the whole argument. A company row that is simply **missing** is
+   deliberately left at `ALL_ON`: that is a stale id or a deleted company, not an
+   outage, and narrowing it would only change how a deleted company's trailing
+   requests fail.
+
+2. ~~Three statutory filing deadlines are restated in the QA harness and enforced
+   nowhere~~ → **warn, do not refuse** (`src/const/statutory-windows.const.ts`).
+   §34(2)'s credit-note window, the 30-day IRN reporting window and NIC's 180-day
+   e-Way Bill document age. Refusing was wrong because a credit note past §34(2)
+   is a legitimate *commercial* document — the Act forbids reducing the **tax**,
+   not raising the note. Silence was wrong because the portals enforce all three,
+   so the symptom was a rejection nobody could anticipate. Nothing in that file
+   throws, and a test asserts it: a warning that becomes fatal by accident is the
+   one way the ruling gets reversed.
 
 ### Closed on 2026-08-25
 
@@ -2198,7 +2335,11 @@ is one nobody reads.
 | What does a document still owe — and owe back? | `src/const/outstanding.const.ts` (D-18) |
 | What does a PARTY owe, and which of the two answers am I reading? | `src/services/party-statement.service.ts` — the ledger side is the two control heads, the document side is `trx` (BUG-0040) |
 | Why does the funds summary disagree with the trial balance? | the caches, not the ledger — §4.9, `POST /trx-accounts/rebuild-balances` (BUG-0042) |
-| What does "today" mean on this server? | `src/const/local-day.const.ts` `todayIso` — the LOCAL day, not `new Date().toISOString().slice(0,10)`, which names yesterday between 00:00 and 05:30 IST (API-033). ⚠️ **`CURDATE()` in raw SQL is still the UTC day** — BUG-0050, §4.8 |
+| What does "today" mean on this server? | `src/const/local-day.const.ts` `todayIso` — the LOCAL day, not `new Date().toISOString().slice(0,10)`, which names yesterday between 00:00 and 05:30 IST (API-033). **Raw SQL binds it as `:today`**; `ci-guard-raw-sql` refuses both a `CURDATE()` and a `:today` nobody bound (BUG-0050, §4.8) |
+| May this record be erased, or must it archive? | `src/const/posting-source-lifecycle.const.ts` — §4.9 rule 2 generalised past vouchers, with `POSTING_SOURCE_OWNERS` naming every other owner of a posting record (BUG-0059) |
+| Is this document past a statutory deadline? | `src/const/statutory-windows.const.ts` — §34(2)'s credit-note window, the 30-day IRN window, NIC's 180/360-day e-Way Bill rules. **Warns, never refuses** (GST-014, GST-018) |
+| Does every JWT minter set the claims the guard enforces? | `src/const/ci-guards/jwt-claims-guard.const.ts` — CLAUDE.md §4.4's grep, run by `npm test` (BUG-0056) |
+| Why is the stock ledger's last row `0`? | it no longer is — `replayStockLedger` emits the cancelled pair with `tookPart: false` and the prevailing balance (BUG-0049, §4.9) |
 | Which stock movements went negative on a date? | `src/const/inventory.const.ts` `negativeOnDates` (D-44) |
 | What did a component cost on the day it was consumed? | `src/services/inventory.service.ts` `applyAsOfDateCost` (BUG-0033) |
 | What may a job work order / dispatch / challan have done to it? | `src/const/job-work-flow.const.ts` (the quantity rule everything derives from), `job-work-dispatch.const.ts` (the three invariants), `job-work-challan.const.ts` (the purpose table) |
@@ -2209,6 +2350,10 @@ is one nobody reads.
 | Why one party has a row per company | `src/entities/user-details.entity.ts`, `src/migrations/20260820000000-user-details-company-scope.ts` |
 | Frontend nav & permissions | `client-front/src/core/navigation/navigation.config.ts`, `guards/permission.guard.ts` |
 | Breakpoints / responsive rules | `client-front/src/styles/design-system/_breakpoints.scss`, `scripts/breakpoint-guard.js` |
+| What is the shell supposed to do at this width? | `qa-artifacts/tests/ui/shell/shell-rules.ts` — the layout rules restated from §7/§9, and the only place they are written down as executable derivations |
+| Which module does this ROUTE need a licence for? | `client-front/src/core/navigation/module-licence.ts` `isRouteLicensed` / `MODULE_BY_URL_SEGMENT` — the permission key when it has one, else the first URL segment, so a route falls INTO the gate by saying nothing (BUG-0065 / SEC-002) |
+| Which shell settings are derived rather than chosen? | `client-front/src/services/settings.service.ts` `EPHEMERAL_SETTINGS` — never persisted, because a width is not a preference (BUG-0064) |
+| Can a company's HSN master carry two rate schedules at once? | yes — `admin-back` `HsnService.importCsv(buffer, effectiveFrom)` writes a dated generation and closes the previous one; without the argument it corrects the current one in place (GST-002, D-50) |
 | All routes | `npx ts-node -r tsconfig-paths/register scripts/dump-routes.ts` (client-back) |
 | API schema / request shapes | `/api/docs` + `/api/docs-json` on :3000 and :3100; `src/utility/swagger.ts` |
 | The frozen cross-service contracts | `_ops/adr/frozen-contracts.md` |
