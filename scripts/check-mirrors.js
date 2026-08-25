@@ -19,19 +19,26 @@
  * the other fails the build, which is the drift that actually bites (the menu
  * offers a module the server 403s, or hides one it would allow).
  *
- * Check 4 is deliberately weaker and says so in its output. The
- * voucher-lifecycle pair cannot be compared as data: the backend answers
+ * Check 4 used to be deliberately weaker, and said so: the voucher-lifecycle
+ * pair cannot be compared as data, because the backend answers
  * `(VoucherLifecycleState) => ActionVerdict` while the frontend answers
  * `(VoucherLifecycleRow, VoucherTypeFlags) => boolean`. Same rules, different
- * shapes, so only *behaviour* is comparable and that needs both suites running
- * a shared vector table. Until that exists, this checks the weaker invariant
- * that neither side has gained or lost a decision function — which catches "a
- * new rule was added to one side only", the most common way that pair drifts.
+ * shapes — so only *behaviour* is comparable, and the note here promised a
+ * shared vector table as the real fix. **That table now exists**
+ * (`scripts/vectors/`, Phase 9B-2), so check 4 runs BOTH implementations
+ * against it and compares three answers per row: the backend's, the frontend's,
+ * and the table's own restatement of the rule. §13.4 is closed.
+ *
+ * The name comparison is kept alongside it rather than replaced. It answers a
+ * question the vectors cannot: *has a decision function appeared on one side
+ * with no vector covering it?* A new rule nobody wrote a vector for would
+ * otherwise pass by being untested, which is the same failure one level up.
  */
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
+const { loadTsModule } = require('./lib/load-mirror-module');
 
 const ROOT = path.join(__dirname, '..');
 const BACK = path.join(ROOT, 'jayhind-client-back');
@@ -88,6 +95,12 @@ function parseExportedFunctions(src) {
 }
 
 /** Compare two key→value maps and record every difference. */
+/** `'repo/some/file.ts'` → `['repo', 'some/file.ts']`, for `loadTsModule`. */
+function splitRepoPath(p) {
+  const cut = p.indexOf('/');
+  return [p.slice(0, cut), p.slice(cut + 1)];
+}
+
 function diffMaps(label, a, b, aName, bName) {
   if (!a || !b) {
     failures.push(`${label}: could not parse one side (a=${!!a} b=${!!b}) — has the literal's shape changed?`);
@@ -132,20 +145,172 @@ if (registry && navConfig) {
   }
 }
 
-// ── 5. voucher-lifecycle: same decision functions on both sides ──────────────
-const backVl = read(path.join(BACK, 'src/const/voucher-lifecycle.const.ts'));
-const frontVl = read(path.join(FRONT, 'src/utils/voucher-lifecycle.util.ts'));
+// ── 5. voucher-lifecycle: same decision functions AND the same answers ───────
+// One pair of paths, used by check 5 (names, read as text) and check 6
+// (behaviour, loaded and run) — so the two checks can never end up looking at
+// different files.
+const BACK_VL = 'jayhind-client-back/src/const/voucher-lifecycle.const.ts';
+const FRONT_VL = 'jayhindi-client-front/src/utils/voucher-lifecycle.util.ts';
+const backVl = read(path.join(ROOT, BACK_VL));
+const frontVl = read(path.join(ROOT, FRONT_VL));
+
+const DECISIONS = /^can[A-Z]/;
+let decisionNames = [];
 
 if (backVl && frontVl) {
-  const DECISIONS = /^can[A-Z]/;
   const b = parseExportedFunctions(backVl).filter((n) => DECISIONS.test(n));
   const f = parseExportedFunctions(frontVl).filter((n) => DECISIONS.test(n));
   for (const n of b) if (!f.includes(n)) failures.push(`voucher-lifecycle: '${n}' exists in client-back but not client-front`);
   for (const n of f) if (!b.includes(n)) failures.push(`voucher-lifecycle: '${n}' exists in client-front but not client-back`);
-  notes.push(
-    `voucher-lifecycle: ${b.length} decision function(s) present on both sides. ` +
-      'Names only — the two signatures differ by design, so semantic parity is NOT checked here.',
-  );
+  decisionNames = b.filter((n) => f.includes(n));
+}
+
+// ── 6. voucher-lifecycle: the behavioural vectors (§13.4) ────────────────────
+//
+// The gap this closes, in `CLAUDE.md` §13's own words: *"semantic drift between
+// the rules is still possible. The real fix is a shared JSON table of test
+// vectors both repos' suites run against."*
+//
+// One table, spent here, because this is the only place that sees both trees —
+// two copies of a vector file in two independent repos would be the same mirror
+// problem one level up.
+if (backVl && frontVl) {
+  const vectorFile = path.join(__dirname, 'vectors/voucher-lifecycle.vectors.json');
+  let vectors;
+  try {
+    vectors = JSON.parse(fs.readFileSync(vectorFile, 'utf8'));
+  } catch (err) {
+    failures.push(`voucher-lifecycle vectors: could not read ${path.relative(ROOT, vectorFile)} — ${err.message}`);
+  }
+
+  if (vectors) {
+    let back, front;
+    try {
+      back = loadTsModule(...splitRepoPath(BACK_VL));
+      front = loadTsModule(...splitRepoPath(FRONT_VL));
+    } catch (err) {
+      failures.push(`voucher-lifecycle vectors: ${err.message}`);
+    }
+
+    if (back && front) {
+      // The two sides take different shapes of the same facts. These adapters are
+      // the ONLY place that knows the mapping, and they are deliberately dumb:
+      // anything clever here could reconcile a real disagreement into agreement,
+      // which is the one failure mode a parity check cannot afford.
+      const toBackState = (g) => {
+        const state = {
+          status: g.status,
+          everPosted: g.everPosted,
+          isArchived: g.isArchived,
+          // The backend needs the references themselves, because its refusal
+          // names them; the vector states only how many, because the count is
+          // what every rule actually turns on.
+          activeReferences: Array.from({ length: g.activeReferences }, (_, i) => ({
+            label: `Doc #${i + 1}`,
+            status: 'approved',
+          })),
+        };
+        // `null` in a vector means "not configured", which is `undefined` here —
+        // and the difference matters: the rules test `=== false`, so a present
+        // `null` would read as "not disabled" by luck rather than by intent.
+        if (g.allowCancel !== null) state.allowCancel = g.allowCancel;
+        if (g.allowDelete !== null) state.allowDelete = g.allowDelete;
+        return state;
+      };
+      const STAMP = '2026-01-01T00:00:00.000Z';
+      const toFrontRow = (g) => ({
+        status: g.status,
+        approvedAt: g.everPosted ? STAMP : null,
+        activeReferenceCount: g.activeReferences,
+        deletedAt: g.isArchived ? STAMP : null,
+      });
+      const toFrontFlags = (g) => {
+        const flags = {};
+        if (g.allowCancel !== null) flags.allowCancel = g.allowCancel;
+        if (g.allowDelete !== null) flags.allowDelete = g.allowDelete;
+        return flags;
+      };
+
+      const ACTIONS = [
+        ['cancel', 'canCancelVoucher'],
+        ['archive', 'canArchiveVoucher'],
+        ['erase', 'canEraseVoucher'],
+      ];
+
+      let compared = 0;
+      for (const vector of vectors.actions) {
+        const state = toBackState(vector.given);
+        const row = toFrontRow(vector.given);
+        const flags = toFrontFlags(vector.given);
+
+        for (const [action, fn] of ACTIONS) {
+          const backAnswer = !!back[fn](state).allowed;
+          const frontAnswer = !!front[fn](row, flags);
+          const expected = vector.expect[action];
+          compared++;
+
+          // Three answers, so a failure can say WHICH kind it is — drift between
+          // the two, or both having moved away from the stated rule. Those need
+          // different fixes and conflating them is how a mirror check stops
+          // being actionable.
+          if (backAnswer !== frontAnswer) {
+            failures.push(
+              `voucher-lifecycle DRIFT · ${vector.id} · ${action}: ` +
+                `client-back says ${backAnswer}, client-front says ${frontAnswer} ` +
+                `(table says ${expected}) — ${vector.why}`,
+            );
+          } else if (backAnswer !== expected) {
+            failures.push(
+              `voucher-lifecycle RULE CHANGED · ${vector.id} · ${action}: ` +
+                `both sides say ${backAnswer}, the vector table says ${expected} — ${vector.why}\n` +
+                `      If the rule genuinely changed, update scripts/vectors/ in the same commit.`,
+            );
+          }
+        }
+      }
+
+      for (const vector of vectors.recall) {
+        const { status, userId, makerId, submitterId } = vector.given;
+        const backAnswer = !!back.canRecallVoucher(status, userId, makerId, submitterId).allowed;
+        const frontAnswer = !!front.canRecallVoucher({ status }, userId, makerId, submitterId);
+        const expected = vector.expect.recall;
+        compared++;
+
+        if (backAnswer !== frontAnswer) {
+          failures.push(
+            `voucher-lifecycle DRIFT · ${vector.id} · recall: ` +
+              `client-back says ${backAnswer}, client-front says ${frontAnswer} ` +
+              `(table says ${expected}) — ${vector.why}`,
+          );
+        } else if (backAnswer !== expected) {
+          failures.push(
+            `voucher-lifecycle RULE CHANGED · ${vector.id} · recall: ` +
+              `both sides say ${backAnswer}, the vector table says ${expected} — ${vector.why}`,
+          );
+        }
+      }
+
+      notes.push(
+        `voucher-lifecycle: ${compared} behavioural comparisons over ` +
+          `${vectors.actions.length + vectors.recall.length} vectors, run against BOTH implementations ` +
+          '(§13.4 — no longer a name-only check).',
+      );
+
+      // A decision function with no vector is a rule nobody compares — the same
+      // gap one level up. Named rather than failed, because a new rule may
+      // legitimately land minutes before its vectors do; it is loud enough to
+      // be noticed in a review and does not block the commit that adds it.
+      const covered = new Set(['canCancelVoucher', 'canArchiveVoucher', 'canEraseVoucher', 'canRecallVoucher']);
+      const uncovered = decisionNames.filter((n) => !covered.has(n));
+      if (uncovered.length) {
+        notes.push(
+          `⚠️  voucher-lifecycle: ${uncovered.join(', ')} ${uncovered.length === 1 ? 'has' : 'have'} ` +
+            'no vectors. Add them to scripts/vectors/voucher-lifecycle.vectors.json — an uncompared ' +
+            'rule is exactly the gap §13.4 was about.',
+        );
+      }
+    }
+  }
 }
 
 // ── Report ──────────────────────────────────────────────────────────────────

@@ -108,8 +108,16 @@ Per-service setup (migrations, seeders, `.env`) is in [README.md](README.md#per-
 From **this** repo (the only place that sees every submodule at once):
 
 ```bash
-node scripts/check-mirrors.js     # cross-repo constant drift (§13)
+node scripts/check-mirrors.js     # cross-repo constant drift, data AND behaviour
 ```
+
+It compares the mirrored **constants** as data, and the mirrored
+`voucher-lifecycle` **rules** as behaviour — running both implementations against
+`scripts/vectors/voucher-lifecycle.vectors.json`, one shared table living here
+rather than copied into each submodule. Add vectors in the same commit as a rule.
+It needs esbuild from one submodule's `node_modules` (any of them) and **fails
+rather than falling back** to the old name-only check, because a mirror rule that
+cannot fail reads as coverage.
 
 Once the backends are up, their OpenAPI is at `http://localhost:3000/api/docs`
 and `http://localhost:3100/api/docs` (schema JSON at `…/api/docs-json`).
@@ -143,7 +151,7 @@ Notable keys:
 | `ALLOWED_ORIGINS` | both backs | CSP + CORS list |
 | `ALLOW_LOCALHOST_ORIGINS` | client-back | defaults on except under `NODE_ENV=production` |
 | `OCR_SERVICE_URL` / `_KEY` / `_TIMEOUT_MS` | admin-back | the OCR sidecar |
-| `AUDIT_QUEUE_ENABLED`, `INVOICE_SCAN_QUEUE_ENABLED` | client-back | BullMQ/Redis; both degrade gracefully |
+| `AUDIT_QUEUE_ENABLED`, `INVOICE_SCAN_QUEUE_ENABLED` | client-back | BullMQ/Redis; both degrade gracefully — **and the degradation is a 2s deadline, not a rejection** (§4.10, BUG-0062): ioredis buffers a command issued while Redis is down and retries it for ever, so an unbounded `await queue.add(...)` is a hang rather than a fallback |
 | `STORAGE_DRIVER`, `UPLOAD_ROOT` | both backs | file storage |
 | `API_DOCS_ENABLED`, `API_DOCS_PATH` | both backs | OpenAPI/Swagger; **off by default under `NODE_ENV=production`** |
 
@@ -1166,11 +1174,77 @@ Two consequences:
 - **BullMQ + Redis** for the audit queue and the invoice-scan queue, registered
   via `AuditQueueModule.register()` / `InvoiceScanQueueModule.register()`. Both
   gated by env flags and both **degrade to in-process** when Redis is absent.
+  > ⚠️ **A flag saying the queue is on is not evidence that it is**, and
+  > `@Optional() @InjectQueue()` is what makes the difference invisible.
+  > `BullModule.registerQueue()` does not mark its own module global, so the
+  > token silently resolved to `undefined` regardless of
+  > `INVOICE_SCAN_QUEUE_ENABLED` and every upload ran inline with **no queueing,
+  > no fairness and no concurrency cap** — which is why
+  > `invoice-scan-queue.module.ts` sets `global: true` and its comment calls that
+  > flag load-bearing. The only honest test is a **side effect the queue path has
+  > and the inline path does not**: `enqueueExtraction` `INCR`s
+  > `ocr-fairness:company:<id>` before `queue.add`, and `runInline` never opens a
+  > Redis connection. `qa-artifacts/tests/cross-service/ocr-pipeline.spec.ts`
+  > asserts that counter, deliberately not the flag.
+  > ⚠️ **A deterministic `jobId` makes every re-submission a duplicate**
+  > (BUG-0060). The id is `scan-<id>` so `queuePosition` can look it up, and
+  > BullMQ answers `add()` with an id it already holds by returning the existing
+  > job and adding nothing — no error. A *failed* job is kept by
+  > `removeOnFail: 100`, which is exactly the state somebody clicks **Re-extract**
+  > from: `retry()` had already reset the row to `uploaded` and cleared
+  > `errorReason`, so the caller was told *"Re-extraction queued"*, the failure
+  > vanished from the screen, and the scan sat in `uploaded` for ever. It bit only
+  > the path that needs it — a `needs_review` job is gone
+  > (`removeOnComplete: true`), so its id is free — and `removeOnFail: 100` made
+  > it non-deterministic, because the id frees itself once a hundred *other* scans
+  > have failed behind it. `discardFinishedJob` clears the old job, and it sits in
+  > **`enqueueExtraction`** rather than in `retry()`: three callers reach the queue
+  > and only one showed the symptom (§13's still-open #4). An **active** job is
+  > deliberately left alone — BullMQ throws on a locked job, and whatever the
+  > running extraction concludes is the truth about that scan.
 - **`@nestjs/schedule`** for cron work (due reminders, job-work alerts,
-  maintenance, subscription billing). Remember §4.3 rule 2: cron code has no
-  tenant store.
+  maintenance, subscription billing) — **eleven `@Cron` methods**, every one of
+  which takes the single-runner claim before doing any work
+  (`ScheduledJobRunnerService.runOnce`, keyed by a *truncated*
+  `startOfUtcDay`/`startOfUtcWeek` so two processes waking milliseconds apart race
+  the identical value) and iterates tenants through
+  `CompanyIterationService.forEachActiveCompany`, which opens the
+  `TenantContext.run` each company needs. Remember §4.3 rule 2: cron code has no
+  tenant store of its own. The guarantee is the plain
+  `UNIQUE (jobKey, scheduledFor)` index — the service catches
+  `UniqueConstraintError` and reads it as *"another process owns this run"*, so
+  dropping that index would let every process win with nothing saying so.
 - **Socket.IO** (`src/socket/socketGateWay.ts`) for live notifications, chat,
-  scan progress, active-user counts.
+  scan progress, active-user counts. **This is the one delivery path in the
+  product with no guard chain at all** — no `TenantContextGuard`, no
+  `RoleMenuGuard`, no `SharedReadPartyGuard` — so the room name
+  (`company:<id>:invoice-scan`) and `emitToUserInCompany`'s company filter *are*
+  the whole of the tenant enforcement. The gateway's own doc records what the
+  last version cost: a socket map keyed by user with no company on it, so *"a
+  message raised in company A reached a tab open in company B"*. A socket with a
+  missing or unverifiable token is **disconnected**, never registered into no
+  company — which would exempt it from every company-scoped check rather than
+  failing loudly. Note the refusal comes *after* the handshake, so a client sees
+  `connect` and then a disconnect.
+  > ⚠️ **The emitters were scoped and the SUBSCRIBERS were not** (BUG-0063), and
+  > the two look alike enough that reviewing one reads as reviewing both.
+  > `@SubscribeMessage('event')` let **any** authenticated socket emit an
+  > arbitrary payload to every client of **every tenant** (`Broadcast` →
+  > `server.emit`) and to any caller-supplied user id (`UtoUmessage` — §4.3
+  > rule 7, with no hooks behind it); a **trading party** could do both, and the
+  > SPA rendered the first as a **toast**. `TotalActiveUsersUpdate` broadcast the
+  > *installation's* socket count, and `system-metrics` streamed the **host's**
+  > hostname, CPU, load, memory, disk and network to any socket. All deleted or
+  > scoped; `system-metrics` now refuses a party by a `userKind` recorded at
+  > connection time, because on this plane there is nothing else to ask.
+  >
+  > Two rules fall out. **There is deliberately no `broadcast()` helper in that
+  > class any more** — a bare `server.emit` in a multi-tenant gateway makes
+  > forgetting the scope the default, and every other emitter there scopes by
+  > remembering to. And when you add a `@SubscribeMessage`, answer both
+  > questions: *which company does this go to*, and *may a customer ask for it?*
+  > That second one is D-46 on its third plane, after `@SharedRead()` (BUG-0031)
+  > and file delivery (BUG-0057).
 
 ---
 
@@ -1342,12 +1416,22 @@ handed any customer's invoices to anyone who could guess a filename — it is
 
 > ⚠️ The category strings (`scanned-invoices`, `attachments`, …) **no longer
 > travel anywhere.** `HubFileCategory` is re-exported as `FileCategory` and is now
-> just a folder name in this app's own tree. The doc comments still saying they
-> "must match the hub's `src/const/storage-key.const.ts` exactly or DTO validation
-> rejects the upload" describe the pre-2026-08-15 arrangement — the proof is
+> just a folder name in this app's own tree. The doc comments claiming they "must
+> match the hub's `src/const/storage-key.const.ts` exactly or DTO validation
+> rejects the upload" described the pre-2026-08-15 arrangement — the proof being
 > `FileCategory.Export`, which has **no counterpart in the hub's enum at all** and
-> is written every time a company export runs. A mirror rule that cannot fail has
-> lapsed; `scripts/check-mirrors.js` never compared the two enums either way.
+> is written every time a company export runs, so under the rule as stated every
+> export would have been a 400.
+>
+> **Those comments were deleted on 2026-08-25**, and that was the fix rather than
+> adding the check `scripts/check-mirrors.js` never had: **a mirror rule that
+> cannot fail is worse than no rule, because it reads as coverage.** What is left
+> in `hub-upload.const.ts` is a note saying the contract lapsed and when — kept
+> deliberately, because the old claim was specific enough ("every drawing upload
+> dies with a 400 reciting the hub's enum") that somebody would otherwise trust
+> it. Changing a value here is still not free — it is the folder name of every
+> file already written under it — but it is a migration in *this* app, not a
+> two-repo change.
 
 ### 6.5 Tenant admins, the platform user directory, and hard delete (hub → ERP)
 
@@ -1620,6 +1704,15 @@ conventions.
       (`src/const/redact-url.const.ts`) for anything that copies a URL.
 12. **Passwords are argon2**, tuned by `ARGON2_*` env vars. Never swap in bcrypt
     or hand-rolled hashing.
+13. **Every `@SubscribeMessage` handler scopes itself, because nothing else
+    will.** The socket plane has no guard chain (§4.10), so each handler answers
+    *"which company does this go to?"* and *"may a trading party ask for this?"*
+    itself — or it answers neither, which is BUG-0063: a customer emitting into
+    every tenant's UI and reading the host's metrics. And **never add a helper
+    that wraps `server.emit`**; the one that existed is what made forgetting the
+    scope the default, and it was deleted with the handler that used it.
+    (Numbered last rather than inserted, so the §8.6 / §8.8 / §8.11 references
+    scattered through this file and the source stay valid.)
 
 ---
 
@@ -1837,7 +1930,7 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
 
 | Layer | Where | Run |
 |---|---|---|
-| Unit (Jest) | `src/**/*.spec.ts` — 107 suites / 1505 tests in client-back, 9 / 176 in admin-back; mostly beside `const/*.const.ts` | `npm test` |
+| Unit (Jest) | `src/**/*.spec.ts` — 112 suites / 1572 tests in client-back, 9 / 176 in admin-back; mostly beside `const/*.const.ts` | `npm test` |
 | Architecture guards | `src/user-module-boundary.spec.ts`, `src/const/ci-guards/*` — raw-SQL, cached-state, scope-registry, marker-decorator and **`@Body()`-is-a-DTO** | `npm test` + `scripts/ci-guard-*.ts` |
 | Rule-7 parent ids | `qa-artifacts/tests/transactions/jobwork-scope.spec.ts` and `tests/api/parent-scope.spec.ts` — every caller-supplied parent id on a write, probed with a stranger resolved from `company_members` (never from a fixture: the QA world **shares** an identity between two tenants on purpose) | `npm run qa:transactions` |
 | Shared-read exposure | `qa-artifacts/tests/permissions/shared-read-party.spec.ts` — sweeps **every** `@SharedRead()` route as a trading party and asserts the allow-list exactly (D-46). Route list comes from the regenerated inventory, so a new shared read is swept the day it lands | `npm run qa:permissions` |
@@ -1846,7 +1939,8 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
 | The hub↔ERP control plane | `qa-artifacts/tests/cross-service/` — a company's whole life across **both** databases, as ten agreement properties: provisioning is all-or-nothing *and* leaves a company that can post; a licence flip is live on the next request; hard delete is total (the census comes from `information_schema`, so a new table is covered the day it is created) and bounded (a shared login survives). ⚠️ It **creates and destroys companies** — every one is a `QA·9A …` scratch tenant and `destroyScratch` refuses anything else | `npm run qa:cross-service` |
 | GST rules vs. the statute | `qa-artifacts/tests/gst/` — `gst-rules.ts` restates the rules from the Acts and notifications, and four specs measure the rate schedule, GSTIN validation, the computation matrix and the HSN master against it. Every rule is cited, with the date it was checked, in `qa-artifacts/docs/findings/gst.md` — **check that file before defending a GST number**, because rates and thresholds change by notification | `npx playwright test --project=api tests/gst` |
 | Every displayed figure is reproducible | `qa-artifacts/tests/reports/` — the statements and books against `statement-rules.ts`, the party account and the stock position against `party-rules.ts`, both **restated** rather than imported. Includes the two census tests that compare the derived balance caches with `journal_lines` (BUG-0042) and the delta tests that ask whether a figure *moves* by the right amount, which is the half an equality test cannot see | `npm run qa:reports` |
-| Cross-repo mirror drift | `scripts/check-mirrors.js` (**this** repo — only it sees both submodules) | `node scripts/check-mirrors.js` |
+| Async work & the deliberate outages | `qa-artifacts/tests/cross-service/` — nine properties (A1…A9) over what is allowed to be slow or absent: the scan pipeline's two error classes across four hops, the queue proved on a **side effect** rather than on its flag, Redis/hub/sidecar stopped one test at a time (D-29 via `framework/services.ts`), socket delivery measured with two real connections, and every `@Cron` method's single-runner claim. The fake OCR lane is the sidecar's **own** stub (D-32); `@real-model` is opt-in and excluded by `--grep-invert` | `npm run qa:cross-service` · `npm run qa:cross-service:real-model` |
+| Cross-repo mirror drift | `scripts/check-mirrors.js` (**this** repo — only it sees both submodules). Checks 1–3 compare data; check 4 compares **behaviour**, running both `voucher-lifecycle` implementations against `scripts/vectors/` (§13.4). Needs esbuild from one submodule's `node_modules` and **fails loudly** rather than downgrading if none is present | `node scripts/check-mirrors.js` |
 | QA harnesses | `scripts/qa-*.ts` (~55 in client-back, 5 in admin-back) | `npx ts-node -r tsconfig-paths/register scripts/qa-<name>.ts` |
 | Style guard | `scripts/breakpoint-guard.js` | `npm run lint` (client-front) |
 | E2E / UI | `qa-artifacts/` (Playwright) | see its README |
@@ -1961,7 +2055,7 @@ nobody re-opens a settled question.
 ### Still open
 
 1. **Test coverage is uneven — a program of work, not a bug.** `src/const/` is
-   well covered (1505 unit tests across 107 suites in client-back, 176 in
+   well covered (1572 unit tests across 112 suites in client-back, 176 in
    admin-back, all passing and needing no DB). Services and controllers rely
    mostly on the `qa-*.ts` harnesses, which need a live stack and aren't run in
    CI. Neither frontend has meaningful component tests (`admin-front` has no
@@ -1983,34 +2077,56 @@ nobody re-opens a settled question.
    (see closed #8), but whether a DB outage should also authorise billable
    outbound GSP calls is a **product decision**, not a code cleanup — it needs
    the owner, so it was deliberately not changed.
-4. **`voucher-lifecycle` parity is checked by name, not behaviour — and it has
-   now cost a bug.** `scripts/check-mirrors.js` verifies both sides export the
-   same decision functions, but the two signatures differ by design
-   (`(VoucherLifecycleState) => ActionVerdict` vs
-   `(VoucherLifecycleRow, VoucherTypeFlags) => boolean`), so semantic drift
-   between the rules is still possible. The real fix is a shared JSON table of
-   test vectors both repos' suites run against.
-   > ⚠️ **BUG-0024** is what that gap looks like in practice. The type-level
-   > `allowDelete` switch was honoured by `canArchiveVoucher` and **not** by
-   > `canEraseVoucher`, while the frontend mirror checked it in *both* — so with
-   > deletion switched off for a voucher type, the first `DELETE` was refused
-   > ("Deletion is disabled for this transaction type") and the second erased the
-   > row permanently. Nothing on screen ever offered it, because the mirror was
-   > the correct one: this is the **server being wider than the mirror**, the
-   > direction §9's rule does not cover. Both stages now check the flag, and
-   > `voucher-lifecycle.const.spec.ts` asserts the two give the *same sentence*,
-   > because that equality is the property that broke. When you add a rule to one
-   > of these two files, ask what the *other* one already does.
-   >
-   > ⚠️ **BUG-0028 is the same gap in a different subsystem, and it is worth
-   > reading beside BUG-0024.** Neither is a mirror drifting from a mirror; both
-   > are **one rule enforced at some of the places that need it**. BUG-0024:
-   > `allowDelete` honoured by the archive stage and not the erase. BUG-0028: the
-   > financial-period gate honoured by `ApprovalService` and not by
-   > `TrxWriteService`'s approved-edit branch, which performs the same reversal by
-   > a different route. The check that finds both is the same question — *what are
-   > all the writers of this effect, and which of them clear this gate?* — and it
-   > is a grep, not a code review.
+4. **One rule enforced at some of the places that need it.** Not a single
+   defect — a *shape*, and the one this codebase has produced most often:
+   BUG-0024 (`allowDelete` honoured by the archive stage and not the erase),
+   BUG-0028 (the financial-period gate honoured by `ApprovalService` and not by
+   `TrxWriteService`'s approved-edit branch), BUG-0032 (three ownership checks
+   written as module-local functions and never carried twenty lines to the
+   module's transactional writes), BUG-0056 (one of two JWT minters setting the
+   claim the guard enforces), BUG-0060 (the queue's duplicate-id no-op, fixed at
+   the seam rather than at the one call site that showed it) and BUG-0062 (the
+   same unreachable fallback in **both** queues, fixed with one shared rule).
+   The check that finds all of them is the same question — *what are all the
+   writers of this effect, and which of them clear this gate?* — and **it is a
+   grep, not a code review**. There is no mechanism for it, which is why it is
+   still open; what there is, is the habit, and the doc comments in each of those
+   files now name their siblings.
+
+### Closed on 2026-08-25
+
+1. ~~`voucher-lifecycle` parity is checked by name, not behaviour~~ →
+   [`scripts/vectors/voucher-lifecycle.vectors.json`](scripts/vectors/) is the
+   shared table the gap itself asked for — the **exhaustive cross-product** of the six facts a
+   decision turns on — 160 action vectors + 7 recall, **487 behavioural comparisons** — and `check-mirrors.js` now *runs* both
+   implementations against it (`scripts/lib/load-mirror-module.js` bundles each
+   pure module out of its own repo with esbuild, so the check needs one
+   submodule's `node_modules` present and **fails loudly** rather than
+   downgrading if none is).
+
+   The table lives in **this** repo, not in either submodule: *"both repos' suites
+   run against"* read literally would mean two copies of a vector file in two
+   independent git repos, which is the same mirror problem one level up.
+
+   Each row is compared **three** ways — backend, frontend, and the table's own
+   restatement of the rule — and the third answer is not ceremony. Re-injecting
+   BUG-0024 into `client-back` alone reports `DRIFT` and names the wider side;
+   removing the same rule from **both** sides reports `RULE CHANGED`. A name check
+   passes both; a two-way parity check passes the second. Only a restated table
+   catches a rule both sides forgot together, which is why every `*-rules.ts`
+   module in `qa-artifacts` is a restatement rather than an import.
+
+   The name comparison is kept alongside, because it answers what the vectors
+   cannot: *has a decision function appeared with no vector covering it?*
+   **Add vectors in the same commit as a rule.**
+
+2. ~~The two `FileCategory` enums are documented as a cross-service contract~~ →
+   the claim is **deleted** (§6.4). It lapsed on 2026-08-15 when storage moved
+   into the ERP, and `FileCategory.Export` — with no counterpart in the hub's enum
+   at all, written on every company export — was the proof it had. A mirror rule
+   that cannot fail is worse than no rule: it reads as coverage. The doc comments
+   now record that it lapsed and when, rather than asserting a contract that is
+   not there.
 
 ### Closed on 2026-08-17
 
@@ -2063,6 +2179,7 @@ is one nobody reads.
 | How is tenancy enforced? | `src/utility/tenant-context.ts`, `src/database/tenant-scoping.hooks.ts` |
 | Who can call what? | `src/const/permission-registry.ts`, `src/guards/role-menu-permissions.guard.ts` |
 | May a trading party read this? | `src/guards/shared-read.decorator.ts`, `src/guards/shared-read-party.guard.ts` (D-46) |
+| May a trading party receive this over a SOCKET? | nothing generic — the socket plane has no guard chain, so `src/socket/socketGateWay.ts` checks inline off the `userKind` it records at connection (BUG-0063) |
 | May a trading party download this FILE? | `src/const/party-file-access.const.ts` (BUG-0057) — the shared-read guard does not cover the delivery route |
 | Which modules are licensed? | `src/const/module-licence.const.ts`, `src/services/company-licence.service.ts` |
 | How do the two servers talk? | `client-back/src/services/master-hub/master-hub.client.ts`, both `guards/internal-service.guard.ts` |
@@ -2096,6 +2213,10 @@ is one nobody reads.
 | API schema / request shapes | `/api/docs` + `/api/docs-json` on :3000 and :3100; `src/utility/swagger.ts` |
 | The frozen cross-service contracts | `_ops/adr/frozen-contracts.md` |
 | Which planning docs are missing, and what `§20.9` means | `_ops/README.md` |
+| Is a queue's "degrade without Redis" fallback actually reachable? | `src/const/queue-deadline.const.ts` `withQueueDeadline` (BUG-0062) — ioredis buffers a command issued during an outage for ever, so an unbounded `await queue.add(...)` makes the `catch` below it dead code and hangs the request instead |
+| Why did a re-extract do nothing? | `InvoiceScanService.discardFinishedJob` (BUG-0060) — BullMQ treats `add()` with a held `jobId` as a duplicate, and `removeOnFail: 100` holds a failed scan's id |
+| Which of the three empty GSTIN answers is this? | `src/services/gst.service.ts` `lookupRaw` (BUG-0061) — unknown number vs. no registry key vs. hub unreachable; `fetchRaw` flattens all three and must not be used where a person reads the result |
+| Do the two `voucher-lifecycle` files agree about what a rule MEANS? | `scripts/vectors/voucher-lifecycle.vectors.json` + `node scripts/check-mirrors.js` — 487 behavioural comparisons, each row checked against both sides *and* against the restated rule |
 | Are the mirrored constants still in sync? | `node scripts/check-mirrors.js` |
 
 ---
