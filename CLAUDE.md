@@ -1267,13 +1267,61 @@ Error handling distinguishes two cases, and this distinction matters:
 retry. Anything else (sidecar down, timeout) = infrastructure → rethrow so
 BullMQ retries with backoff.
 
-### 6.4 File storage — the ERP stores nothing
+### 6.4 File storage — the ERP owns it, and this section used to say the opposite
 
-`client-back` no longer keeps a single uploaded byte. Files spool to disk,
-stream to the hub via `openAsBlob` (never buffered in the heap — a 100 MB import
-in RAM kills the process), and the temp copy is deleted. What stays is a
-`hubFileId` on the owning row. Serving goes through the authenticated
-`GET /files/:id/content`.
+⚠️ **Read this if you are working from an older copy.** This section said *"the
+ERP stores nothing"* — files spooled to disk, streamed to the hub via
+`openAsBlob`, and only a `hubFileId` stayed behind. That was true until
+**2026-08-15**, when storage was ported **into** `client-back`
+(MASTER_DEVELOPMENT_PLAN.md §20.12). Phase 9B-1 found the map still describing
+the previous building. `MasterHubClient` has no `fileUpload` any more, and
+`openAsBlob` survives only in a doc comment.
+
+**`client-back` is now the storage writer**, scoped per company:
+
+```
+<UPLOAD_ROOT>/companies/<companyId>_<slug>/<category>/<YYYY>/<MM>/<uuid>-<name>
+```
+
+- `STORAGE_PROVIDER` / `LocalDiskStorage` / `storage.factory.ts` — `local` is the
+  only implemented driver; `s3`/`azure` throw rather than silently doing nothing.
+- `stored_files` and `stored_folders` both carry a **`companyId`**, so the §4.3
+  hooks scope every read and write. `FileStorageService` *additionally* checks the
+  key's physical `companies/<id>_<slug>` prefix, as defence in depth against a row
+  whose key drifted from its own company.
+- **`hubFileId` on an owning row is a LOCAL id** — a `stored_files.id`. The column
+  name is residue of the move. Don't read it as "the hub has this".
+- The upload still spools to `./tmp/uploads` (multer, disk not memory — a 100 MB
+  import buffered in RAM kills the process) and the spool is drained in a
+  `finally` on **both** the success and the refusal path.
+- Serving goes through the authenticated `GET /files/:id/content`.
+
+> ⚠️ **`GET /files/:id/content` is not behind `RoleMenuGuard`, deliberately** —
+> one route serves every module's files, so a single permission key would hide a
+> product image from everyone entitled to see the product. Its comment used to
+> conclude *"the worst an authenticated user can do is fetch a file belonging to
+> their own company"*, which is **D-46's refuted premise one route over**
+> (BUG-0057): customers log into the same ERP as the staff who invoice them, so a
+> trading party was handed the scanned purchase invoices, the Tally imports, the
+> export bundle, the job-work drawings and every other party's voucher
+> attachments. The file *manager* was correctly gated from every angle — the
+> metadata route, the listing, the tree, the usage and every mutation all answer a
+> party `403` — which is exactly why nobody looked underneath it.
+> `src/const/party-file-access.const.ts` is the allow-list (a voucher attachment
+> on a voucher the portal would already list for them, and nothing else) and the
+> check is in `FileStorageService.openStream`, **where the bytes leave**, so a
+> second streaming route cannot forget it.
+
+> ⚠️ **The owner guard has an escape hatch, and its three owners must use it**
+> (BUG-0058). `removeFile` refuses any file carrying an `ownerModule` — *"this
+> file belongs to a voucher record, remove it from that record instead"* — which
+> is what stops the explorer destroying accounting evidence. `AttachmentService`,
+> `ProductMediaService` and `InvoiceScanService` are the records it names, and all
+> three called it **without `force`**, catching the refusal (two of them
+> silently) and destroying the owning row anyway. The bytes were then unreachable,
+> undeletable and still charged to `maxStorageBytes` — 39% of live owned files on
+> the QA install. Repair: `scripts/purge-orphaned-files.ts`. **If you add a
+> file-owning record, its delete passes `force: true`.**
 
 **The one exception** is `site-configuration-assets/` (company logo/favicon),
 served statically because the login screen renders them before the app knows
@@ -1292,8 +1340,14 @@ handed any customer's invoices to anyone who could guess a filename — it is
 > in the name, and keep the `.`/`-` terminator in the cleanup match, which is
 > what stops `company-2-logo` matching `company-28-logo.png`.
 
-Category strings (`scanned-invoices`, `attachments`, …) must match the hub's
-`src/const/storage-key.const.ts` exactly or DTO validation rejects the upload.
+> ⚠️ The category strings (`scanned-invoices`, `attachments`, …) **no longer
+> travel anywhere.** `HubFileCategory` is re-exported as `FileCategory` and is now
+> just a folder name in this app's own tree. The doc comments still saying they
+> "must match the hub's `src/const/storage-key.const.ts` exactly or DTO validation
+> rejects the upload" describe the pre-2026-08-15 arrangement — the proof is
+> `FileCategory.Export`, which has **no counterpart in the hub's enum at all** and
+> is written every time a company export runs. A mirror rule that cannot fail has
+> lapsed; `scripts/check-mirrors.js` never compared the two enums either way.
 
 ### 6.5 Tenant admins, the platform user directory, and hard delete (hub → ERP)
 
@@ -1787,6 +1841,7 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
 | Architecture guards | `src/user-module-boundary.spec.ts`, `src/const/ci-guards/*` — raw-SQL, cached-state, scope-registry, marker-decorator and **`@Body()`-is-a-DTO** | `npm test` + `scripts/ci-guard-*.ts` |
 | Rule-7 parent ids | `qa-artifacts/tests/transactions/jobwork-scope.spec.ts` and `tests/api/parent-scope.spec.ts` — every caller-supplied parent id on a write, probed with a stranger resolved from `company_members` (never from a fixture: the QA world **shares** an identity between two tenants on purpose) | `npm run qa:transactions` |
 | Shared-read exposure | `qa-artifacts/tests/permissions/shared-read-party.spec.ts` — sweeps **every** `@SharedRead()` route as a trading party and asserts the allow-list exactly (D-46). Route list comes from the regenerated inventory, so a new shared read is swept the day it lands | `npm run qa:permissions` |
+| The storage seam | `qa-artifacts/tests/storage/` — nine properties over the tree the ERP now owns (§6.4): the index against the **disk** as a census, keys inside their own company's folder, traversal refusals, the spool drained on refusal too, no static serving, who may be handed the bytes (BUG-0057), and every owned file still having its owner (BUG-0058) | `npm run qa:storage` |
 | GSP path, mocked at the hub's outbound HTTP | `qa-artifacts/tests/gst/gsp-stub.ts` — a **schema-strict** WhiteBooks stub (D-2). Everything above the `fetch` is real: `MasterHubClient`, `InternalServiceGuard`, the hub's licence and GSTIN assertions, the session cache and retry, the error mapper, the metering. It validates the payload against the *restated* INV-01 / NIC schemas, so a green conformance test means the portal would have accepted it | `npm run qa:gst` |
 | The hub↔ERP control plane | `qa-artifacts/tests/cross-service/` — a company's whole life across **both** databases, as ten agreement properties: provisioning is all-or-nothing *and* leaves a company that can post; a licence flip is live on the next request; hard delete is total (the census comes from `information_schema`, so a new table is covered the day it is created) and bounded (a shared login survives). ⚠️ It **creates and destroys companies** — every one is a `QA·9A …` scratch tenant and `destroyScratch` refuses anything else | `npm run qa:cross-service` |
 | GST rules vs. the statute | `qa-artifacts/tests/gst/` — `gst-rules.ts` restates the rules from the Acts and notifications, and four specs measure the rate schedule, GSTIN validation, the computation matrix and the HSN master against it. Every rule is cited, with the date it was checked, in `qa-artifacts/docs/findings/gst.md` — **check that file before defending a GST number**, because rates and thresholds change by notification | `npx playwright test --project=api tests/gst` |
@@ -1797,6 +1852,7 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
 | E2E / UI | `qa-artifacts/` (Playwright) | see its README |
 | OCR | `jayhind-ocr-service/tests` (pytest, fake reader/extractor — no model download) | `pytest` |
 | Data repair | `client-back/scripts/fix-duplicate-party-identities.ts` — cleans up the duplicate/orphan identities the pre-2026-08-20 party rule left behind. **Dry-runs by default**; `--apply` writes, `--merge <from>:<to>` folds one identity into another (repointing every FK that actually holds rows, then deleting the source) | `npx ts-node -r tsconfig-paths/register scripts/fix-duplicate-party-identities.ts` |
+| Data repair | `client-back/scripts/purge-orphaned-files.ts` — deletes the bytes BUG-0058 stranded (a `stored_files` row whose owning record is gone: unreachable, undeletable, still charged to the storage quota). **Dry-runs by default**; `--apply` writes, `--company <id>` narrows. Refuses to run on an `ownerModule` it has no back-reference mapped for | `npx ts-node -r tsconfig-paths/register scripts/purge-orphaned-files.ts` |
 
 The QA scripts expect a **running stack** and hit real endpoints; the Jest suite
 needs no DB. When you change a domain rule in `src/const/`, update its `.spec.ts`
@@ -2007,9 +2063,10 @@ is one nobody reads.
 | How is tenancy enforced? | `src/utility/tenant-context.ts`, `src/database/tenant-scoping.hooks.ts` |
 | Who can call what? | `src/const/permission-registry.ts`, `src/guards/role-menu-permissions.guard.ts` |
 | May a trading party read this? | `src/guards/shared-read.decorator.ts`, `src/guards/shared-read-party.guard.ts` (D-46) |
+| May a trading party download this FILE? | `src/const/party-file-access.const.ts` (BUG-0057) — the shared-read guard does not cover the delivery route |
 | Which modules are licensed? | `src/const/module-licence.const.ts`, `src/services/company-licence.service.ts` |
 | How do the two servers talk? | `client-back/src/services/master-hub/master-hub.client.ts`, both `guards/internal-service.guard.ts` |
-| How are files stored? | `client-back/src/const/hub-upload.const.ts`, `admin-back/src/services/storage/` |
+| How are files stored? | `client-back/src/services/storage/` + `src/const/storage-key.const.ts` — **local to the ERP since 2026-08-15**, §6.4. `hub-upload.const.ts` still holds the multer options and the category names; `admin-back/src/services/storage/` is the hub's own tree, no longer the ERP's |
 | How is a voucher posted? | `src/services/posting.service.ts`, `src/const/posting.const.ts` |
 | Which tax does this supply bear, and why? | `src/const/gst.const.ts` (`isInterStateSupply`, `gstLineTax`), `src/const/gst-returns/gst-classification.const.ts` (the deemed-inter-state set) |
 | What unit code does a statutory document declare? | `src/const/uqc.const.ts` `resolveUqc` — the portal's own list, used by GSTR-1 table 12, the IRN payload and the e-way bill alike (BUG-0037) |
