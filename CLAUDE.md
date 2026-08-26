@@ -1662,6 +1662,19 @@ src/
     a full-page entry form owns the keyboard. §15 asks for the map to be
     corrected in the same commit as the change; this is the reverse case — the
     change landed and the map did not follow for six days.
+
+    ⚠️⚠️ **And the sweep missed one, for the same reason UI-006 missed 64
+    routes: it looked where the shape was known to live.** The **party
+    portal** had its own right-hand rail — five links (Dashboard, My
+    Transactions, Payments & Receipts, Account Statement, Job Work), a collapse
+    toggle and a `ppRailCollapsed` localStorage key — listing the identical
+    `my-account` subtree `app-sidemenu` already draws on the left. It survived
+    because it lives under `components/admin/party-portal/` rather than beside
+    `ModuleLayoutComponent`, so a grep for the retired *components* found
+    nothing. `PartyPortalLayoutComponent` is a bare `<router-outlet>` as of
+    **2026-08-26**. The generalisation: **a rule about a shape is enforced by
+    asking what else has that shape**, not by fixing the instances that share a
+    directory with it.
 - **Company settings are split by what they're FOR** (2026-08-20).
   `/site-configrations` ("Branding") keeps only the logo and favicon. Company
   name, GSTIN, PAN, address and the e-Way Bill / e-Invoice gateway cards live in
@@ -1925,6 +1938,21 @@ conventions.
 - **A screen must never offer an action the server will refuse.** Permission,
   licence and voucher-lifecycle mirrors exist so the button state matches the API
   — keep the mirrors in sync, and let the backend stay the enforcer.
+- **A custom `MatFormFieldControl` answers `empty` with "is there text in the
+  box?", not "is the value truthy"** (UI-011, fixed 2026-08-26). `mat-form-field`
+  floats its label off `empty`, and `<mat-select>` renders the matching option's
+  label regardless of it — so `AppSelectComponent.empty` counting `''` as empty
+  put the un-floated label **on top of the rendered option** on every filter bar
+  in the app, which is uniformly built as `{ value: '', label: 'All' }` with the
+  model seeded to `''`. `All` over `Type`, `All` over `Status`, `All` over
+  `Payment`, on the party portal, Day Book, the scan queue, the party statement
+  and the payments list. Material's own `MatSelect.empty` asks its selection
+  model, which is why a native `<mat-select>` never had it; `app-select` now asks
+  whether an **option** carries `''` (a `''` with nothing to match it renders a
+  blank box and is still empty). `voucher-list-toolbar` had papered over it per
+  screen with `floatLabel="always"` — **a workaround at one call site is the
+  signal to go and fix the control**, because the other five never got one.
+
 - **An icon button names itself with `aria-label`, and a `matTooltip` is not a
   name** (UI-010). Material renders a tooltip into a detached overlay referenced
   by `aria-describedby` — a *description*, offered after a name the element must
@@ -2455,6 +2483,9 @@ is one nobody reads.
 | Which module does this ROUTE need a licence for? | `client-front/src/core/navigation/module-licence.ts` `isRouteLicensed` / `MODULE_BY_URL_SEGMENT` — the permission key when it has one, else the first URL segment, so a route falls INTO the gate by saying nothing (BUG-0065 / SEC-002) |
 | What PERMISSION does this route need, if it declares none? | `client-front/src/core/navigation/navigation.config.ts` `permissionKeyForUrl` — the deepest key `APP_NAVIGATION` gives the URL, so the tree that decides what the menu OFFERS also decides what a URL reaches (UI-006) |
 | Is this screen actually behind `permissionGuard`? | it is if its module parent in `app.routes.ts` carries `canActivateChild: [permissionGuard]` — 64 screens declared no guard of their own, and `tests/ui/shell/route-guards.ui.spec.ts` now asserts all four parents (UI-006) |
+| Why is a dropdown's label painted on top of its value? | `AppSelectComponent.empty` — `''` is a real VALUE when an option carries it, and every filter bar here uses `{ value: '', label: 'All' }` (UI-011, §9) |
+| Why does the party portal look like a different product? | it no longer does — `party-dashboard` is on the shared `dash` shape and `PartyPortalLayoutComponent` is a bare `<router-outlet>` (UI-005, §7) |
+| Which figure does a party's dashboard call "You Owe Us"? | `PartyPortalSummary.receivable` (debtors control). `payable` is what WE owe THEM — the two were rendered swapped in the party's second person until 2026-08-26 |
 | Why is this grid printing `2305021.19`? | the column declares `type: 'number'`, which right-aligns and formats nothing — money is `type: 'money'` (UI-002, §9) |
 | Why does a receipt print a blank tax invoice? | it no longer does — `src/const/cash-voucher-print.const.ts` + `GET /trx-payment-receipts/:id/print-data` and `GET /trx-contra/:id/print-data`; the preview used to call the plain entity reads, whose fields do not intersect the templates' at all (UI-007) |
 | Which shell settings are derived rather than chosen? | `client-front/src/services/settings.service.ts` `EPHEMERAL_SETTINGS` — never persisted, because a width is not a preference (BUG-0064) |
