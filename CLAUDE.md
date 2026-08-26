@@ -1645,12 +1645,23 @@ src/
     second half is what recovers a browser that already has the old shape
     stored. `setOptions()` persists everything it is handed, which is how a
     derived value acquired a memory nobody decided to give it.
-  - **The per-module tab bars are gone.** `ModuleLayoutComponent` is now only a
-    `<router-outlet>`; the panel lists the same tree at full width without the
-    horizontal scrolling seven tabs forced. Don't reintroduce them.
-    Transaction's own right-hand rail is the one survivor, because it also
-    carries rules the panel does not (the admin's `hiddenTransactionMenus` and
-    the approval gate) plus Quick Voucher Entry.
+  - **The per-module tab bars are gone, and so is Transaction's right-hand
+    rail** (UI-005, corrected 2026-08-26). `ModuleLayoutComponent` and
+    `transaction-layout.html` are both a bare `<router-outlet>`; the panel lists
+    the same tree at full width without the horizontal scrolling seven tabs
+    forced. Don't reintroduce either.
+
+    ⚠️ This paragraph used to say the Transaction rail was *"the one survivor,
+    because it also carries rules the panel does not"*. It is not, and it does
+    not: all three of those rules — the admin's `hiddenTransactionMenus`, the
+    approval gate and Quick Voucher Entry — moved into `app-sidemenu`
+    (`sidemenu.component.ts:148-190`), which is where Phase 10B measured them.
+    What `TransactionLayoutComponent` still exists for is the module's **F4–F9
+    voucher shortcuts**, which were never part of the duplicated list: bare
+    F-keys that switch voucher type Tally-style, standing down while a dialog or
+    a full-page entry form owns the keyboard. §15 asks for the map to be
+    corrected in the same commit as the change; this is the reverse case — the
+    change landed and the map did not follow for six days.
 - **Company settings are split by what they're FOR** (2026-08-20).
   `/site-configrations` ("Branding") keeps only the logo and favicon. Company
   name, GSTIN, PAN, address and the e-Way Bill / e-Invoice gateway cards live in
@@ -1688,6 +1699,34 @@ src/
   > entity cannot drift out of scope by omission. **The safe behaviour has to be
   > the one you get for free.** The permission key still wins where it has an
   > entry: it is the more specific statement.
+  >
+  > ⚠️⚠️ **That fix answered one of the two reasons a route can be outside the
+  > gate, and the register recorded both as closed** (UI-006, reopened and fixed
+  > 2026-08-26 — §13 still-open #3 applied to the fix for an instance of §13
+  > still-open #3). A route is ungated if it runs the guard and declares no key
+  > — **12 routes, closed by the above** — or if **it does not run the guard at
+  > all**, which was **64**: every voucher list and New form (49), the product
+  > masters and stock conversion (13), one job-work and one HR screen.
+  > `transaction.routes.ts`'s `{ path: 'vouchers', loadChildren: … }` declared no
+  > `canActivate` and none of its twenty children did either. *A smarter guard
+  > cannot help a route the guard is not on*, and SEC-002's own title had said so
+  > five days before the fix.
+  >
+  > Two changes, and both are the "safe branch by default" shape rather than a
+  > sweep:
+  > - **The guard is attached by inheritance.** Each licensed module's parent
+  >   route in `app.routes.ts` carries `canActivateChild: [permissionGuard]`, so
+  >   a child inherits the gate by existing. `tests/ui/shell/route-guards.ui.spec.ts`
+  >   asserts all four parents statically, so removing the line fails a test
+  >   rather than silently ungating a subtree.
+  > - **The permission key is derived too**, not just the licence module.
+  >   `permissionKeyForUrl` (`navigation.config.ts`) walks `APP_NAVIGATION` by
+  >   URL segments and answers the deepest non-empty `permissionKey` on the
+  >   path — so the tree that decides whether the menu OFFERS a screen now also
+  >   decides whether a URL reaches it, and the two cannot drift. Trailing
+  >   segments are tolerated deliberately (`…/sales/new` and `…/sales/edit/1663`
+  >   inherit `sales`' key). A derived key is always asked for `canView`; a route
+  >   wanting `canAdd` states it, which is what `data.permission` is for.
 - **Choosing a company** is a two-surface story, both driven by
   `CompanySwitchService`:
   - **At login**, an identity holding **more than one** live membership is sent
@@ -1837,12 +1876,46 @@ conventions.
   stays for the dashboards not yet converted.
 - **Numbers are formatted `en-IN`** (`count-up.directive.ts`), not the browser's
   default locale: Indian grouping is lakh/crore — ₹1,32,400, never ₹132,400.
+  > ⚠️ **In the shared grid, that is `type: 'money'` — `type: 'number'` formats
+  > nothing** (UI-002). `DataTableComponent.getCellValue` handles `date`, `money`
+  > and `boolean` and falls through to `String(val)` for the rest, so `'number'`
+  > only right-aligns the cell. Six screens printed `2305021.19` where the rule
+  > asks for `23,05,021.19` — GSTR-3B, GSTR-1, both Outstanding ledgers, the
+  > chart of accounts and the group master — because the column type reads as a
+  > formatting contract and is one for two values out of the set. `'money'` was
+  > added rather than widening `'number'`, deliberately: 116 columns across 45
+  > files declare `'number'` and most are ids, priorities and row counts, where
+  > `Invoice #1,32,400` would be a worse defect than the one being fixed. A
+  > screen with its own markup pipes `| number:'1.2-2'` instead — an amount with
+  > no pipe at all is what both GST return screens did.
+  >
+  > **A rule that judges only text carrying a ₹ is inert on exactly the screens
+  > it was written for**: a Trial Balance column is headed "Debit", GSTR-3B's is
+  > headed "Taxable value". The QA oracle now keys off the *shape* of an amount
+  > (a digit run with exactly two decimals), which an id, a GSTIN or an invoice
+  > number never is.
 - **The shell's own layout thresholds are on the four-value scale too**
   (`admin.component.ts`): nav is an overlay below 720, a rail-only column to
   1023, both columns at 1024 and up.
 - **Dates are `dd/MM/yyyy` everywhere**, on native `Date` values, via
   `CustomDateAdapter` + `MAT_DATE_LOCALE: 'en-GB'`. Don't introduce a second date
   format or a parallel date library for display.
+  > ⚠️ **The separator is part of the format, and four of them were in use**
+  > (UI-004, UI-008 — swept 2026-08-26). One sales invoice printed as
+  > `25/08/2026`, `25-Aug-2026`, `25 Aug 2026` or `25-08-2026` depending on which
+  > of the eight templates rendered it, so a customer receiving two invoices from
+  > one supplier read two formats. Seven report screens used Angular's named
+  > `mediumDate` (`22 Aug 2026` under `en-IN`), `product-media` showed **both**
+  > formats on one screen depending on the view toggle, and four voucher lists —
+  > the cash vouchers, the busiest screens in the product — printed the API's raw
+  > ISO string, because their Date column declared `type: 'text'` (UI-003).
+  >
+  > Every in-scope site is now `dd/MM/yyyy` (`dd/MM/yyyy HH:mm` where a time is
+  > wanted). **HR and the party portal still carry `dd MMM yyyy` in eight files**
+  > — outside this mission's scope, recorded rather than fixed. `mediumDate`,
+  > `longDate` and `shortDate` are not to be used for a document date; a
+  > month-year period label (`toLocaleDateString('en-IN', { month: 'long', year:
+  > 'numeric' })`) is a different thing and is fine.
 - **Dialogs** have shared SCSS partials in `styles/custom/`: `_form-dialog`,
   `_resizable-dialog`, `_side-panel-dialog`, `_form-errors`. Reuse them.
 - **Shared components** in `components/shared/` — `data-table`,
@@ -2380,6 +2453,10 @@ is one nobody reads.
 | Can a screen reader use this screen? | `qa-artifacts/tests/ui/a11y/` — axe over every route in both apps and both palettes, gating on critical/serious, plus the five keyboard properties axe cannot see (`npm run qa:a11y`) |
 | Why is this icon button announced as "button"? | it has a `matTooltip` and no `aria-label` — a tooltip is a *description*, not a name (§9, UI-010) |
 | Which module does this ROUTE need a licence for? | `client-front/src/core/navigation/module-licence.ts` `isRouteLicensed` / `MODULE_BY_URL_SEGMENT` — the permission key when it has one, else the first URL segment, so a route falls INTO the gate by saying nothing (BUG-0065 / SEC-002) |
+| What PERMISSION does this route need, if it declares none? | `client-front/src/core/navigation/navigation.config.ts` `permissionKeyForUrl` — the deepest key `APP_NAVIGATION` gives the URL, so the tree that decides what the menu OFFERS also decides what a URL reaches (UI-006) |
+| Is this screen actually behind `permissionGuard`? | it is if its module parent in `app.routes.ts` carries `canActivateChild: [permissionGuard]` — 64 screens declared no guard of their own, and `tests/ui/shell/route-guards.ui.spec.ts` now asserts all four parents (UI-006) |
+| Why is this grid printing `2305021.19`? | the column declares `type: 'number'`, which right-aligns and formats nothing — money is `type: 'money'` (UI-002, §9) |
+| Why does a receipt print a blank tax invoice? | it no longer does — `src/const/cash-voucher-print.const.ts` + `GET /trx-payment-receipts/:id/print-data` and `GET /trx-contra/:id/print-data`; the preview used to call the plain entity reads, whose fields do not intersect the templates' at all (UI-007) |
 | Which shell settings are derived rather than chosen? | `client-front/src/services/settings.service.ts` `EPHEMERAL_SETTINGS` — never persisted, because a width is not a preference (BUG-0064) |
 | Can a company's HSN master carry two rate schedules at once? | yes — `admin-back` `HsnService.importCsv(buffer, effectiveFrom)` writes a dated generation and closes the previous one; without the argument it corrects the current one in place (GST-002, D-50) |
 | All routes | `npx ts-node -r tsconfig-paths/register scripts/dump-routes.ts` (client-back) |
