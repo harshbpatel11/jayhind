@@ -1852,6 +1852,29 @@ conventions.
 - **A screen must never offer an action the server will refuse.** Permission,
   licence and voucher-lifecycle mirrors exist so the button state matches the API
   — keep the mirrors in sync, and let the backend stay the enforcer.
+- **An icon button names itself with `aria-label`, and a `matTooltip` is not a
+  name** (UI-010). Material renders a tooltip into a detached overlay referenced
+  by `aria-describedby` — a *description*, offered after a name the element must
+  already have — so a button whose only content is a `<mat-icon>` ligature is
+  announced as "button" however carefully its tooltip is worded. The shared
+  `data-table` gets this right and pairs the two automatically
+  (`[matTooltip]` + `[attr.aria-label]`, same text), which is why most grids in
+  the ERP are clean; **every surface that hand-rolls its own markup has to do it
+  itself**, and four of them did not — a category tree announced fifty identical
+  buttons with nothing telling Delete from Edit, and the hub console, which has
+  its own table, never received the rule at all. Name the **row** as well as the
+  action. The same applies to a form control with no `<label>`: GSTR-3B's five
+  ITC-adjustment amounts, the figures declared to the government, had no name of
+  any kind and were announced as "edit, blank".
+- **The accessibility line is WCAG 2.1 AA, and it is measured.**
+  `qa-artifacts/tests/ui/a11y/` sweeps axe over every screen in **both** apps and
+  **both** palettes, gating on axe's own critical/serious impact, plus five
+  keyboard properties axe cannot see. `npm run qa:a11y`. Two things worth knowing
+  before changing it: `best-practice` is deliberately excluded (its rules are
+  opinions, and a landmark preference failing a build beside a keyboard trap is
+  how a gate stops being read), and **`withRules` bypasses the tag filter** —
+  which is how `color-contrast-enhanced`, a WCAG **AAA** rule, once failed six
+  routes on a criterion nobody had agreed to.
 
 ---
 
@@ -2354,6 +2377,8 @@ is one nobody reads.
 | Frontend nav & permissions | `client-front/src/core/navigation/navigation.config.ts`, `guards/permission.guard.ts` |
 | Breakpoints / responsive rules | `client-front/src/styles/design-system/_breakpoints.scss`, `scripts/breakpoint-guard.js` |
 | What is the shell supposed to do at this width? | `qa-artifacts/tests/ui/shell/shell-rules.ts` — the layout rules restated from §7/§9, and the only place they are written down as executable derivations |
+| Can a screen reader use this screen? | `qa-artifacts/tests/ui/a11y/` — axe over every route in both apps and both palettes, gating on critical/serious, plus the five keyboard properties axe cannot see (`npm run qa:a11y`) |
+| Why is this icon button announced as "button"? | it has a `matTooltip` and no `aria-label` — a tooltip is a *description*, not a name (§9, UI-010) |
 | Which module does this ROUTE need a licence for? | `client-front/src/core/navigation/module-licence.ts` `isRouteLicensed` / `MODULE_BY_URL_SEGMENT` — the permission key when it has one, else the first URL segment, so a route falls INTO the gate by saying nothing (BUG-0065 / SEC-002) |
 | Which shell settings are derived rather than chosen? | `client-front/src/services/settings.service.ts` `EPHEMERAL_SETTINGS` — never persisted, because a width is not a preference (BUG-0064) |
 | Can a company's HSN master carry two rate schedules at once? | yes — `admin-back` `HsnService.importCsv(buffer, effectiveFrom)` writes a dated generation and closes the previous one; without the argument it corrects the current one in place (GST-002, D-50) |
