@@ -2,8 +2,9 @@
 4. kanban maximum data showing how it's work
 5. remove the Handover functionailty.
 6. jobwork add/edit also should be show in the tab view.
+9. remove the default seeder operation data.
+
 7. vendor capability & vendor machine merge those thing and make easy flow.
 8. only show those vendor which have that specific machine for that operations.
-9. remove the default seeder operation data.
 10. add stock functionatliy in jobwork module.
-11. 
+11. replace part from the product
