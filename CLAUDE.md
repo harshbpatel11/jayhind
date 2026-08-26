@@ -793,17 +793,37 @@ those calls.
 
 ### 4.6 Module licensing
 
-Six licensed modules (`LicensedModule`): `product`, `transaction`, `chat`,
-`files`, `hr`, `jobwork` — plus three gateway capabilities (`ewb`, `einvoice`,
-`ocr`) that gate calls the hub makes rather than nav subtrees. Flags are columns
-on the `companies` row (`productEnabled`, …), mapped by a **total** `Record` so
-adding an enum member without a column is a compile error.
+Nine licensed modules (`LicensedModule`): `product`, `transaction`, `chat`,
+`files`, `hr`, `jobwork`, and — since **2026-08-26** — `branding`, `audit`,
+`export`. Plus three gateway capabilities (`ewb`, `einvoice`, `ocr`) that gate
+calls the hub makes rather than nav subtrees. Flags are columns on the
+`companies` row (`productEnabled`, …), mapped by a **total** `Record` so adding
+an enum member without a column is a compile error.
+
+> ⚠️ **`branding` is the one module `ModuleLicenceGuard` does not enforce, and
+> that is deliberate.** Branding's permission key `site-configrations` also
+> guards `GET /site-configuration/gst-profile` and `PUT /site-configuration`,
+> which **Transaction ▸ Configuration ▸ Company & GST** calls — the two screens
+> share one endpoint (§7). Gating the key would refuse a company its own name,
+> GSTIN, PAN and address for want of a *logo* licence, so the key stays in
+> `ALWAYS_AVAILABLE_PERMISSION_KEYS` and the flag is enforced in the SPA by URL
+> segment alone (`MODULE_BY_URL_SEGMENT`), which hides the screen and refuses
+> its route. If the branding half of that PUT is ever split onto its own route
+> and key, gate it in `module-licence.const.ts` and delete the note there.
+>
+> `audit` and `export` have no such entanglement and are gated end-to-end. They
+> and `site-configrations` all **left** `ALWAYS_AVAILABLE_PERMISSION_KEYS`,
+> where they sat on arguments that were real and were overruled rather than
+> refuted — the audit trail is a compliance record of what already happened,
+> and the export bundle is a data-portability right. Both arguments are kept in
+> that file so nobody re-adds the keys by rediscovering them; the owner sells
+> all three, and the Hub is where that is decided per company.
 
 - Unlicensed → `403 { code: 'FEATURE_DISABLED', module }`.
 - **A missing/unknown flag reads as ON** (`ALL_ON`) — a company row predating a
   newly-added module must never go dark.
   > ⚠️ **The fail-open is not uniform any more** (ruled 2026-08-25, closing
-  > §13's still-open #3). When the `companies` **read throws**, the six nav
+  > §13's still-open #3). When the `companies` **read throws**, the nine nav
   > modules still resolve ON — a database hiccup must not black out a working
   > ERP — but the three *billable* gateway capabilities (`ewb`, `einvoice`,
   > `ocr`) resolve **OFF**: an outage is not authorisation to spend money at a
@@ -1728,7 +1748,7 @@ src/
   which has to decide now. `load()` never throws, so a genuinely unreachable
   licence still fails open rather than locking anyone out.
   > ⚠️ **The gate also keyed off `data.permission.apiUrl`, so a route declaring
-  > none was outside it entirely** — 54 screens under the six licensed modules,
+  > none was outside it entirely** — 54 screens under the licensed modules,
   > including every voucher list and New form, all twelve financial reports and
   > the six product masters. Same field the permission check reads, which is why
   > SEC-002 and this were one fix. It now falls back to the route's **first URL
@@ -1736,8 +1756,31 @@ src/
   > **inside** the gate by saying nothing rather than outside it — the shape
   > §4.3's hooks already use, keying off `rawAttributes.companyId` so a new
   > entity cannot drift out of scope by omission. **The safe behaviour has to be
-  > the one you get for free.** The permission key still wins where it has an
-  > entry: it is the more specific statement.
+  > the one you get for free.**
+  >
+  > ⚠️⚠️ **That fix let the key WIN over the segment (`??`), and one module
+  > survived being switched off because of it** (BUG-0067, fixed 2026-08-26).
+  > "The key is the more specific statement" is true about *what a screen
+  > reads* and says nothing about *where a screen lives*, and the two are not
+  > always the same module. Stock Ledger, Valuation Summary and Reorder Alerts
+  > sit under `transaction/reports/` and carry `permissionKey:
+  > 'product-quantity'` — deliberately, so a role that can see Stock Quantity
+  > sees them with no new permission row. That is a **Product** key. So with
+  > `transactionEnabled = 0` and Product licensed, all three answered
+  > "licensed", and `MenuService.filterVisible` keeps any container with one
+  > visible descendant — which is why the entire **Books** rail entry and its
+  > panel stayed on screen for a company that had been sold no Transaction
+  > module at all, listing three inventory reports. Chat, Files and HR
+  > disappeared correctly beside it, which is what made it look like a
+  > Transaction-specific glitch rather than the rule being wrong.
+  >
+  > `modulesForRoute` now returns **every** module a route depends on — the
+  > key's and the segment's — and both `isRouteLicensed` and the menu filter
+  > require all of them. `filterVisible` threads the top-level segment down the
+  > recursion, because a child's `route` is relative and a leaf cannot see which
+  > module it lives in on its own. **A screen needs everything it depends on**,
+  > and the next cross-module leaf is covered without anyone having to notice it
+  > is one.
   >
   > ⚠️⚠️ **That fix answered one of the two reasons a route can be outside the
   > gate, and the register recorded both as closed** (UI-006, reopened and fixed
@@ -2175,7 +2218,7 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
 | Rule-7 parent ids | `qa-artifacts/tests/transactions/jobwork-scope.spec.ts` and `tests/api/parent-scope.spec.ts` — every caller-supplied parent id on a write, probed with a stranger resolved from `company_members` (never from a fixture: the QA world **shares** an identity between two tenants on purpose) | `npm run qa:transactions` |
 | Shared-read exposure | `qa-artifacts/tests/permissions/shared-read-party.spec.ts` — sweeps **every** `@SharedRead()` route as a trading party and asserts the allow-list exactly (D-46). Route list comes from the regenerated inventory, so a new shared read is swept the day it lands | `npm run qa:permissions` |
 | The storage seam | `qa-artifacts/tests/storage/` — nine properties over the tree the ERP now owns (§6.4): the index against the **disk** as a census, keys inside their own company's folder, traversal refusals, the spool drained on refusal too, no static serving, who may be handed the bytes (BUG-0057), and every owned file still having its owner (BUG-0058) | `npm run qa:storage` |
-| The shell, in a browser | `qa-artifacts/tests/ui/shell/` — the frame all 155 screens are read through, against `shell-rules.ts` (the layout rules **restated**, never imported). Four breakpoints, panel presence read from BOTH of its readers at once, the accordion and its pinned groups, deep links, back/forward, the post-login landing per role, and the licence/permission gates by URL. ⚠️ Each width opens a **clean context**: `setViewportSize` reproduces a user *resizing to* a width, not *arriving at* one, and the shell writes some of that choice to `localStorage` (BUG-0064) | `npm run qa:shell` |
+| The shell, in a browser | `qa-artifacts/tests/ui/shell/` — the frame all 155 screens are read through, against `shell-rules.ts` (the layout rules **restated**, never imported). Four breakpoints, panel presence read from BOTH of its readers at once, the accordion and its pinned groups, deep links, back/forward, the post-login landing per role, and the licence/permission gates by URL — including one **[static]** sweep that asks, for every licensed module, whether anything under it survives the gate with only that module off (BUG-0067; it loads the real `APP_NAVIGATION` and `isRouteLicensed` via `framework/load-front-module.ts` and restates the menu's segment threading, because the browser half needs a fixture per combination and profile M has `product` off, not `transaction`). ⚠️ Each width opens a **clean context**: `setViewportSize` reproduces a user *resizing to* a width, not *arriving at* one, and the shell writes some of that choice to `localStorage` (BUG-0064) | `npm run qa:shell` |
 | Every master & configuration screen | `qa-artifacts/tests/ui/masters/screen-sweep.ui.spec.ts` — the per-screen checklist over 29 routes, one test each so a failure names the screen. Structural only (loads · shell agrees · no sideways scroll at 1440 **and 1024** · en-IN money · no leaked date · search narrows *and recovers*); per-screen business rules stay beside their own oracle. ⚠️ A page from `browser.newContext()` is **not** the `page` fixture and carries none of its console/5xx instrumentation | `npm run qa:screens` |
 | Every printed document | `qa-artifacts/tests/ui/print/` — the nineteen documents that leave the building, each opened the way a user opens it and compared against `print_configurations` setting by setting. The per-template toggle registry exists **twice** — `client-back/src/const/print.const.ts` decides what may be stored, `client-front`'s `print.interfaces.ts` decides what is offered — and `scripts/check-mirrors.js` does **not** compare them, so `print-rules.ts` is a third, restated copy checked against both: the panel's own toggles, and the sanitizer's answer to being sent every key at once. ⚠️ The three hand-built documents (party statement, Rule 55 challan, stock conversion) render into an off-screen iframe that is **removed 500 ms after `print()`** — capture from `frameattached`, not after a wait | `npm run qa:print` |
 | The live surfaces, in three browsers | `qa-artifacts/tests/ui/live/` — one upload watched by the uploader, by the same user's **second device**, and by another tenant on the identical screen. ⚠️ Every deadline is **inside `ScanQueueComponent`'s own 15 s poll fallback**; past that window an arriving row proves nothing about the socket, and the test would pass with the gateway switched off. The sidecar is put in its stub lane (D-32) for the file and restored after | `npm run qa:live` |
@@ -2363,7 +2406,7 @@ nobody re-opens a settled question.
 ### Closed on 2026-08-25 (evening)
 
 1. ~~Licence flags fail open on a database read failure, including the three
-   BILLABLE gateway capabilities~~ → **split.** The six nav modules still resolve
+   BILLABLE gateway capabilities~~ → **split.** The nine nav modules still resolve
    ON when the `companies` read throws, because a database hiccup must not black
    out a working ERP; `ewb`, `einvoice` and `ocr` now resolve **OFF**, because an
    outage is not authorisation to spend money at a government portal on a
@@ -2506,7 +2549,9 @@ is one nobody reads.
 | What is the shell supposed to do at this width? | `qa-artifacts/tests/ui/shell/shell-rules.ts` — the layout rules restated from §7/§9, and the only place they are written down as executable derivations |
 | Can a screen reader use this screen? | `qa-artifacts/tests/ui/a11y/` — axe over every route in both apps and both palettes, gating on critical/serious, plus the five keyboard properties axe cannot see (`npm run qa:a11y`) |
 | Why is this icon button announced as "button"? | it has a `matTooltip` and no `aria-label` — a tooltip is a *description*, not a name (§9, UI-010) |
-| Which module does this ROUTE need a licence for? | `client-front/src/core/navigation/module-licence.ts` `isRouteLicensed` / `MODULE_BY_URL_SEGMENT` — the permission key when it has one, else the first URL segment, so a route falls INTO the gate by saying nothing (BUG-0065 / SEC-002) |
+| Which module does this ROUTE need a licence for? | `client-front/src/core/navigation/module-licence.ts` `modulesForRoute` / `isRouteLicensed` — **every** module it depends on: its permission key's AND its first URL segment's, so a route falls INTO the gate by saying nothing (BUG-0065 / SEC-002) and a cross-module leaf cannot hold a switched-off module on screen (BUG-0067) |
+| Why is a module still in the nav rail after the Hub switched it off? | a leaf under it carries another module's permission key — `MenuService.filterVisible` keeps any container with one visible descendant (BUG-0067, §7) |
+| What is the one licence flag the API does NOT enforce? | `branding` — its key `site-configrations` is shared with Transaction ▸ Configuration's Company & GST card, so it is gated in the SPA by URL segment only (§4.6) |
 | What PERMISSION does this route need, if it declares none? | `client-front/src/core/navigation/navigation.config.ts` `permissionKeyForUrl` — the deepest key `APP_NAVIGATION` gives the URL, so the tree that decides what the menu OFFERS also decides what a URL reaches (UI-006) |
 | Is this screen actually behind `permissionGuard`? | it is if its module parent in `app.routes.ts` carries `canActivateChild: [permissionGuard]` — 64 screens declared no guard of their own, and `tests/ui/shell/route-guards.ui.spec.ts` now asserts all four parents (UI-006) |
 | Why is a dropdown's label painted on top of its value? | `AppSelectComponent.empty` — `''` is a real VALUE when an option carries it, and every filter bar here uses `{ value: '', label: 'All' }` (UI-011, §9) |
