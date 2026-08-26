@@ -74,7 +74,10 @@ function parseEnum(src, name) {
  * prose around each entry never counts as drift.
  */
 function parseRecord(src, name) {
-  const m = new RegExp(`export const ${name}\\b[^=]*=\\s*\\{([\\s\\S]*?)\\n\\};`).exec(src);
+  // The terminator tolerates a trailing type assertion — the hub writes
+  // `} as const satisfies Record<…>;`, and a strict `\n};` silently parsed it
+  // as "not found", which reads the same as "in sync".
+  const m = new RegExp(`export const ${name}\\b[^=]*=\\s*\\{([\\s\\S]*?)\\n\\}[^;{}]*;`).exec(src);
   if (!m) return null;
   const out = {};
   for (const raw of m[1].split('\n')) {
@@ -308,6 +311,67 @@ if (backVl && frontVl) {
             'no vectors. Add them to scripts/vectors/voucher-lifecycle.vectors.json — an uncompared ' +
             'rule is exactly the gap §13.4 was about.',
         );
+      }
+    }
+  }
+}
+
+// ── 7. hub console ↔ hub API: what a licence switch is CALLED on the wire ────
+//
+// The console names a switch by its `companies` column (`productEnabled`); the
+// hub's API names the capability (`product`). Both vocabularies are legitimate
+// and both are needed — the grid reads columns off the row, the DTO declares
+// capabilities — so the danger is not that two names exist but that the
+// translation between them drifts.
+//
+// It had never worked at all: `TenantModulesDialog` posted the column names,
+// `ValidationPipe` runs with `forbidNonWhitelisted: true`, and every save was a
+// 400 reciting *"property productEnabled should not exist"*. No module could be
+// switched off from the console, and nothing anywhere said so — the two files
+// are in different git repos, which is exactly the class of drift this script
+// exists for.
+//
+// Compared as data, both ways: every capability the hub can write must have a
+// wire name in the console, and every wire name must be one the hub's DTO
+// accepts.
+const ADMIN_BACK = path.join(ROOT, 'jayhind-admin-back');
+const ADMIN_FRONT = path.join(ROOT, 'jayhind-admin-front');
+
+const hubFeatureColumns = read(path.join(ADMIN_BACK, 'src/services/company.service.ts'));
+const hubFeaturesDto = read(path.join(ADMIN_BACK, 'src/dto/company.dto.ts'));
+const consoleFeatures = read(path.join(ADMIN_FRONT, 'src/core/tenant-features.ts'));
+
+if (hubFeatureColumns && hubFeaturesDto && consoleFeatures) {
+  // { capability: 'columnName' } on the hub, { columnName: 'capability' } in the
+  // console — inverted before comparing, so the check reads as one statement.
+  const hubMap = parseRecord(hubFeatureColumns, 'COMPANY_FEATURE_COLUMN');
+  const wireMap = parseRecord(consoleFeatures, 'FEATURE_WIRE_KEY');
+
+  if (!hubMap || !wireMap) {
+    failures.push(
+      'licence switch names: could not parse COMPANY_FEATURE_COLUMN (admin-back) or ' +
+        'FEATURE_WIRE_KEY (admin-front) — has the literal\'s shape changed?',
+    );
+  } else {
+    const hubInverted = Object.fromEntries(Object.entries(hubMap).map(([cap, col]) => [col, cap]));
+    diffMaps('licence switch names', hubInverted, wireMap, 'admin-back (column → capability)', 'admin-front FEATURE_WIRE_KEY');
+
+    // …and the capability has to be a field the DTO actually declares, which is
+    // the thing `forbidNonWhitelisted` judges. Parsed from the DTO rather than
+    // assumed from the column map, because those are two different files and it
+    // is the DTO that answers the request.
+    const dtoBody = /export class UpdateCompanyFeaturesDto\s*\{([\s\S]*?)\n\}/.exec(hubFeaturesDto);
+    if (!dtoBody) {
+      failures.push('licence switch names: could not find UpdateCompanyFeaturesDto in admin-back');
+    } else {
+      const declared = new Set([...dtoBody[1].matchAll(/^\s*(?:@[^\n]*\s)?(\w+)\??\s*:/gm)].map((m) => m[1]));
+      for (const capability of Object.values(wireMap).sort()) {
+        if (!declared.has(capability)) {
+          failures.push(
+            `licence switch names: the console posts '${capability}', which UpdateCompanyFeaturesDto ` +
+              'does not declare — ValidationPipe answers 400 "property … should not exist"',
+          );
+        }
       }
     }
   }

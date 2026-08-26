@@ -1330,6 +1330,32 @@ steps someone forgets to do together. `UNIQUE(companyId)` prevents a second
 subscription fragmenting billing history. `past_due` sets `billingRestricted` on
 the company row → ERP `BillingRestrictionGuard` → `402 SUBSCRIPTION_PAST_DUE`.
 
+> ⚠️ **A licence switch has TWO names, and only one of them is on the wire**
+> (BUG-0066, fixed 2026-08-26). The `companies` **column** is `productEnabled`;
+> the **capability** — what `UpdateCompanyFeaturesDto` declares, what
+> `subscriptions.featureOverrides` stores as JSON keys, what `GET /companies/:id`
+> answers under `features`, and what `COMPANY_FEATURE_COLUMN` maps between — is
+> `product`. The console posted the column names, `ValidationPipe` runs with
+> `forbidNonWhitelisted: true`, and **every save of the Modules & services dialog
+> was a 400** reciting *"property productEnabled should not exist"*: no module
+> could be switched off for any customer, and the ERP half — the guard, the nav
+> filter, the licence gate — was never reached to be doubted. The translation now
+> lives in one place (`jayhind-admin-front/src/core/tenant-features.ts`
+> `FEATURE_WIRE_KEY`, a total `Record`) and `scripts/check-mirrors.js` compares it
+> against **both** `COMPANY_FEATURE_COLUMN` and the DTO's own declared fields —
+> the two files are in different git repos, which is why nothing local could have
+> caught it.
+>
+> ⚠️⚠️ **On a subscribed company that write is an OVERRIDE, and it needs a
+> reason** (BUG-0053, §5 above). The console asks for one only where the hub will
+> insist — `TenantModulesDialog` reads the subscription when it opens — because a
+> reason box nobody was asked for is how the direct path acquires ceremony, and a
+> 400 for a field nobody was shown is how the override path acquired a bug. Note
+> the consequence for a company whose row had drifted from its plan: **the first
+> successful save projects the plan onto every other flag**, which is the
+> divergence BUG-0053 named, arriving all at once. Restore such a flag as its own
+> override rather than reading it as data loss.
+
 ---
 
 ## 6. Cross-service flows
@@ -2159,7 +2185,7 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
 | GST rules vs. the statute | `qa-artifacts/tests/gst/` — `gst-rules.ts` restates the rules from the Acts and notifications, and four specs measure the rate schedule, GSTIN validation, the computation matrix and the HSN master against it. Every rule is cited, with the date it was checked, in `qa-artifacts/docs/findings/gst.md` — **check that file before defending a GST number**, because rates and thresholds change by notification | `npx playwright test --project=api tests/gst` |
 | Every displayed figure is reproducible | `qa-artifacts/tests/reports/` — the statements and books against `statement-rules.ts`, the party account and the stock position against `party-rules.ts`, both **restated** rather than imported. Includes the two census tests that compare the derived balance caches with `journal_lines` (BUG-0042) and the delta tests that ask whether a figure *moves* by the right amount, which is the half an equality test cannot see | `npm run qa:reports` |
 | Async work & the deliberate outages | `qa-artifacts/tests/cross-service/` — nine properties (A1…A9) over what is allowed to be slow or absent: the scan pipeline's two error classes across four hops, the queue proved on a **side effect** rather than on its flag, Redis/hub/sidecar stopped one test at a time (D-29 via `framework/services.ts`), socket delivery measured with two real connections, and every `@Cron` method's single-runner claim. The fake OCR lane is the sidecar's **own** stub (D-32); `@real-model` is opt-in and excluded by `--grep-invert` | `npm run qa:cross-service` · `npm run qa:cross-service:real-model` |
-| Cross-repo mirror drift | `scripts/check-mirrors.js` (**this** repo — only it sees both submodules). Checks 1–3 compare data; check 4 compares **behaviour**, running both `voucher-lifecycle` implementations against `scripts/vectors/` (§13.4). Needs esbuild from one submodule's `node_modules` and **fails loudly** rather than downgrading if none is present | `node scripts/check-mirrors.js` |
+| Cross-repo mirror drift | `scripts/check-mirrors.js` (**this** repo — only it sees both submodules). Checks 1–3 compare data; check 4 compares **behaviour**, running both `voucher-lifecycle` implementations against `scripts/vectors/` (§13.4); check 7 compares the **hub console's** names for the nine licence switches against the hub API's `COMPANY_FEATURE_COLUMN` *and* `UpdateCompanyFeaturesDto`'s declared fields (BUG-0066 — the pair that had never once agreed). Needs esbuild from one submodule's `node_modules` and **fails loudly** rather than downgrading if none is present | `node scripts/check-mirrors.js` |
 | QA harnesses | `scripts/qa-*.ts` (~55 in client-back, 5 in admin-back) | `npx ts-node -r tsconfig-paths/register scripts/qa-<name>.ts` |
 | Style guard | `scripts/breakpoint-guard.js` | `npm run lint` (client-front) |
 | E2E / UI | `qa-artifacts/` (Playwright) | see its README |
@@ -2499,6 +2525,7 @@ is one nobody reads.
 | Which of the three empty GSTIN answers is this? | `src/services/gst.service.ts` `lookupRaw` (BUG-0061) — unknown number vs. no registry key vs. hub unreachable; `fetchRaw` flattens all three and must not be used where a person reads the result |
 | Do the two `voucher-lifecycle` files agree about what a rule MEANS? | `scripts/vectors/voucher-lifecycle.vectors.json` + `node scripts/check-mirrors.js` — 487 behavioural comparisons, each row checked against both sides *and* against the restated rule |
 | Are the mirrored constants still in sync? | `node scripts/check-mirrors.js` |
+| What is a licence switch CALLED — `product` or `productEnabled`? | the column is `productEnabled`, the wire/API capability is `product`; `admin-back` `COMPANY_FEATURE_COLUMN` maps between them and `admin-front` `FEATURE_WIRE_KEY` is the console's half (BUG-0066, §5) |
 
 ---
 
