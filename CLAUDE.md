@@ -715,9 +715,38 @@ extended to the in-app *Add User* form.
 > placeholder *before* `UsersService.create` sees it, so a 500-ledger import
 > cannot attach memberships to real people. Keep it that way.
 
-An **edit** (`UsersService.update`) still refuses a colliding e-mail outright
-for both kinds — pointing an existing row at another identity would be a merge
-(whose vouchers and journal history win?), not a membership.
+An **edit** (`UsersService.update`) meeting a colliding e-mail **asks, then
+merges** (2026-08-26). It used to refuse outright, on the argument that pointing
+an existing row at another identity is a merge rather than a membership — right
+about what it is, wrong about whether it should be possible. Refusing left an
+admin unable to give a party its real address (a party booked without one gets a
+`<slug>@tally-import.invalid` placeholder) and the platform holding one business
+twice under two ids, while `users.email` being UNIQUE **platform-wide in the
+database** means one identity with two memberships is the only shape available.
+
+- The first save answers **`409 EMAIL_BELONGS_TO_IDENTITY`** carrying the
+  owner's `ownerName`. **The name only** — their name becomes visible here the
+  moment a link happens, but listing the companies they belong to would let any
+  admin probe addresses to learn who else is on the platform and where.
+- Only a caller returning `linkToExistingIdentity: true` performs it. A merge
+  moves every voucher, challan and journal line that names the record, so it is
+  something a human states — never inferred, never a default.
+- `PartyIdentityLinkService` is the entry point; the merge itself is
+  `src/services/identity-merge.ts`, **shared with
+  `scripts/fix-duplicate-party-identities.ts`** so the operation has one
+  definition rather than two. It refuses whole (`describeMergeClashes`) when
+  both identities already hold a row in one company, since the three party
+  tables collide on `(companyId, identityId)` the moment they repoint.
+- It does **not** write the surviving identity's `name`, `phone` or password —
+  the same rule `linkExistingIdentity` follows on create. The local name is kept
+  in `company_parties.displayName` instead.
+  > ⚠️ **That column is written and not yet read.** A party's name resolves from
+  > `users.name` in ~54 Sequelize includes and 11 raw SQL joins across job work,
+  > vouchers, reports, prints, the dashboard and the export; sweeping some of
+  > them would show one party under two names on two screens of the *same*
+  > company, which is worse than one shared name honestly applied. Until that
+  > sweep lands — in one pass — the link's confirmation states plainly which
+  > name the company will show.
 
 ### 4.5 Permissions — four independent gates
 
@@ -1665,6 +1694,15 @@ src/
     empty column or a content margin with nothing under it. The mobile overlay
     keeps its panel (`|| !showToggle`): nothing competes for width there, and
     the panel head carries the drawer's only close button.
+  - **Job Work ▸ Masters reads: Operation Types · Our Machines · Vendors ·
+    Route Templates · Party Billing Settings · Job Work Settings**
+    (2026-08-26). "Vendors" replaced "Vendor Capabilities" *and* the Machines
+    master's "Vendor machines" toggle — same `vendor-capability` permission key,
+    so no role's grants had to be re-decided, and `/masters/vendor-capabilities`
+    redirects. See §14's row on where a vendor's work is declared.
+  - **Job Work ▸ Stock** (2026-08-26) sits between Ready Queue and Challans and
+    shares the Board's `job-work` key. It is a **custody** screen, not an
+    inventory one — see §14.
   - **Above 14 pages the panel's groups collapse to an accordion**, except
     those listed in `PINNED_PANEL_GROUPS` — the everyday destinations, which
     must never need a click to reveal. Transaction (40 pages) is the reason
@@ -1935,10 +1973,26 @@ conventions.
   never the phone; it was intermediate widths, where 15 scattered breakpoint
   values left one card collapsed and its neighbour not.
   `scripts/breakpoint-guard.js` **fails the lint** on any raw px in a
-  `@media`/`@container` width feature that isn't one of the four. The
-  grandfather list is **empty** — full enforcement everywhere. A component
+  `@media`/`@container` width feature that isn't one of the four. A component
   usually needs only *one* of the four; pick the width where *this* component
   actually breaks rather than cargo-culting all four.
+  > ⚠️ **It read only `.scss` until 2026-08-27, and eleven components declare
+  > their CSS inline** (`styles: [\`…\`]` on the `@Component`). Those were
+  > outside the guard entirely, and its own note claiming an empty grandfather
+  > list was therefore true of what it could see rather than of the app. It
+  > scans `.ts` as well now — the check is a text scan, so the extension filter
+  > was the only thing hiding them — and that immediately surfaced **six**
+  > off-scale values: one in job work (fixed) and five in HR, which are
+  > grandfathered with the reason, because 820 → 720-or-1024 is a decision about
+  > those screens rather than a substitution. §13's standing shape, in the guard
+  > that was written to prevent it.
+  >
+  > ⚠️⚠️ **A container query with no container never fires**, and nothing warns.
+  > `route-templates.ts`'s dialog carried `@container (max-width: 620px)` with no
+  > ancestor declaring `container-type`, so its five-column step grid never
+  > collapsed and the dialog was unusable at 380px. Off-scale *and* dead. When
+  > you write a container query, write the `container-type: inline-size` context
+  > with it — usually on `:host`.
 - **Container queries over viewport queries** whenever the component's width is
   set by a dialog or panel rather than the browser window — `@media` reads the
   *browser*, so inside a fixed-width dialog it reports "wide" while the content
@@ -1998,6 +2052,124 @@ conventions.
   > `longDate` and `shortDate` are not to be used for a document date; a
   > month-year period label (`toLocaleDateString('en-IN', { month: 'long', year:
   > 'numeric' })`) is a different thing and is fine.
+  > **Where a date must become a STRING rather than be rendered by a pipe** —
+  > a chip badge, a label built in TypeScript — use `displayDate()` in
+  > `src/utils/date.util.ts`. Hand-rolling `toLocaleDateString()` there is how
+  > the fourth separator got in.
+- **A dialog's first row must not have its labels clipped by the title.**
+  Angular Material ships `.mat-mdc-dialog-title + .mat-mdc-dialog-content
+  { padding-top: 0 }`, and an outlined field floats its label onto its own top
+  border — so the first row of every dialog had its labels sliced in half. The
+  fix lived only inside `.app-form-dialog`, an **opt-in `panelClass` that 47 of
+  the app's 118 dialogs used**; the other 71 shipped the defect. It is now a
+  floor on the bare Material class in `styles/custom/_material.scss`, so a new
+  dialog is correct by existing (§13's "one rule enforced at some of the places
+  that need it", in CSS).
+  > ⚠️ It is scoped through `.mat-mdc-dialog-container` for **specificity, not
+  > reach**. Material's rule is `(0,2,0)` and lives in the dialog *component's*
+  > styles, which Angular injects into `<head>` at runtime — **after** the
+  > global stylesheet — so an equal-specificity global rule loses the tie and
+  > silently does nothing. Verified in a real browser with Material's rule
+  > injected last. The same trap applies to any global override of a Material
+  > component's own structural CSS.
+- **Sizing a Material icon button takes three things, not one.**
+  `width`/`height` alone leaves a 40px state layer and a 48px touch target laid
+  out at full size, so the button overlaps whatever sits beside it — which is
+  how the Vendors master's machine chips came to cover their own labels. Set
+  `--mdc-icon-button-state-layer-size`, `padding: 0`, **and** shrink
+  `.mat-mdc-button-touch-target`; `data-table`'s `.pin-peek` is the reference.
+- **A name is capitalised by one rule, applied where it is TYPED.**
+  `TitleCaseNameDirective` (auto-applied by selector via `SHARED_IMPORTS`, like
+  `FormGuardDirective` — no attribute to add and none to forget) tidies a name
+  field on **blur**, so the user sees the result and can override it. Nothing is
+  re-cased silently at save time, which matters because a party name prints on
+  invoices, challans and GST returns. Opt one field out with `noTitleCase`.
+  The rule is `display-case.const.ts` / `display-case.util.ts`, mirrored and
+  compared behaviourally by `check-mirrors.js` check 8.
+  > ⚠️ **The acronyms are a LIST, not a heuristic**, and they have to be: `PARTY`
+  > is all-caps and five letters exactly like `GSTIN`, and `PVT` has no vowels
+  > exactly like `CNC`. Every shape-based guess gets those backwards. The list
+  > grows from `scripts/normalise-names.ts`'s dry run — which is how `HR`, `ESI`
+  > and `MD` were found, as "Hr", "Esi" and "Md", in `roles`, `trx_groups` and
+  > `designations`.
+  > ⚠️⚠️ **Separators are handled generally, and were not at first.** The rule
+  > split on `-` and `/` only, so `QA·SEC` came back `Qa·sec` and `A.B.C` would
+  > have too: an unlisted punctuation mark silently lower-cased everything after
+  > it. Splitting on any run of non-alphanumerics means the next one nobody
+  > foresees degrades to "cased on both sides" instead. The apostrophe is
+  > deliberately excluded — it belongs to the word (`Shah's`, not `Shah'S`).
+  > **Not applied to codes** (`machineNo`, `code`, GSTIN, PAN, username, email —
+  > upper-cased at their own seams), **to prose** (remarks, descriptions), or
+  > **to a legal name the GST registry supplied**, which is the authoritative
+  > spelling of a statutory field.
+- **The voucher header strip wraps by FLEX BASIS, not by a width query, and
+  Purchase and Sales must come out the same shape** (2026-08-27). Purchase
+  carries a field Sales does not — `Party Invoice No`, the number on the
+  supplier's own bill. The strip was
+  `grid-template-columns: repeat(auto-fit, minmax(190px, 1fr))` with the account
+  head and the party each spanning two tracks, which gives a fixed track count
+  for a width — six at a full-screen dialog. Sales needed exactly six and
+  fitted; Purchase needed seven and dropped **Supplier onto a second row**, so
+  the two busiest screens in the app had different headers and on one of them
+  *who the voucher is for* sat below the fold of its own strip.
+
+  A viewport `@media` cannot fix it, and this is exactly the trap
+  `_breakpoints.scss` warns about: the strip's width comes from the dialog, or
+  from the content column (~288px narrower whenever the nav panel is open), not
+  from the window — at a 1025px viewport on the routed page the strip is ~678px
+  while `@media` still says "wide". Flex wrap asks the right question by
+  construction, so there is no query to get wrong.
+
+  ⚠️ **The bases are solved, not guessed, and a smaller one is not better.**
+  Four fields fit a 678px line at ~170px each, and a 15-character voucher number
+  with a 40px refresh button does not fit in 170px — it *nearly* does, which is
+  why it went unnoticed: Purchase happened to wrap 3+2 and read fine while a
+  debit note wrapped 4+1 and **clipped its own number**. The wrap has to be
+  decided by what a field needs, not by how many will squeeze on. The accepted
+  consequence is that on the routed page at ≤1024 the strip is two rows for
+  every type, Sales included; in the dialog, where vouchers are normally
+  entered, 1024 is still one row. `_voucher.scss` carries the arithmetic.
+
+  A second rule falls out of using flex at all: **cap each field's width**, or
+  flex grows the items on the last line to fill it and a single leftover field
+  becomes a full-width input sitting alone under four narrow ones.
+- **An optional field group folded behind a chip MUST say what is inside it.**
+  The voucher entry screen's bottom strip — additional charges, voucher
+  discount, GST classification & export particulars, payment terms & due date,
+  narration, reference documents — was six permanently-open cards costing ~180px
+  of a form whose items grid is the thing people actually type into. It is now
+  one row of chips (`components/shared/voucher-option-chip/`,
+  `.vch-optbar` / `.vopt__*` in `_voucher.scss`), each opening a small panel
+  anchored above it (2026-08-27).
+
+  That fold is only allowed because of the badge: **hiding a set discount behind
+  a plain button trades clutter for blindness**, and the bar has to answer
+  *"what has been done to this voucher?"* with nothing open. So a chip carries a
+  `summary` (`5%`, `2 · ₹1,500.00`, `30/09/2026`, `RCM · No ITC`) and fills in
+  when it holds a value. Three consequences worth knowing before touching it:
+
+  - **The panel is rendered inside the form and merely shown/hidden**, never
+    created on open. `formControlName` then resolves through the declaration-site
+    injector with nothing to wire up, and a stateful child keeps its state —
+    `app-voucher-attachments` buffers files picked before the voucher has an id,
+    which a destroy-on-close overlay would silently throw away.
+  - **A click inside `.cdk-overlay-container` is not "outside".** The panel's own
+    selects and datepickers render there, so the naive click-away rule shuts the
+    panel the moment somebody picks a value in it. ⚠️ A `mat-select` does **not**
+    prove this — Material's option handling keeps the pointerdown off the
+    document listener, so the guard can be deleted with a select-based test
+    staying green. The **datepicker** is what fails; that is the interaction
+    `qa-artifacts/tests/ui/money/voucher-options-bar.ui.spec.ts` measures.
+  - **Save opens the panel holding the blocker** (`revealInvalidPanel`) and the
+    chip turns red. A required field folded out of sight is exactly the case
+    where a dead Save button explains nothing — the same argument
+    `assertSupplierIsCompanyMember`'s toast makes for `supplierUserDetailsId`.
+
+  Esc inside a panel closes the panel and `stopPropagation()`s, because the
+  screen's own `document` Esc listener closes the whole voucher. ⚠️ That listener
+  currently bails whenever any `.cdk-overlay-pane` exists and one always does
+  here, so the rule is **not observable through the screen** — the spec asserts
+  propagation directly rather than an outcome that stays green without it.
 - **Dialogs** have shared SCSS partials in `styles/custom/`: `_form-dialog`,
   `_resizable-dialog`, `_side-panel-dialog`, `_form-errors`. Reuse them.
 - **Shared components** in `components/shared/` — `data-table`,
@@ -2223,14 +2395,16 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
 | Every printed document | `qa-artifacts/tests/ui/print/` — the nineteen documents that leave the building, each opened the way a user opens it and compared against `print_configurations` setting by setting. The per-template toggle registry exists **twice** — `client-back/src/const/print.const.ts` decides what may be stored, `client-front`'s `print.interfaces.ts` decides what is offered — and `scripts/check-mirrors.js` does **not** compare them, so `print-rules.ts` is a third, restated copy checked against both: the panel's own toggles, and the sanitizer's answer to being sent every key at once. ⚠️ The three hand-built documents (party statement, Rule 55 challan, stock conversion) render into an off-screen iframe that is **removed 500 ms after `print()`** — capture from `frameattached`, not after a wait | `npm run qa:print` |
 | The live surfaces, in three browsers | `qa-artifacts/tests/ui/live/` — one upload watched by the uploader, by the same user's **second device**, and by another tenant on the identical screen. ⚠️ Every deadline is **inside `ScanQueueComponent`'s own 15 s poll fallback**; past that window an arriving row proves nothing about the socket, and the test would pass with the gateway switched off. The sidecar is put in its stub lane (D-32) for the file and restored after | `npm run qa:live` |
 | Every money screen | `qa-artifacts/tests/ui/money/` — the **same** battery over 51 voucher, GST, report, dashboard and operational routes, plus the five navigation rules the retired Transaction rail used to own (Quick Voucher Entry, the pinned groups, `hiddenTransactionMenus`, the approval gate, F4–F9). It does not re-derive a figure: Phase 8 owns the oracles, and what a browser adds is whether the figure **reached the screen** and in what shape. ⚠️ The en-IN rule judged only text carrying a **₹** until 10B widened it, and these screens print money **without one** — so on every screen it was written for it matched nothing and read as a pass. It now keys off the *shape* of an amount (two decimal places), and the date rule catches a **second format** (`22 Aug 2026`) as well as a missing one | `npm run qa:money` |
+| The voucher header strip | `qa-artifacts/tests/ui/money/voucher-header-strip.ui.spec.ts` — every header field on ONE row at 1440 across all three shapes (Sales' four, Purchase's five, a note's `Against Invoice(s)` variant), nothing clipped, and a wrapped strip still reading as a grid rather than one field spanning it. Measured in a browser because the rule is a laid-out fact: the strip's width comes from the dialog or the content column, never from the viewport. Injected-regression checked against the original `auto-fit` grid, which it reproduces as *"purchase: the header strip is ONE row"* |
+| The voucher options bar | `qa-artifacts/tests/ui/money/voucher-options-bar.ui.spec.ts` — the six chips that replaced the entry form's bottom cards: the bar is the whole set, a badge appears when a value is entered, an overlay opened inside a panel does not close it, Esc does not reach the voucher, Save opens the panel holding the blocker, and no panel leaves the window at any of the four widths. ⚠️ Two of its assertions were **inert when first written** and are now aimed at what the rules actually depend on — the datepicker rather than a `mat-select`, and Esc's *propagation* rather than "is the voucher still open" (§9). Injected-regression checked in both | `npm run qa:money` |
 | GSP path, mocked at the hub's outbound HTTP | `qa-artifacts/tests/gst/gsp-stub.ts` — a **schema-strict** WhiteBooks stub (D-2). Everything above the `fetch` is real: `MasterHubClient`, `InternalServiceGuard`, the hub's licence and GSTIN assertions, the session cache and retry, the error mapper, the metering. It validates the payload against the *restated* INV-01 / NIC schemas, so a green conformance test means the portal would have accepted it | `npm run qa:gst` |
 | The hub↔ERP control plane | `qa-artifacts/tests/cross-service/` — a company's whole life across **both** databases, as ten agreement properties: provisioning is all-or-nothing *and* leaves a company that can post; a licence flip is live on the next request; hard delete is total (the census comes from `information_schema`, so a new table is covered the day it is created) and bounded (a shared login survives). ⚠️ It **creates and destroys companies** — every one is a `QA·9A …` scratch tenant and `destroyScratch` refuses anything else | `npm run qa:cross-service` |
 | GST rules vs. the statute | `qa-artifacts/tests/gst/` — `gst-rules.ts` restates the rules from the Acts and notifications, and four specs measure the rate schedule, GSTIN validation, the computation matrix and the HSN master against it. Every rule is cited, with the date it was checked, in `qa-artifacts/docs/findings/gst.md` — **check that file before defending a GST number**, because rates and thresholds change by notification | `npx playwright test --project=api tests/gst` |
 | Every displayed figure is reproducible | `qa-artifacts/tests/reports/` — the statements and books against `statement-rules.ts`, the party account and the stock position against `party-rules.ts`, both **restated** rather than imported. Includes the two census tests that compare the derived balance caches with `journal_lines` (BUG-0042) and the delta tests that ask whether a figure *moves* by the right amount, which is the half an equality test cannot see | `npm run qa:reports` |
 | Async work & the deliberate outages | `qa-artifacts/tests/cross-service/` — nine properties (A1…A9) over what is allowed to be slow or absent: the scan pipeline's two error classes across four hops, the queue proved on a **side effect** rather than on its flag, Redis/hub/sidecar stopped one test at a time (D-29 via `framework/services.ts`), socket delivery measured with two real connections, and every `@Cron` method's single-runner claim. The fake OCR lane is the sidecar's **own** stub (D-32); `@real-model` is opt-in and excluded by `--grep-invert` | `npm run qa:cross-service` · `npm run qa:cross-service:real-model` |
-| Cross-repo mirror drift | `scripts/check-mirrors.js` (**this** repo — only it sees both submodules). Checks 1–3 compare data; check 4 compares **behaviour**, running both `voucher-lifecycle` implementations against `scripts/vectors/` (§13.4); check 7 compares the **hub console's** names for the nine licence switches against the hub API's `COMPANY_FEATURE_COLUMN` *and* `UpdateCompanyFeaturesDto`'s declared fields (BUG-0066 — the pair that had never once agreed). Needs esbuild from one submodule's `node_modules` and **fails loudly** rather than downgrading if none is present | `node scripts/check-mirrors.js` |
+| Cross-repo mirror drift | `scripts/check-mirrors.js` (**this** repo — only it sees both submodules). Checks 1–3 compare data; check 4 compares **behaviour**, running both `voucher-lifecycle` implementations against `scripts/vectors/` (§13.4); check 7 compares the **hub console's** names for the nine licence switches against the hub API's `COMPANY_FEATURE_COLUMN` *and* `UpdateCompanyFeaturesDto`'s declared fields (BUG-0066 — the pair that had never once agreed); check 9 compares `JobWorkBoardStage` and `BOARD_STAGE_SEQUENCE`, **membership and order**, because the sequence IS the Kanban's lane order and the strings are the tokens the server's `stage` filter compares. Needs esbuild from one submodule's `node_modules` and **fails loudly** rather than downgrading if none is present | `node scripts/check-mirrors.js` |
 | QA harnesses | `scripts/qa-*.ts` (~55 in client-back, 5 in admin-back) | `npx ts-node -r tsconfig-paths/register scripts/qa-<name>.ts` |
-| Style guard | `scripts/breakpoint-guard.js` | `npm run lint` (client-front) |
+| Style guard | `scripts/breakpoint-guard.js` — the four-value scale, over `.scss` **and `.ts`** (eleven components declare their CSS inline, and those were unscanned until 2026-08-27; the five HR files that surfaced are grandfathered with a reason) | `npm run lint` (client-front) |
 | E2E / UI | `qa-artifacts/` (Playwright) | see its README |
 | OCR | `jayhind-ocr-service/tests` (pytest, fake reader/extractor — no model download) | `pytest` |
 | Data repair | `client-back/scripts/fix-duplicate-party-identities.ts` — cleans up the duplicate/orphan identities the pre-2026-08-20 party rule left behind. **Dry-runs by default**; `--apply` writes, `--merge <from>:<to>` folds one identity into another (repointing every FK that actually holds rows, then deleting the source) | `npx ts-node -r tsconfig-paths/register scripts/fix-duplicate-party-identities.ts` |
@@ -2542,6 +2716,25 @@ is one nobody reads.
 | What may a job work order / dispatch / challan have done to it? | `src/const/job-work-flow.const.ts` (the quantity rule everything derives from), `job-work-dispatch.const.ts` (the three invariants), `job-work-challan.const.ts` (the purpose table) |
 | Is this job-work id the caller supplied actually ours? | `src/services/job-work-ownership.ts` (BUG-0022, BUG-0032). ⚠️ An order's `ownerUserId` was one of BUG-0022's `users.id` ids and its check is **gone with the field** (2026-08-26) — a job work order belongs to the company, so nothing accepts an owner from a caller. Don't read the missing `assertMemberIsOurs` as an omission; `qa-artifacts/tests/transactions/jobwork-scope.spec.ts` asserts the DTO refuses the field outright (a 400 from `forbidNonWhitelisted`, which cannot be forgotten the way a 404 can) |
 | Does confirming a job work order also receive its material? | `job_work_configurations.autoReceiveMaterial` → `JobWorkOrderService.confirm`. Off by default: it issues a real Rule 55 `party-receipt` challan (never a bare `receivedQuantity` — that column is a roll-up of the challans that moved the material), so an installation asks for it. It is what makes the *material-arrives-first* shops workable: without a receipt `readyQty(1)` is 0 and the flow invariant refuses every dispatch with nothing on screen saying why |
+| How much of a party's material are we holding, and who has it? | **Job Work ▸ Stock** (`GET /job-work-stock` → `JobWorkStockService`), arithmetic in `src/const/job-work-stock.const.ts`: `held = received − delivered − scrapped`, split into `onFloor + atVendor`. ⚠️ **This is custody, not inventory** — a job work order works on the *party's* material, which never enters `stock_movements` and has no book value here, which is exactly why no stock screen in the ERP could see it. Both identities are asserted in the co-located spec; `onFloor` is derived by **subtraction** on purpose, because material sitting received-but-not-started has no dispatch at all and counting only what is on a machine reports a busy shop as nearly empty |
+| Why does the Stock screen's row arithmetic stop adding up? | a **vendor filter** is applied. `JobWorkStockService.applyVendorFilter` narrows `atVendor` to one job worker's share while `received`/`delivered`/`scrapped` stay whole facts about the order, so `onFloor + atVendor ≠ held` by design — the screen states the filter above the table and blanks the floor column rather than printing a figure that is not an answer to the question asked |
+| What does a brand-new company's product form start with? | `DEFAULT_MEASUREMENT_UNIT` in `company-defaults.const.ts` — **one** unit, `Numbers / NOS`, created by `CompanyProvisioningService` and pointed at by `product_configurations.defaultMeasurementUnitId`. That column and the Product form's use of it have existed since the schema was squashed and **nothing ever set it** (eleven of thirteen companies carried null), so the form's one required picker opened empty for everyone. Deliberately not a starter set: PCS/KGS/MTR are the guess `OPERATION_TYPES` and `HOLIDAYS` are empty to avoid |
+| Why does a new party form open on India and Gujarat? | `companies.defaultCountryId` / `.defaultStateId` — **per company, not a literal** (2026-08-26). Seeded at provisioning from the company's **own GSTIN**, whose first two digits name the state of registration, falling back to `DEFAULT_REGION` when it has none; editable on Transaction ▸ Configuration ▸ Company & GST, read by `user-add-edit` and `manufacturer-add-edit` off `MenuService.siteConfiguration()`. Applied only to a NEW record, only into an empty field, and never marking the form dirty — a default is a starting point, not a change to somebody's saved row. Null means "open blank", which is what every address form did before |
+| Why did `ci-guard-raw-sql` pass a query nobody justified? | its allow-list is keyed by **`path:line`**, so editing a file moves every entry below the edit and a new query can land on an allow-listed line and inherit a justification written for a different statement. Seen on 2026-08-26 in `company-provisioning.service.ts`. When you add or remove lines in a file that has entries, re-run the guard **and** re-read each key against the query now at it — a green guard is not evidence the keys still point at what they describe |
+| Is a job work "part" a product? | **Yes, and the schema says so since 2026-08-26.** `job_work_orders.partDescription` → `productName` and `route_templates.partDescription` → `productName` (migration `20260826300000-part-description-to-product-name`), with every label, column header and print caption to match. The column stopped being free text on 2026-08-20 when the product picker became mandatory — it has been a snapshot of `product.name` ever since, and the old name kept implying the two were different things. `Rule 55`'s own caption stays **"Description of Goods"**: that one is the statute's word, not ours |
+| Where do I say what a vendor does — and what machines they have? | **One place**: the Vendors master (`/job-work/masters/vendors`), fed by `GET /vendor-capabilities/directory`. Until 2026-08-26 it was two — a Vendor Capabilities grid (the commercial half) and the Machines master's "Vendor machines" toggle (the physical half), each editable without the other and **neither gating anything**, so the same fact was typed twice and nobody typed it at all (0 capability rows against 6 vendor machines on the dev install). The capability is the spine now: `ensureCapability` guarantees one behind every vendor machine, whichever door it came in through, and removing one takes that vendor's machines for that operation with it |
+| Where do I book a job work order, and where do I change one? | Two different screens since **2026-08-27**. `order-add-edit` is a **create-only** dialog off the board (party, part, quantity, promise, and the paperwork that arrives with the material); everything after that is a tab on the order itself. The tabs read **Edit order · Setup routing · Routing · Challans · Material · Drawings · Costing · Activity** — plan-then-progress, left to right, so the screen opens on Edit order rather than on the timeline. The fields are one component, `order-form/`, shared by the dialog and the Edit tab so the two cannot become two forms. The board's Add now **navigates to the new order**, because a draft has no routing and cannot be confirmed without one |
+| Why did a dialog's Remarks box render ~180px wide? | `.jwd__full` was **used by seven job-work dialogs and defined in none** (fixed 2026-08-27). A `mat-form-field` is `display: inline-flex` with no width: inside `.jwd__fields` it is a grid item and blockifies, so the grid always looked right, and only the fields OUTSIDE the grid shrank to their content. Nothing errors on a class that matches no rule. Same shape as §9's dialog-title padding — `.app-form-dialog` gives `mat-form-field { width: 100% }` to the 47 dialogs that opt in, and these ten carry their own stylesheet |
+| Why is a picker in a dialog shorter than the fields beside it? | it is a bare `app-select` with no `mat-form-field` around it — no label, no outlined box, and no shared baseline for the row. `app-select` **is** a `MatFormFieldControl` (UI-011 is about its `empty`), so it belongs inside one. Both job-work vendor pickers were bare until 2026-08-27 |
+| Why does Start work open wider than the other job-work dialogs? | 880px, because its field count changes with a choice made **inside** it — "At a vendor" adds Expected back to Quantity · Where · Vendor, and a dialog's width is fixed when it opens, so sizing it for three gave one dialog two shapes. `.jwd__fields--wide` in `dialogs.scss` carries the arithmetic; §9's "the bases are solved, not guessed" applies to a grid's track count exactly as it does to a flex basis |
+| Why is the routing builder not on the create form? | Booking a job and planning how it is made are two jobs, done by two people, at two times — `routing-setup/`'s own header. `operations` has always been optional on the create DTO for that reason, and `describeConfirmBlock` is what actually insists on at least one step, at **confirm**, which is the moment it starts to matter. **Routing** (the live timeline) and **Setup routing** (the plan) are deliberately siblings: folding them into one tab made the plan unreachable the moment the first dispatch existed |
+| How does the routing save without touching the header? | `PUT /job-work/:id/routing` → `JobWorkOrderService.replaceRouting`, through the **same** `writeRouting` seam the order edit uses (so §4.3 rule 7's ownership checks cannot be forgotten by a new caller). Its own route because `PUT /job-work/:id` is a **full** header replacement: a screen showing only steps would have to echo the order back, and an echo silently reinstates its own stale copy of whatever somebody edited on the other tab |
+| Has this job work order been invoiced? | `src/const/job-work-stage.const.ts` — raising a job work invoice writes a `job_work_billings` row and **does not touch `status`**, so the board carries a derived **stage**: every status, plus `invoiced`. It SUPERSEDES the status rather than overlapping it (no card in two Kanban lanes), which is why **on the board "Delivered" means delivered and not yet invoiced**. Mirrored in `client-front`'s `job-work.interface.ts` and compared by `check-mirrors.js` check 9 |
+| Why does the board's stage summary `GROUP BY` an alias? | because the expression contains a correlated `EXISTS`, and MySQL 8 will not treat two subquery-bearing expressions as the same one — repeating it (the usual `ONLY_FULL_GROUP_BY` answer) is `ER_WRONG_FIELD_WITH_GROUP`. Measured, not inferred. ⚠️ The alias must stay **backticked**: a bare `'stage'` is a string literal, which buckets the whole table into one row and raises no error |
+| Which vendors may I send this operation to? | `VendorCapabilityService.pickerFeed` — the ones holding an **active** capability for it, not every party ranked. `?scope=all` is the escape hatch behind the picker's "Show all vendors" link, and it is what makes the filter safe to have at all: FR-25 made this a ranking hint precisely so an unfilled master could never stop a shift, and a link answers that without handing every screen the whole party list |
+| Where is a job work step's vendor decided? | Twice, deliberately: `job_work_operations.defaultVendorUserId` is the **plan** (the order form asks for it, filtered to capable vendors, pre-filling their rate and lead days), and the Start work dialog is the **fact** — it opens pre-selected on the plan and the supervisor may still change it. The column has existed since the schema was squashed; nothing read it back until 2026-08-26, which is why the order form had no vendor field and the dispatch's `?? operation.defaultVendorUserId` fallback could never fire |
+| Why does a pre-selected picker render its placeholder? | the association was not **included**, only the id. A foreign key rides on the model whether or not you join its association, so a forgotten `include` gives a control holding a real value with no row to render it — which looks like "nothing chosen" and behaves like a choice. Cost a real defect on 2026-08-26: `JobWorkOperationService.listForOrder` (the timeline — a **different** endpoint from `findOne`, which had been fixed) omitted `defaultVendor`, so Start work opened blank, passed its own "choose a vendor" refusal because the id was set, and would have dispatched to a vendor never shown. **Both** job-work vendor pickers now also carry a `fetchByIds` that resolves a name off the party list, so a caller that forgets the name is harmless rather than dangerous |
+| What is on the Machines master? | **Our own floor, and nothing else** (2026-08-26). The Our/Vendor toggle and `GET /machines/vendor-machines` are gone; `ownerType = 'in-house'` is re-applied on every list request so a row created before the split cannot drift back onto it |
 | What operation types does a new company start with? | **None**, deliberately (2026-08-26) — `OPERATION_TYPES` in `company-defaults.const.ts` is empty for the same reason `HOLIDAYS` is. It used to seed eleven from one machine shop, as live master data nobody chose, and `defaultLeadTimeDays` feeds `deriveExpectedDate` — so a seeded guess decided whether an order read at-risk. QA fixtures create what they need (`operationTypeId` in `qa-artifacts/framework/factories`) |
 | Identity vs. membership | `src/entities/company-member.entity.ts` |
 | How one person ends up in several companies | `client-back/src/services/users.service.ts` `linkExistingIdentity`, `company-admin.service.ts` `add` |
@@ -2557,6 +2750,11 @@ is one nobody reads.
 | What is the one licence flag the API does NOT enforce? | `branding` — its key `site-configrations` is shared with Transaction ▸ Configuration's Company & GST card, so it is gated in the SPA by URL segment only (§4.6) |
 | What PERMISSION does this route need, if it declares none? | `client-front/src/core/navigation/navigation.config.ts` `permissionKeyForUrl` — the deepest key `APP_NAVIGATION` gives the URL, so the tree that decides what the menu OFFERS also decides what a URL reaches (UI-006) |
 | Is this screen actually behind `permissionGuard`? | it is if its module parent in `app.routes.ts` carries `canActivateChild: [permissionGuard]` — 64 screens declared no guard of their own, and `tests/ui/shell/route-guards.ui.spec.ts` now asserts all four parents (UI-006) |
+| Why does Purchase's header have one more field than Sales', and how does it still fit on one line? | `.vch-header-strip` in `_voucher.scss` — a weighted flex row whose wrap comes from each field's own basis. ⚠️ Do not "tidy" it back to a grid or add a width query; both are what broke it (§9) |
+| Where did the voucher form's Charges / Discount / GST / Due Date / Narration / Files cards go? | into `.vch-optbar` — one row of chips, each opening an anchored panel (`components/shared/voucher-option-chip/`, §9). Every chip carries a summary badge, which is the whole reason the fold is allowed |
+| Why does picking a date not close the panel it was picked in? | `VoucherOptionChipComponent.onDocumentPointerDown` treats `.cdk-overlay-container` as inside. ⚠️ A `mat-select` cannot prove that rule — only the datepicker fails without it (§9) |
+| Why did Save open a panel by itself? | `TrxAddEditComponent.revealInvalidPanel` — a required field folded behind a chip would otherwise be a Save button that does nothing |
+| How do I build a `dd/MM/yyyy` STRING (not render one)? | `client-front/src/utils/date.util.ts` `displayDate` (§9) |
 | Why is a dropdown's label painted on top of its value? | `AppSelectComponent.empty` — `''` is a real VALUE when an option carries it, and every filter bar here uses `{ value: '', label: 'All' }` (UI-011, §9) |
 | Why does the party portal look like a different product? | it no longer does — `party-dashboard` is on the shared `dash` shape and `PartyPortalLayoutComponent` is a bare `<router-outlet>` (UI-005, §7) |
 | Which figure does a party's dashboard call "You Owe Us"? | `PartyPortalSummary.receivable` (debtors control). `payable` is what WE owe THEM — the two were rendered swapped in the party's second person until 2026-08-26 |

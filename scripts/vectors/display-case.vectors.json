@@ -1,0 +1,120 @@
+{
+  "_": "Shared behavioural table for normaliseName — see scripts/check-mirrors.js check 8. Both implementations must answer every row identically AND match `out`, so a rule both sides forgot together is caught too (the reason every restated table in this repo exists).",
+  "vectors": [
+    {
+      "in": "vender cnc 2",
+      "out": "Vender CNC 2",
+      "why": "the grid row that prompted the rule"
+    },
+    {
+      "in": "PARTY 1",
+      "out": "Party 1",
+      "why": "a shouted ordinary word is not an acronym"
+    },
+    {
+      "in": "Job Work Admin",
+      "out": "Job Work Admin",
+      "why": "already correct — must be left alone"
+    },
+    {
+      "in": "shree vmc engineering",
+      "out": "Shree VMC Engineering",
+      "why": "lower-case acronym promoted"
+    },
+    {
+      "in": "SHREE VMC ENG",
+      "out": "Shree VMC Eng",
+      "why": "acronym kept, suffix title-cased"
+    },
+    {
+      "in": "abc pvt ltd",
+      "out": "Abc Pvt Ltd",
+      "why": "business suffixes are words"
+    },
+    {
+      "in": "ABC PVT LTD",
+      "out": "Abc Pvt Ltd",
+      "why": "…however they were typed"
+    },
+    {
+      "in": "board of directors",
+      "out": "Board of Directors",
+      "why": "minor word stays down"
+    },
+    {
+      "in": "OF course",
+      "out": "Of Course",
+      "why": "…unless it leads"
+    },
+    {
+      "in": "ARM 2400mm",
+      "out": "Arm 2400mm",
+      "why": "a token with a digit is left as typed"
+    },
+    {
+      "in": "vmc-1 machine",
+      "out": "vmc-1 Machine",
+      "why": "a code is not re-cased"
+    },
+    {
+      "in": "m.s. plate",
+      "out": "M.S. Plate",
+      "why": "dotted initialism"
+    },
+    {
+      "in": "multi-axis",
+      "out": "Multi-Axis",
+      "why": "hyphenated compound"
+    },
+    {
+      "in": "cnc-turning",
+      "out": "CNC-Turning",
+      "why": "acronym inside a compound"
+    },
+    {
+      "in": "QA·SEC",
+      "out": "QA·Sec",
+      "why": "REGRESSION: an unlisted separator silently lower-cased the tail"
+    },
+    {
+      "in": "a.b.c enterprises",
+      "out": "A.B.C Enterprises",
+      "why": "REGRESSION: the same, with stops"
+    },
+    {
+      "in": "shah & co",
+      "out": "Shah & Co",
+      "why": "ampersand is a separator, not a word"
+    },
+    {
+      "in": "shah's engineering",
+      "out": "Shah's Engineering",
+      "why": "an apostrophe belongs to the word"
+    },
+    {
+      "in": "hr manager",
+      "out": "HR Manager",
+      "why": "REGRESSION: found in `designations` on the first dry run"
+    },
+    {
+      "in": "Employer ESI Contribution",
+      "out": "Employer ESI Contribution",
+      "why": "REGRESSION: found in `trx_groups`"
+    },
+    {
+      "in": "  Shree   VMC  ",
+      "out": "Shree VMC",
+      "why": "whitespace collapsed, not just trimmed"
+    },
+    {
+      "in": "",
+      "out": "",
+      "why": "nothing in, nothing out"
+    },
+    {
+      "in": "   ",
+      "out": "",
+      "why": "blank is blank"
+    }
+  ]
+}

@@ -377,6 +377,140 @@ if (hubFeatureColumns && hubFeaturesDto && consoleFeatures) {
   }
 }
 
+// ── 8. display-case: one capitalisation rule, two implementations ───────────
+//
+// The frontend tidies a name as it is TYPED (`TitleCaseNameDirective`); the
+// backend's copy powers `scripts/normalise-names.ts` over the rows already
+// saved. A drift between them means a name changing the moment somebody opens
+// and re-saves a record it had already tidied — invisible until a customer asks
+// why their party keeps renaming itself.
+//
+// Compared THREE ways per row, like check 6: back against front (drift), and
+// both against the table's own stated answer (a rule they forgot together).
+{
+  const BACK_DC = 'jayhind-client-back/src/const/display-case.const.ts';
+  const FRONT_DC = 'jayhindi-client-front/src/utils/display-case.util.ts';
+  const vectorFile = path.join(__dirname, 'vectors/display-case.vectors.json');
+
+  let vectors;
+  try {
+    vectors = JSON.parse(fs.readFileSync(vectorFile, 'utf8')).vectors;
+  } catch (err) {
+    failures.push(`display-case vectors: could not read ${path.relative(ROOT, vectorFile)} — ${err.message}`);
+  }
+
+  if (vectors) {
+    let back, front;
+    try {
+      back = loadTsModule(...splitRepoPath(BACK_DC));
+      front = loadTsModule(...splitRepoPath(FRONT_DC));
+    } catch (err) {
+      failures.push(`display-case vectors: ${err.message}`);
+    }
+
+    if (back && front) {
+      let compared = 0;
+      for (const vector of vectors) {
+        const b = back.normaliseName(vector.in);
+        const f = front.normaliseName(vector.in);
+        compared += 1;
+
+        if (b !== f) {
+          failures.push(
+            `display-case DRIFT · ${JSON.stringify(vector.in)}: ` +
+              `client-back says ${JSON.stringify(b)}, client-front says ${JSON.stringify(f)}`,
+          );
+          continue;
+        }
+        if (b !== vector.out) {
+          // Both sides agree and both are wrong — the case a two-way parity
+          // check cannot see, which is why the table states its own answer.
+          failures.push(
+            `display-case RULE CHANGED · ${JSON.stringify(vector.in)}: ` +
+              `both sides now say ${JSON.stringify(b)}, the table expects ${JSON.stringify(vector.out)}` +
+              (vector.why ? ` (${vector.why})` : ''),
+          );
+        }
+      }
+
+      // The acronym lists ARE the rule — a word in one and not the other is a
+      // drift the vectors would only catch if that word happened to be in them.
+      for (const listName of ['NAME_ACRONYMS', 'NAME_SUFFIX_WORDS']) {
+        const b = [...(back[listName] ?? [])].sort();
+        const f = [...(front[listName] ?? [])].sort();
+        for (const w of b) if (!f.includes(w)) failures.push(`display-case ${listName}: '${w}' in client-back, missing in client-front`);
+        for (const w of f) if (!b.includes(w)) failures.push(`display-case ${listName}: '${w}' in client-front, missing in client-back`);
+      }
+
+      notes.push(`display-case: ${compared} behavioural comparisons, run against BOTH implementations`);
+    }
+  }
+}
+
+// ── 9. job-work board stage: the buckets the lanes and the chips are keyed by ─
+//
+// `JobWorkBoardStage` is duplicated because the board builds its Kanban lanes
+// and its filter chips before any response arrives, and the strings ARE the
+// tokens the server's `stage` filter compares — so a member added on one side
+// and not the other is a lane that silently returns nothing, or a chip the
+// server answers with a 400.
+//
+// Data, not behaviour: unlike voucher-lifecycle, both sides are a plain enum
+// and a plain sequence, so an exact comparison is available and is strictly
+// stronger than any vector table would be. `deriveBoardStage` deliberately
+// lives on the BACKEND ONLY — the frontend never derives a stage, it reads the
+// one the row carries — so there is no second implementation to compare.
+{
+  const backStage = read(path.join(BACK, 'src/const/job-work-stage.const.ts'));
+  const frontStage = read(path.join(FRONT, 'src/components/admin/job-work/job-work.interface.ts'));
+
+  if (backStage && frontStage) {
+    diffMaps(
+      'JobWorkBoardStage',
+      parseEnum(backStage, 'JobWorkBoardStage'),
+      parseEnum(frontStage, 'JobWorkBoardStage'),
+      'client-back',
+      'client-front',
+    );
+
+    // The ORDER matters as much as the membership: it is the lane order left to
+    // right and the chip order, and the two repos each declare it.
+    const sequence = (src) => {
+      const m = /export const BOARD_STAGE_SEQUENCE[^=]*=\s*\[([\s\S]*?)\];/.exec(src);
+      return m ? [...m[1].matchAll(/JobWorkBoardStage\.(\w+)/g)].map((x) => x[1]) : null;
+    };
+    const backSeq = sequence(backStage);
+    const frontSeq = sequence(frontStage);
+    if (!backSeq || !frontSeq) {
+      failures.push('BOARD_STAGE_SEQUENCE: could not parse one side — has the literal\'s shape changed?');
+    } else if (backSeq.join(',') !== frontSeq.join(',')) {
+      failures.push(
+        `BOARD_STAGE_SEQUENCE: client-back is [${backSeq.join(', ')}] but client-front is [${frontSeq.join(', ')}]`,
+      );
+    } else {
+      // A sequence that covers fewer members than the enum is the drift that
+      // reads as coverage: every check above passes and a bucket has no lane.
+      const members = Object.keys(parseEnum(backStage, 'JobWorkBoardStage') ?? {});
+      const missing = members.filter((m) => !backSeq.includes(m));
+      if (missing.length) {
+        failures.push(`BOARD_STAGE_SEQUENCE omits ${missing.join(', ')} — that stage has no lane and no chip`);
+      }
+      notes.push(`job-work stage: ${backSeq.length} buckets, same members and same order in both repos`);
+    }
+
+    // The labels are the frontend's alone (the server never sends a label), so
+    // there is nothing to compare — but a MISSING one renders a raw slug on a
+    // lane head, which is the same class of defect one file over.
+    const labels = parseRecord(frontStage, 'BOARD_STAGE_LABEL');
+    const icons = parseRecord(frontStage, 'BOARD_STAGE_ICON');
+    for (const [name] of Object.entries(parseEnum(frontStage, 'JobWorkBoardStage') ?? {})) {
+      const key = `JobWorkBoardStage.${name}`;
+      if (labels && !(key in labels)) failures.push(`BOARD_STAGE_LABEL has no entry for ${key}`);
+      if (icons && !(key in icons)) failures.push(`BOARD_STAGE_ICON has no entry for ${key}`);
+    }
+  }
+}
+
 // ── Report ──────────────────────────────────────────────────────────────────
 for (const n of notes) console.log(`note: ${n}`);
 
