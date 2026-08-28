@@ -61,7 +61,17 @@ assets and current liabilities. Building the gate also found a live defect —
 both callers of the placement fallback read `trx_natures.name` where the rule
 switches on `AccountNature`, so **all 33 fallback-placed ledgers on the
 development database were in Suspense A/c** — fixed and repaired. The parity diff
-is **empty** across the whole phase. **P3 is next.**
+is **empty** across the whole phase.
+
+**P3 split into four**, on the same argument as the three splits before it, and
+**P3a is done: the two reports §3.10 calls *new* exist.** The **Ledger report**
+(*"open the ledger"* — one account, a row per month, each month expanding to its
+vouchers) and the **Group Summary** (a group's children with closing balances,
+the intermediate step of every drill-down). Both read `acc_ledgers`/`acc_groups`
+**directly**, with no presentation layer in the path, so they are the new
+mechanism's own answer from their first render — and the gate ties that answer
+back to the Trial Balance a customer is reading today, head by head. The parity
+diff across the change is **empty**. **P3b is next.**
 
 > ⚠️ **Building D3 corrected this plan's own headline figure.** §4.2 and F14
 > describe the declared exception as *"Sundry Debtors and Sundry Creditors each
@@ -80,7 +90,10 @@ is **empty** across the whole phase. **P3 is next.**
 | P2b‑3a | D6 — the voucher names a ledger | M | **done** — [§P2b‑3a record](#p2b-3a-record--2026-08-28) |
 | P2b‑3b | The Ledger module API; `resolveStatutoryLedger` | M | **done** — [§P2b‑3b record](#p2b-3b-record--2026-08-28) |
 | P2b‑3c | The Data Import module | M | **done** — [§P2b‑3c record](#p2b-3c-record--2026-08-29) |
-| P3 | Reports, drill-down, and the Ledger report | L | not started |
+| P3a | The Ledger report and the Group Summary | M | **done** — [§P3a record](#p3a-record--2026-08-29) |
+| P3b | The statements become the tree (Trial Balance, Balance Sheet, P&L) | M | not started |
+| P3c | Ledger creation; the presentation layer retires | M | not started |
+| P3d | The drill-down spine and `/transaction/ledgers` | M | not started |
 | P4 | Voucher entry | XL | not started |
 | P5 | Bill-wise details | L | not started |
 | P6 | Trading Account and Gross Profit | M | not started |
@@ -1018,6 +1031,157 @@ Three things worth carrying out of it:
 
 ---
 
+### P3a record — 2026-08-29
+
+**The two reports §3.10 calls *new* exist**, and they are the first thing in this
+programme that reads the new chart with no transitional rule in the path.
+
+| | |
+|---|---|
+| Parity diff across the change | **empty** |
+| `qa:p3-ledger-report` (new) | **154/154** over 14 companies — 1,351 ledgers, 350 walked month by month, 392 groups |
+| `npm test` | 1,889 in 126 suites (+28) |
+| `qa:p2-ledgers` · `qa:p1-group-tree` · `qa:p2c-import-tree` | 326 · 126 · 227, all green |
+| Migrations | **none** — this phase adds no column and no table |
+
+| Artefact | What it is |
+|---|---|
+| `src/const/ledger-report.const.ts` (+ spec, **28 tests**) | Everything that decides what a reader sees: the month buckets, a month's closing balance and its side, the Particulars column, and the subtree roll-up. |
+| `ReportsService.ledgerReport` | One ledger: opening, a row per month with the balance it closed at, period totals, closing. |
+| `ReportsService.ledgerVouchers` | The drill from a month row — the vouchers, with a running balance and the contra ledger named. |
+| `ReportsService.groupSummary` | A group's children — sub-groups carrying their whole subtree, ledgers carrying their own — plus the group's own total. |
+| `GET /reports/ledger/:ledgerId` · `…/vouchers` · `GET /reports/group-summary/:groupId` | Three routes, all on the existing `reports` key. |
+| `scripts/qa-p3-ledger-report.ts` | The gate. Fourteen properties, every one a question about the **rows**. |
+
+#### Why the new reports come before the statements are re-shaped
+
+P3's headline is the Trial Balance and the Balance Sheet becoming trees of
+`acc_groups`, which is the step that changes what a report **looks like**. These
+two change nothing that already renders: they are additive, and the parity diff
+across them is empty by construction.
+
+That ordering buys one specific thing. A report that reads the new chart
+directly, standing beside the statements that still read the legacy one, is a
+**second derivation of the same figures** — and the gate's property (6) is the
+two of them meeting: Σ of the ledger closings that present under each legacy
+head, against that head's own closing on `trialBalance()`. It ties across **59
+heads on company 28 alone**. When P3b repoints a statement, that equality is
+already known to hold, so a difference afterwards is the repointing rather than
+a question about which side was right all along.
+
+Same argument that split P2b‑1 out of P2b and P2b‑3a out of P2b‑3, applied one
+phase later: **the additive half first, and then the figure-moving half alone
+with the diff as its whole gate.**
+
+#### ⚠️ An additive report has nothing checking it, which is why the gate exists
+
+`qa-coa-parity` compares a report against its own earlier self. **A report with
+no earlier self passes it by being absent from both sides** — so the empty diff
+above is a statement about the *other* reports and says nothing at all about
+these two. That is the trap this repo already knows in another form: §6.4's
+lapsed `FileCategory` contract, *a mirror rule that cannot fail is worse than no
+rule, because it reads as coverage.*
+
+So the fourteen properties are the actual gate, and they are deliberately
+written as questions about the **rows** rather than restatements of the
+service's SQL — P2b‑3c's lesson, where `qa-p2-ledgers`' own restatement of the
+placement rule copied the code's query, agreed with the defect and could not
+fail. The oracle here is one `GROUP BY` over `journal_lines` with no report code
+near it, and `liveEntrySql`'s *"this entry did not happen"* rule is **restated**
+in it rather than imported, for the same reason.
+
+Three of the fourteen are worth naming:
+
+- **(6) the new report against the old Trial Balance**, above. The other
+  thirteen check the new reports against themselves.
+- **(9) a drill-down never changes a figure.** A child group's row on its
+  parent's summary equals that child's own total when you step into it. That is
+  what §3.10's *"four clicks from every leaf"* means in practice, and it is the
+  property a per-report drill-down link would break silently.
+- **(8) total = Σ(child groups) + Σ(child ledgers)**, on every group. BUG-0043's
+  rule — a card and the breakdown drawn under it must count the same rows —
+  applied to the report whose entire job is being a breakdown.
+
+#### Two injected regressions, both reproduced
+
+- **Empty months dropped** from `buildMonthRows` (the obvious "tidy": emit only
+  the months something happened in). Property (5) fails and names the ledger and
+  the expected span. This is the property that separates a Ledger report from a
+  `GROUP BY MONTH()`: a ledger with activity in April and June must show May at
+  April's balance, or the column is a list of events rather than a balance
+  history.
+- **The Group Summary hiding ledgers with no postings** — equally plausible, and
+  it is how a ledger falls out of the tree. Property (10a) fails: *"0 listed
+  twice, 273 listed nowhere"* on company 28. The Σ properties stay green
+  throughout, because a zero-balance ledger contributes nothing to any total —
+  which is exactly why a census is needed beside them.
+
+#### ⚠️⚠️ The month buckets are bounded by the DATA, and an absurd period is refused
+
+`ReportsService` answers an omitted `from` with `1900-01-01` and an omitted `to`
+with `9999-12-31`. Handing those to a monthly summary is ~96,000 rows of
+nothing. The rule that landed is one sentence: **a stated bound is honoured; an
+omitted one is clamped to the ledger's own first and last posting.** So a caller
+who states a financial year gets its twelve months whether or not anything moved
+in them — Tally's behaviour, and what makes the column readable — and a caller
+who states nothing gets the months the ledger has actually seen.
+
+`MAX_MONTH_BUCKETS` (600, fifty years) catches the remaining case, and it
+**refuses with a message naming the limit** rather than truncating. A report
+silently missing its later months is worse than one that says the period is too
+long; property (14) asserts the refusal *against its own message*, so a 404 on a
+mistyped id cannot satisfy it.
+
+#### Three things established on the way
+
+- **`particularsFor` is the count, not a `GROUP_CONCAT`.** The Particulars
+  column is *the contra ledger's name when there is one, `(as per details)` when
+  there are several* — Tally's own behaviour. The obvious implementation
+  concatenates the contra names and counts them; `GROUP_CONCAT` truncates at
+  `group_concat_max_len` **silently**, so a voucher with many contra ledgers
+  would come back looking like one and print that single ledger's name as the
+  whole other side of the entry. The count is exact whatever the names weigh.
+  `particularsForCount` is defined **in terms of** the list rule rather than
+  beside it, so there is one rule and not two that agree today.
+- **The roll-up now has one definition.** `rollUpByPath` was lifted out of
+  `groupedTrialBalance`, where it had been inline since P1, because the Group
+  Summary needs the identical walk. Two copies of a subtree roll-up is the
+  mirror problem this programme is about — and it means BUG-0023's
+  trailing-slash argument (`/1/7/` must not collect `/1/70/`) has one place to
+  be true, with a spec asserting exactly that case. Behaviour-identical: every
+  value it sums is already rounded to the paisa, and `qa:p1-group-tree` still
+  reports 126/126.
+- **The Day Book and the cash book are deliberately still on the shadow.**
+  P2b‑2 left two `trxGroupId` reads alive because they are **labels**, and
+  moving them would relabel 5,393 lines to the *wrong* head's name on the way to
+  the right one. That argument is unchanged, and this phase does not touch them
+  — the new report is right from its first render because it has no earlier
+  render to contradict. They move with the statements in **P3b**.
+
+#### Why P3 split into four
+
+Same shape as the two splits before it. **P3b** is the only slice that moves what
+a customer sees — the Trial Balance becomes a tree with ledger leaves, the
+Balance Sheet takes Tally's section order, and the two label reads cross over —
+so it lands alone with the parity diff as its entire gate and nothing else in
+the commit to confuse a difference.
+
+**P3c** is ledger **creation**, and it is third rather than first for a measured
+reason recorded twice already (§3.3, and the P2b‑3b record): while any
+figure-bearing report resolves through `presentationGroupId`, a ledger with
+neither a `legacyTrxGroupId` nor a party has **no presentation head**, and its
+money would leave every statement silently. Creation becomes safe on the day the
+last such report stops asking — which is what P3b does and P3c finishes, by
+retiring the transitional rule from the party statement, the two Outstanding
+reports and the Financial Dashboard.
+
+**P3d** is the drill-down spine — the shared `DrillTarget` resolver, Tally's
+Esc-as-a-route-stack, and the `/transaction/ledgers` tree-plus-grid screen. It is
+last because it is the only slice with no backend risk in it, and because the
+three reports it navigates between all have to exist first.
+
+---
+
 ### Verification pass — 2026-08-28
 
 The plan was written from a reading of the source. It has since been checked
@@ -1730,8 +1894,8 @@ caches deliberately not consulted — and gains a hierarchy and a spine.
 | **Trial Balance** | Rows become **groups**, collapsed by default, expanding to sub-groups then ledgers — Tally's own default. A "Ledger-wise" toggle flattens it. Closing-only vs opening/movement/closing columns become a config, not a shape. |
 | **Balance Sheet** | Liabilities \| Assets in Tally's section order, with Capital Account, Loans, Current Liabilities / Fixed Assets, Investments, Current Assets. Profit & Loss A/c shows opening plus current period as two lines. |
 | **Profit & Loss** | Trading Account then P&L, per §3.8. |
-| **Ledger** *(new)* | The report that does not exist today: one ledger, monthly summary rows, each expanding to its vouchers, each opening the voucher. This is what a Tally user means by "open the ledger". |
-| **Group Summary** *(new)* | A group's children with closing balances — the intermediate step of every drill-down. |
+| **Ledger** *(new)* | ✅ **Landed in P3a.** One ledger, monthly summary rows, each expanding to its vouchers, each opening the voucher — `GET /reports/ledger/:ledgerId` and `…/vouchers`. This is what a Tally user means by "open the ledger". Reads `acc_ledgers` directly; the Particulars column is the contra **ledger's** name, or `(as per details)`. |
+| **Group Summary** *(new)* | ✅ **Landed in P3a.** A group's children with closing balances — sub-groups carrying their whole subtree, ledgers carrying their own — `GET /reports/group-summary/:groupId`. The intermediate step of every drill-down, and the report whose totals property (8) of the gate ties to its own breakdown. |
 | **Bills Receivable / Payable** *(new)* | Derived from `bill_references`, with ageing. Supersedes the two Outstanding screens, which keep redirecting. |
 | **Cash / Bank Book** | Become instances of the Ledger report. `CASH_BOOK_ACCOUNT_TYPES`'s derivation (D-54) is preserved as the group assignment during migration, so no account can fall out of every book the way UPI did. |
 | **Day Book** | Gains voucher-type filter chips and drill into the voucher. Otherwise unchanged. |
@@ -2052,11 +2216,61 @@ Current Assets or Current Liabilities whatever the customer's tree said. See
 
 ### P3 · Reports, drill-down, and the Ledger report `[L]`
 
+> **Split into four (2026-08-29), on the same argument as the three splits
+> before it.** **P3a** is the additive half — the two reports §3.10 calls *new*,
+> which read the new chart directly and move nothing. **P3b** is the only slice
+> that changes what a customer sees, so it lands alone with the parity diff as
+> its whole gate. **P3c** is ledger creation, which cannot come earlier: while
+> any figure-bearing report resolves through `presentationGroupId`, a
+> hand-created ledger has no presentation head and its money leaves every
+> statement (§3.3, and the P2b‑3b record). **P3d** is the navigation spine and
+> the Chart of Accounts screen, last because it has no backend risk in it and
+> because the reports it moves between must exist first.
+
 Trial Balance as a tree, Balance Sheet in Tally sections, the new Ledger and Group
 Summary reports, the shared `DrillTarget` resolver and the Esc route stack.
 Cash/Bank Book become Ledger instances.
 
-**Gate:** Balance Sheet → group → ledger → voucher reachable in four clicks from
+**P3a — the Ledger report and the Group Summary. Done**
+([record](#p3a-record--2026-08-29)). Both read `acc_ledgers`/`acc_groups`
+directly, with no presentation rule in the path.
+
+**Gate (P3a, met):** `npm run qa:p3-ledger-report` — **154/154** over 14
+companies, fourteen properties, every one a question about the rows. The parity
+diff across the change is **empty**, and that is *not* the gate here: an
+additive report is absent from both sides of a snapshot diff and passes it by
+default. What gates it is property (6) — Σ of the ledger closings presenting
+under each legacy head against `trialBalance()`'s own figure for that head — plus
+the census that no ledger falls out of the tree. `npm test` 1,889; five guards,
+`lint:ci`, `build`, `check-mirrors`, `qa:p1-group-tree` 126, `qa:p2-ledgers` 326
+and `qa:p2c-import-tree` 227 all green. Shown to fail twice: dropping the empty
+month rows, and hiding a group's postingless ledgers — the second with every Σ
+property still green, which is why the census sits beside them.
+
+**P3b — the statements become the tree.** Trial Balance grouped by default with
+ledger leaves, Balance Sheet in Tally's section order, P&L, and the two label
+reads P2b‑2 left on the `trxGroupId` shadow (the Day Book's line label and the
+cash book's `particulars`, both of which become the **ledger's** name).
+
+**Gate (P3b):** the parity diff, and nothing else in the commit. ⚠️ Expect a
+declared baseline change rather than an empty diff — the Trial Balance's *rows*
+become ledgers, so the comparison is a shape change and not a figure movement.
+Say which it is before capturing, the way §4.2 insisted for the party merge.
+
+**P3c — ledger creation, and the presentation layer retires.** The remaining
+`presentationGroupId` callers — `party-statement.service.ts`, `trx.service.ts`'s
+two Outstanding reads and `financial-dashboard.service.ts`'s inverted join — move
+onto `acc_groups`, and `AccLedgerService` gains the `create` §3.3 asked for.
+
+**Gate (P3c):** a ledger created through the API appears on the Trial Balance,
+the Group Summary and the Balance Sheet — the property whose absence is why
+creation was deferred twice.
+
+**P3d — the drill-down spine and the screens.** `/transaction/ledgers`, the
+shared `DrillTarget` union and resolver, and Tally's Esc-goes-back as a route
+stack rather than browser history.
+
+**Gate (P3d):** Balance Sheet → group → ledger → voucher reachable in four clicks from
 every leaf, and back out with Esc preserving the period.
 
 ### P4 · Voucher entry `[XL]`
