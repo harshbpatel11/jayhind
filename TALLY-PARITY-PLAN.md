@@ -21,18 +21,29 @@ voucher entry, report drill-down), with `qa-artifacts` carrying the parity gate.
 
 ## Progress
 
-**P0 and P1 are done (2026-08-28).** The parity harness exists and has been
+**P0, P1 and P2a are done (2026-08-28).** The parity harness exists and has been
 shown to **fail** on the exact defect P2 risks; the group tree exists, is seeded
-in all 14 companies, and its own gate holds at 126/126. Nothing in the
-accounting core has been touched — `trx_groups` is untouched, every journal line
-still points at it, and the parity diff is still empty. **P2 is next, and it is
-the hard one.**
+in all 14 companies, and its own gate holds at 126/126. The **ledger layer now
+exists too** — 1,351 ledgers across the 14 companies — and D5's resolution has
+been run over all 41,690 journal lines as a **dry run**, with zero unresolvable.
+Nothing in the accounting core has been touched: `trx_groups` is untouched,
+every journal line still points at it, and the parity diff is still empty.
+
+**P2b — D5 onward — is next.** It is the first step that is not additive.
+
+> ⚠️ **Building D3 corrected this plan's own headline figure.** §4.2 and F14
+> describe the declared exception as *"Sundry Debtors and Sundry Creditors each
+> fall by ₹1,57,11,850"* across **63** parties. That is `Σ min(|debtorNet|,
+> |creditorNet|)`, and it is wrong twice over. The true movement is
+> **₹2,51,44,323.21**, across **76** parties. See
+> [§P2a record](#p2a-record--2026-08-28).
 
 | Phase | Title | Size | Status |
 |---|---|---|---|
 | P0 | Foundations and the parity harness | M | **done** — [§P0 record](#p0-record--2026-08-28) |
 | P1 | Groups become a hierarchy | M | **done** — [§P1 record](#p1-record--2026-08-28) |
-| P2 | Ledgers become the postable leaf | XL | not started |
+| P2a | The ledger layer exists (D1–D4) | L | **done** — [§P2a record](#p2a-record--2026-08-28) |
+| P2b | Ledgers become the postable leaf (D5–D8, module, import) | L | not started |
 | P3 | Reports, drill-down, and the Ledger report | L | not started |
 | P4 | Voucher entry | XL | not started |
 | P5 | Bill-wise details | L | not started |
@@ -184,6 +195,108 @@ encodes it.
 
 ---
 
+### P2a record — 2026-08-28
+
+**The chart of accounts has a postable leaf.** Nothing posts to it yet:
+`journal_lines` still points at `trx_groups`, every report still reads it, and
+`qa-coa-parity selfcheck` is still an empty diff. P2a is additive by
+construction — the same property that made P1 safe to land before P2 depended on
+it, applied one level down.
+
+| Artefact | What it is |
+|---|---|
+| `src/const/ledger.const.ts` (+ spec, **30 tests**) | D3's derivation and **D5's precedence**, pure. `derivePartySide` · `displacedBalance` · `controlHeadDelta` · `resolveLedgerForLine` · the Ledger module's own rules. |
+| `src/entities/acc-ledger.entity.ts` · `party-ledger-plan.entity.ts` · `migrations/20260828100000-acc-ledgers.ts` | The two tables. DDL only — seeding reads the constants, so the mapping exists once. |
+| `src/services/acc-ledger-seed.ts` | D2, D3 and D4 as one function, shared by `CompanyProvisioningService` and `scripts/seed-acc-ledgers.ts` (BUG-0032's lesson, the same shape `seedAccGroups` uses). |
+| `src/services/party-ledger-plan.ts` + `scripts/plan-party-ledgers.ts` | D3 steps 1–2: derive, and write the reviewable plan. Dry-runs by default. |
+| `scripts/seed-acc-ledgers.ts` | D2/D3/D4 backfill. Dry-runs by default, one transaction per company. |
+| `scripts/qa-p2-ledgers.ts` | P2a's gate. `npm run qa:p2-ledgers`. |
+
+**Landed on all 14 companies:** 1,351 ledgers — 509 from legacy heads, 27
+instruments claiming theirs, 815 parties — with 28 control heads deliberately
+left without one, because they become **groups**. `party_ledger_plan` holds 815
+rows. Every gate is green: **P2a 196/196 · P1 126/126 · parity diff empty ·
+`npm test` 1,796/1,796 · all five guards · `check-mirrors` in sync.**
+
+#### The gate that matters is D5's dry run
+
+`resolveLedgerForLine` was run over **all 41,690 journal lines**, resolving
+every one. That is the whole reason P2 was split: §4.1 D5 ends with a `NOT
+NULL`, and V1/F13 records what discovering a gap *there* costs — a migration
+stopping mid-flight on a live book. Finding out first costs one script run.
+
+Shown to fail, per this repo's own doctrine (§13 still-open #3): soft-deleting
+one party ledger produced *"5 unresolvable: no-party-ledger×5"* — V1's failure
+mode reproduced in miniature — and named the plan row pointing at a dead ledger
+in the same run.
+
+#### ⚠️ The declared exception was computed with the wrong formula, and it is ₹94 lakh larger
+
+§4.2, F14 and R8 all describe the movement as *"Sundry Debtors and Sundry
+Creditors each fall by ₹1,57,11,850"* across **63** parties. That figure is
+`Σ min(|debtorNet|, |creditorNet|)` and it is wrong in two independent ways:
+
+1. **`min()` is only the movement when the party is parented to the side with
+   the larger net — and parentage is by GROSS.** That is not an oversight in the
+   parenting rule; it is the rule's whole point (§4.1 D3: *"gross, not net, so a
+   party who has settled down to a small balance is still parented where their
+   trading actually happens"*). A party with ₹5,000 outstanding on a ₹40 lakh
+   history, against one ₹80,000 purchase unpaid, is correctly a debtor — and the
+   whole ₹80,000 moves, not ₹5,000.
+2. **A party can move a figure without being dual-role at all.** One net zero,
+   the other not, and the gross pointing at the zero side. **Thirteen parties**
+   on the development database are in exactly that state, and every one of them
+   reports `isDualRole = false`. Keying the gate off "holds a live balance on
+   both heads" would have left thirteen unexplained differences in a diff
+   required to be empty apart from a named list.
+
+The measured figures, reproduced two independent ways — from
+`party_ledger_plan`'s own arithmetic, and from the journal lines through the
+resolver:
+
+| | Plan as written | Measured |
+|---|---|---|
+| Parties moving a figure | 63 | **76** |
+| Δ Sundry Debtors | −₹1,57,11,850 | **−₹2,51,44,323.21** |
+| Δ Sundry Creditors | −₹1,57,11,850 | **+₹2,51,44,323.21** |
+
+⚠️ Note the **sign**, which the old wording also got wrong. The two heads move
+by *exactly opposite* amounts — `controlHeadDelta` returns the pair and the gate
+asserts it — which is why the Balance Sheet still balances. "Both fall by the
+same figure" happens to be true only for an opposed pair; it is not the
+mechanism, and describing it that way is what made a `min()` look right.
+
+`displacedBalance` in `ledger.const.ts` carries the whole argument, and the plan
+table stores the figure per party, so the exception stays **a list**.
+
+#### Four things P2a established that P2b should carry
+
+1. **`strictNullChecks: false` makes discriminated unions unreliable here.**
+   `LedgerResolution` was written twice as a union — discriminated on
+   `ledgerId: number | null`, then on an added `ok: true | false` — and neither
+   narrowed at the obvious call site. It is now **one total shape**, and callers
+   write `if (answer.ledgerId === null)` with no narrowing at all. A result type
+   whose callers need `'failure' in x` to compile is one that will be got wrong.
+2. **A derived column on the plan table can go stale, and it did.** Editing
+   `chosenSide` directly leaves `displacedBalance` describing a migration that
+   is not the one about to run — BUG-0034's shape a third time. It first
+   surfaced as an unexplained ₹5,96,950.55 on a group total, three steps from
+   its cause; checks (2b) and (2c) now name it. Note the asymmetry the fix
+   established: **before D3 the plan row is a proposal and its figures refresh
+   with the books; after D3 it is the record of a movement that happened**, and
+   the decision lives in the ledger's `groupId`.
+3. **"No plan rows" and "no parties" are different states.** The seed's first
+   guard refused company 2 — which has neither a roster nor a posting — as
+   un-planned. Comparing a count against zero answers a different question from
+   comparing it against the population.
+4. **The raw-SQL allow-list drifted again, exactly as CLAUDE.md §14 predicts.**
+   Adding `seedAccLedgers` to `company-provisioning.service.ts` moved all seven
+   of its entries; each was re-read against the statement now at its line before
+   the number was changed. **Budget for this in every commit that edits a file
+   with entries.**
+
+---
+
 ### Verification pass — 2026-08-28
 
 The plan was written from a reading of the source. It has since been checked
@@ -195,7 +308,7 @@ have broken the migration:
 | # | What changed | Where |
 |---|---|---|
 | **V1** | `company_parties` covers **16 %** of the parties that actually have ledger postings. D3's population source was wrong and D5 would have failed on 84 % of party lines. | [§1.2 F13](#12-sixteen-findings) · [§4.1 D3](#41-order-of-operations) |
-| **V2** | **63 parties carry live balances on BOTH control heads.** Merging them into one ledger nets **₹1.57 crore** away — so "every report renders identical numbers" **cannot hold**, and the Balance Sheet still balances while it happens. **Decided:** derive the side, human-review it, and make the netting the one enumerated exception to the gate. | [§1.2 F14](#12-sixteen-findings) · [R8](#risks) · [closed #4](#closed-on-2026-08-28) |
+| **V2** | **63 parties carry live balances on BOTH control heads** — and **76** move a figure when merged, which is not the same set ([§P2a](#p2a-record--2026-08-28)). Merging them into one ledger shifts **₹2,51,44,323.21** between the two heads — so "every report renders identical numbers" **cannot hold**, and the Balance Sheet still balances while it happens. **Decided:** derive the side, human-review it, and make the netting the one enumerated exception to the gate. | [§1.2 F14](#12-sixteen-findings) · [R8](#risks) · [closed #4](#closed-on-2026-08-28) |
 | **V3** | The repo **already has** a Tally 28-group table — `tally-nature-map.const.ts`, used by the Data Import module. A second one would be the mirror problem §13 warns about. | [§3.2](#32-mapping-todays-groups-onto-tallys-tree) |
 | **V4** | The Data Import module is an unlisted consumer of the whole migration — and its biggest beneficiary. | [§1.2 F15](#12-sixteen-findings) · [P2](#p2--ledgers-become-the-postable-leaf-xl--the-hard-one) |
 | **V5** | **Multi-GSTIN** — TallyPrime keeps several GST registrations in one company; we key one GSTIN per company. A parity gap the plan never named. **Decided:** reserve a nullable `registrationId` at D1, build later. | [§2.5](#25-what-tally-has-that-this-plan-does-not-cover) · [R9](#risks) · [closed #5](#closed-on-2026-08-28) |
@@ -218,7 +331,7 @@ Taken 2026-08-28. Each is load-bearing for a different part of the plan.
 | **Entry UX** | Full Tally replacement | One keyboard-first Voucher Entry surface for every type, including Sales and Purchase. The current item grid survives as Tally's *Item Invoice* mode — see [§3.5](#35-voucher-entry--one-screen-two-modes) and risk [R1](#risks). |
 | **Data** | Live — migrate in place | Every step reversible, every figure asserted identical before and after, no journal entry re-posted. Shadow columns stay for one release. |
 | **Extra scope** | All four groups | Cost centres, Trading Account & Gross Profit, bill-wise details, plus budgets, interest, multi-currency and scenarios. |
-| **Dual-role parties**<br>*(2026-08-28)* | Derive the side, **then have a human review it** | 63 parties are a debtor and a creditor at once. One ledger per party is kept — it is what Tally does — so ₹1.57 crore nets off both sides of the Balance Sheet. The assignment is written to a reviewable table before D5 and is overridable per row; the netting is the **one declared exception** to the parity gate. [§4.2](#42-the-parity-harness) · [R8](#risks) |
+| **Dual-role parties**<br>*(2026-08-28)* | Derive the side, **then have a human review it** | 63 parties are a debtor and a creditor at once, and **76** move a figure when merged (the two sets differ — [§P2a](#p2a-record--2026-08-28)). One ledger per party is kept — it is what Tally does — so ₹2,51,44,323.21 shifts from Sundry Debtors to Sundry Creditors. The assignment is written to a reviewable table before D5 and is overridable per row; the netting is the **one declared exception** to the parity gate. [§4.2](#42-the-parity-harness) · [R8](#risks) |
 | **Multi-GSTIN**<br>*(2026-08-28)* | **Reserve the column now**, build later | `acc_ledgers`, the voucher header and `bill_references` each carry a nullable `registrationId` from D1. Not wired to anything in this programme. Retrofitting it after P2 has repointed every journal line and P5 has built the bill register would be a second migration over the same tables. [§2.5 X1](#25-what-tally-has-that-this-plan-does-not-cover) · [R9](#risks) |
 
 > ⚠️ **One concern, on the record.** Full Tally replacement of **Sales and
@@ -394,8 +507,18 @@ their receivable sits in `SUNDRY_DEBTORS_CONTROL` and their payable in
 `SUNDRY_CREDITORS_CONTROL`, as **two Trial Balance rows on opposite sides**.
 Measured over live entries only (`liveEntrySql`), 63 parties hold a non-zero
 balance on **both**, ₹1,80,78,934 gross on the debtor side against ₹4,28,14,914
-on the creditor side, of which **₹1,57,11,850 nets away** the moment they become
-one ledger.
+on the creditor side.
+
+⚠️ **This finding originally said ₹1,57,11,850 nets away the moment they become
+one ledger. Both halves of that were wrong** (corrected 2026-08-28 while
+building D3 — [§P2a](#p2a-record--2026-08-28)). The figure was
+`Σ min(|debtorNet|, |creditorNet|)`, which is the movement only when a party is
+parented to the side with the larger *net*, and §4.1 D3 parents by **gross**.
+And 63 is not the population that matters: **76** parties move a figure, the
+extra 13 having a zero net on the side their gross points at, so they never
+appear as dual-role at all. The measured movement is **Sundry Debtors
+−₹2,51,44,323.21, Sundry Creditors +₹2,51,44,323.21** — a shift between the two
+heads, not a fall on both.
 
 There is also **nothing to parent them by**: `UserKind` is `staff | party |
 system`, `company_parties` has no role column, and `PartyDirection` is decided
@@ -661,7 +784,9 @@ every target names a group that exists in the 28.
 > for the parties** (F14). A group's total is the sum of its child ledgers, so
 > each mapped head reappears intact. A party who is **both** a debtor and a
 > creditor cannot: one ledger sits under one group, and the two control balances
-> net. 63 parties, **₹1.57 crore**. See [R8](#risks).
+> net. **76 parties, ₹2,51,44,323.21** — moved between the two heads rather than
+> netted off both (the original *"63 parties, ₹1.57 crore"* was a `min()`; see
+> [§P2a](#p2a-record--2026-08-28)). See [R8](#risks).
 
 ### 3.3 The Ledger module
 
@@ -989,13 +1114,26 @@ not ship until the diff is empty — except in exactly one place, named below.**
 > and it belongs beside them. A third restatement of what a Trial Balance means
 > is a mirror that cannot fail.
 
-> ⚠️⚠️ **The empty diff is not achievable for dual-role parties, and pretending
-> otherwise is how this gate gets switched off** (V2, F14). 63 parties hold live
-> balances on both control heads; one ledger under one group nets them, and
-> **Sundry Debtors and Sundry Creditors each fall by ₹1,57,11,850**. The Balance
-> Sheet still balances afterwards — both sides shrink by the same figure — which
-> is precisely why nothing but a figure-for-figure diff would catch it, and why
-> a "does it still balance?" check is not a substitute.
+> ⚠️⚠️ **The empty diff is not achievable once a party's two positions share one
+> ledger, and pretending otherwise is how this gate gets switched off** (V2,
+> F14). **76 parties** displace a balance between the two control heads:
+> **Sundry Debtors falls by ₹2,51,44,323.21 and Sundry Creditors rises by
+> exactly that.** The Balance Sheet still balances afterwards — the two moves
+> are equal and opposite *by construction* — which is precisely why nothing but
+> a figure-for-figure diff would catch it, and why a "does it still balance?"
+> check is not a substitute.
+>
+> ⚠️ **This paragraph used to say 63 parties and ₹1,57,11,850 off EACH side, and
+> both halves were wrong** (corrected 2026-08-28 while building D3 —
+> [§P2a](#p2a-record--2026-08-28)). The figure was `Σ min(|debtorNet|,
+> |creditorNet|)`, which is the movement only when a party is parented to the
+> side with the larger *net* — and §4.1 D3 parents by **gross**, deliberately.
+> And 13 of the 76 are not dual-role at all: one net zero, the other not, the
+> gross pointing at the zero side. Keying the exception list off *"holds a live
+> balance on both heads"* would have left thirteen unexplained differences in a
+> diff required to be empty apart from a named list. `displacedBalance` in
+> `src/const/ledger.const.ts` is the rule; `party_ledger_plan.displacedBalance`
+> is the per-party figure.
 >
 > So the harness needs a **declared, enumerated exception**: the affected party
 > set is computed **before** D3, written out with both gross figures and the net,
@@ -1057,6 +1195,19 @@ Balance gains an *optional* grouped view reading the new tree through
 
 ### P2 · Ledgers become the postable leaf `[XL — the hard one]`
 
+> **Split into P2a and P2b (2026-08-28), and the split is the safety property.**
+> P2a is everything that is **additive** — D1–D4, the tables and the ledgers —
+> and it ends with D5's resolution run over every existing journal line as a
+> **dry run**. P2b is the first step that is not additive. §4.1 D5 ends with a
+> `NOT NULL`; V1/F13 records what discovering a gap *there* costs, and a script
+> run is the cheap way to find out. **P2a is done** —
+> [§P2a record](#p2a-record--2026-08-28).
+>
+> **P2b is what remains:** D5–D8, the four other holders of a group id, the
+> Ledger module's CRUD and `app-ledger-picker`, `resolveSystemGroup` →
+> `resolveStatutoryLedger`, all 65 `trx_groups` sites, and the Data Import
+> module below.
+
 D1–D8. `acc_ledgers`, the party and instrument ledgers, `journal_lines.ledgerId`,
 the four other id holders, `resolveSystemGroup` → `resolveStatutoryLedger`, and all
 65 `trx_groups` sites. The Ledger module's own CRUD and the shared
@@ -1075,9 +1226,14 @@ walks the parsed parent chain, so the tree the customer arrives with can be
 **preserved rather than reconciled**, and the mapping review shrinks to the
 genuinely ambiguous rows.
 
-**Gate:** parity harness diff is empty on every QA company **apart from the
-enumerated dual-role party exception** (§4.2) — which is asserted row by row, not
-tolerated. `npm test`, all three CI guards, and `node scripts/check-mirrors.js`
+**Gate (P2a, met):** `npm run qa:p2-ledgers` — the ledger layer is complete and
+**D5 resolves every journal line**, proved by a dry run over all 41,690, with
+the declared exception computed a second independent way and agreeing. The
+parity diff stays empty throughout, because nothing has been repointed.
+
+**Gate (P2b):** parity harness diff is empty on every QA company **apart from
+the enumerated party exception** (§4.2) — 76 parties, asserted row by row from
+`party_ledger_plan`, not tolerated. `npm test`, all three CI guards, and `node scripts/check-mirrors.js`
 green. Re-import one real Tally backup and assert the resulting tree matches the
 source's parentage.
 
@@ -1192,7 +1348,7 @@ of it describes a ledger layer that will no longer exist.
 | **R5** | `[med]` Cost allocations inflate GL volume or introduce a second balancing rule. | Allocations are a satellite table keyed to `journal_lines.id`. The GL never sees them; P7's gate is that no Trial Balance figure moves. |
 | **R6** | `[med]` Multi-currency changes the meaning of every amount column. | `debit`/`credit` stay base-currency and authoritative; foreign amounts are additive columns. Every existing report is unaffected by construction. |
 | **R7** | `[med]` Programme size — nine phases across two repos and 137 QA specs. | P0–P4 is the shippable unit; each phase leaves the app working and has its own gate. Nothing after P4 blocks anything before it. |
-| **R8** | `[high]` **Dual-role party netting moves real figures, and balances while it does.** 63 parties, ₹1.57 crore off each of Sundry Debtors and Sundry Creditors. Added 2026-08-28 (F14). | The one declared exception to the parity gate, enumerated party by party before D3 and asserted as *exactly* that set (§4.2). Gross positions survive in `bill_references` (P5), which is where Tally itself keeps them. The parenting rule is reviewed by a human, not computed — [closed #4](#closed-on-2026-08-28). |
+| **R8** | `[high]` **Merging a party's two positions moves real figures, and balances while it does.** ~~63 parties, ₹1.57 crore off each of Sundry Debtors and Sundry Creditors~~ → **76 parties; Sundry Debtors −₹2,51,44,323.21 and Sundry Creditors +₹2,51,44,323.21, exactly opposite.** Added 2026-08-28 (F14); figure corrected the same day while building D3 ([§P2a](#p2a-record--2026-08-28)) — the original was `Σ min(|debtorNet|,|creditorNet|)`, which under-counts because parentage is by *gross*, and misses 13 parties that are not dual-role at all. | The one declared exception to the parity gate, enumerated party by party before D3 and asserted as *exactly* that set (§4.2). Gross positions survive in `bill_references` (P5), which is where Tally itself keeps them. The parenting rule is reviewed by a human, not computed — [closed #4](#closed-on-2026-08-28). |
 | **R9** | `[med]` **Multi-GSTIN is a parity gap this plan does not close**, and closing it later is harder once every ledger, party and voucher has been repointed once (X1). | Decide *before* P2 whether registration becomes a dimension. If yes, `acc_ledgers` and the voucher header carry a `registrationId` from the start — a nullable column added at D1 costs nothing and retrofitting it after P4 means a second pass over the same tables. If no, say so on the record. [closed #5](#closed-on-2026-08-28). |
 
 ### Calls made without asking
@@ -1205,8 +1361,10 @@ of it describes a ledger layer that will no longer exist.
   > role". **There is no declared role** — `UserKind` is `staff | party |
   > system`, `company_parties` has no such column, and `PartyDirection` is
   > decided per voucher inside the posting engine and stored nowhere (F14). It
-  > also turns out to cost **₹1.57 crore off each side of the Balance Sheet**
-  > across 63 parties, which the call was made without knowing. The call itself
+  > also turns out to move **₹2,51,44,323.21 between the two control heads**
+  > across 76 parties, which the call was made without knowing (measured while
+  > building D3 — [§P2a](#p2a-record--2026-08-28); the first estimate,
+  > *"₹1.57 crore off each side across 63 parties"*, was a `min()`). The call itself
   > stands — it is what Tally does — but it is now [closed #4](#closed-on-2026-08-28)
   > rather than a decision already taken, and its cost is the single declared
   > exception to the parity gate (§4.2).
