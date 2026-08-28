@@ -64,7 +64,7 @@ next** — the Ledger module's own CRUD, `app-ledger-picker`, and
 | P2b‑1 | The GL names a ledger (D5, D8's third cache) | M | **done** — [§P2b‑1 record](#p2b-1-record--2026-08-28) |
 | P2b‑2 | Reports read the ledger (the declared exception appears) | M | **done** — [§P2b‑2 record](#p2b-2-record--2026-08-28) |
 | P2b‑3a | D6 — the voucher names a ledger | M | **done** — [§P2b‑3a record](#p2b-3a-record--2026-08-28) |
-| P2b‑3b | The Ledger module; `resolveStatutoryLedger`; `app-ledger-picker` | L | not started |
+| P2b‑3b | The Ledger module API; `resolveStatutoryLedger` | M | **done** — [§P2b‑3b record](#p2b-3b-record--2026-08-28) |
 | P2b‑3c | The Data Import module | M | not started |
 | P3 | Reports, drill-down, and the Ledger report | L | not started |
 | P4 | Voucher entry | XL | not started |
@@ -696,6 +696,164 @@ to confuse a difference.
 
 ---
 
+### P2b‑3b record — 2026-08-28
+
+**The chart of accounts gets an API, and the statutory legs stop asking a
+correspondence.** 18 routes over `acc_groups` and `acc_ledgers`;
+`resolveSystemGroup` → `resolveStatutoryLedger`; three pure rules for the moves
+that can restate a figure someone has already read.
+
+| | |
+|---|---|
+| Routes | 18 — `/acc-groups` (10), `/acc-ledgers` (8) |
+| Parity diff across the change | **empty** |
+| `qa:p2-ledgers` | **312/312**, with ten new properties |
+| `npm test` | 1,840 in 124 suites |
+| New permission key | **one**, `acc-ledgers`, covering both tables |
+
+| Artefact | What it is |
+|---|---|
+| `acc-group.service.ts` + controller | The tree's CRUD. Create derives `path`, `depth` and `nature` from the parent; `reparent` rewrites all three for the **whole subtree** in one transaction. |
+| `acc-ledger.service.ts` + controller | The leaf's edit surface — rename, code, the two reserved flags, deactivate, move, delete. **No create** (below). |
+| `ledger.const.ts` `describeGroupReparentBlock` · `describeGroupDeleteBlock` · `describeLedgerMoveBlock` (+ 16 specs) | The three refusals, pure, so the picker, the API and the gate ask one question. |
+| `PostingService.resolveStatutoryLedger` | The statutory head as **both halves** — `{ trxGroupId, ledgerId }` — resolved by `acc_ledgers.systemKey`. Used by the tax, GST-component, RCM, payroll, salaries-payable, closing-stock and opening-balance-equity legs. |
+| `ledger-resolution.ts` `insertLedger` | Now carries the head's `systemKey` onto a ledger it provisions. It wrote `NULL` until this phase, because nothing read the column. |
+
+#### ⚠️⚠️ Creating a ledger is deferred to P3, and that is a measurement
+
+§3.3 puts ledger create/alter in P2. Building it surfaced a constraint the plan
+had not: **while the reports still render the legacy chart, a ledger nothing
+places has no presentation head.** `presentationGroupId` has exactly two
+branches — a `legacyTrxGroupId` *is* the head, and a party ledger reports under
+the control head of its side — and answers `null` for anything else,
+deliberately, so an unplaceable ledger fails a census rather than landing its
+money in a row nobody posted to. The reports inner-join on that head, so a
+brand-new ledger's figures would **disappear from every statement**, silently,
+with the books still balancing.
+
+The three ways out were each worse than waiting:
+
+- **Reuse `legacyTrxGroupId` as a presentation pointer.** It is **1:1** — it is
+  D5's third precedence rule, and `qa-p2-ledgers` (1b) asserts no head has two
+  ledgers — so two ledgers sharing one makes resolution ambiguous.
+- **Add a `presentationTrxGroupId` column.** Inventing schema to serve a
+  transitional rule that **P3 deletes**.
+- **Auto-create a `trx_groups` twin per new ledger.** A row in the table this
+  programme is retiring, which P1's own gate would then report as an unplaced
+  flat head.
+
+So creation lands with **P3**, where a report's rows come from `acc_groups`.
+Everything a person can do to the 1,351 ledgers that already exist is here.
+`openingBalance` is absent for a neighbouring reason: D2 copied each legacy
+head's figure onto its ledger and the *entry* is still posted from `trx_groups`,
+so accepting it here too would post it twice, once per chart, with the trial
+balance balancing throughout.
+
+**The general shape is worth keeping.** §4.2's rule is that the migration does
+not move a figure; the corollary nobody had written down is that **a new surface
+must not be able to create something the presentation layer cannot render.** That
+is the question to ask of every write P3 and P4 add.
+
+#### The refusals are the feature, and the permissive halves are what make them rules
+
+Three pure functions, and in each the interesting case is the one that is
+*allowed*:
+
+- **`describeGroupReparentBlock`** refuses a primary, a cycle, and a nature
+  change **once the subtree has posted** — because `acc_groups.nature` is
+  denormalised onto every descendant, so moving `Freight` from Direct Expenses to
+  Current Assets re-signs every figure already posted under it, shifting money
+  between the P&L and the Balance Sheet with both still balancing (D-19's
+  forward-only doctrine, which this codebase has paid for twice). An **empty**
+  subtree has nothing to rewrite, so that move is allowed — which is what makes
+  it a rule about postings rather than about natures. And `isSystem` deliberately
+  does **not** block a move: the seeded 28 are system rows because they may not
+  be deleted or renamed away from the keys everything resolves by, not because
+  their placement is sacred, and Tally lets an operator re-file them too.
+- **`describeLedgerMoveBlock`** refuses a move that would change the ledger's
+  **presentation head** once it has posted. For D2/D4's 536 ledgers the head is
+  their own `legacyTrxGroupId` whatever group they hang under, so moving one is
+  invisible to every statement — a blanket *"a posted ledger does not move"*
+  would have refused a re-filing that changes nothing. For a **party** ledger the
+  head follows the group, so moving one between Sundry Debtors and Sundry
+  Creditors is D3's declared parity exception happening again, one party at a
+  time, with no plan row and no human review behind it. The "would it change"
+  question is answered by running `presentationGroupId` **twice** rather than by
+  a rule of its own: the reports and this refusal have to agree about where money
+  appears.
+- **`describeGroupDeleteBlock`** reports children before ledgers before
+  structure, because both FKs it protects are `RESTRICT` — a delete that got past
+  it surfaces as a 409 naming a constraint rather than a problem an operator can
+  act on.
+
+#### 🔒 One permission key, and the shared read that §3.3 flagged before it existed
+
+`acc-ledgers` covers **both** controllers. A group and a ledger are two halves of
+one screen, and a role that may edit the tree but not its leaves is a grant
+nobody would make on purpose; two keys would also mean two rows to decide per
+role for a screen that has not shipped.
+
+Both list surfaces are `@SharedRead({ parties: false })` — every module's voucher
+screen picks a ledger, so they need the shared-read lane, and **a ledger list
+carries bank account names, opening balances and every party's outstanding
+position.** D-46/BUG-0031 is exactly the case where *"any authenticated user"*
+quietly meant *"including the customer you are invoicing"*: 38 endpoints answered
+a party, among them the company's bank accounts with their IFSC codes. §3.3 named
+this route as the one to get right, before it existed. `SharedReadPartyGuard` is
+global, and the regenerated inventory shows both routes with
+`partyReadable=false`, so `shared-read-party.spec.ts` sweeps them the day the
+stack runs.
+
+#### The statutory seam was shown to fail, and the failure is worse than expected
+
+`resolveStatutoryLedger` asks `acc_ledgers.systemKey` directly instead of walking
+`legacyTrxGroupId` back to the head. Those answer the same ledger today, so the
+only way to tell them apart is to break the correspondence: one company's
+`IGST_OUTPUT` ledger had its `legacyTrxGroupId` set to `NULL` and a sales voucher
+was re-posted in a rolled-back transaction.
+
+- Under P2b‑3b the leg landed on **ledger #228, "IGST Output"** — the real
+  statutory ledger, found by key.
+- Under P2b‑3a's code the same injection **silently created a duplicate**,
+  `"IGST Output (467)"` with a `NULL` systemKey, and posted the company's entire
+  output IGST into it.
+
+That second result is the argument for the seam, not just evidence of it: the
+correspondence-based path **fails by inventing a ledger**, which is the failure
+mode nothing downstream can detect — the entry balances, the trial balance
+balances, and a second "IGST Output" appears in the chart of accounts.
+
+⚠️ Which also explains the one-line fix beside it: `insertLedger` wrote
+`systemKey: NULL`, harmlessly, for as long as nothing read the column. The moment
+`resolveStatutoryLedger` gave it a reader, a ledger provisioned on demand for a
+statutory head became invisible to the resolver — *"Statutory ledger not found"*
+about a row sitting right there. **When you give a column its first reader, look
+at every writer.**
+
+⚠️⚠️ The two control heads are deliberately **not resolvable** through it and say
+so: after D3 they hold one ledger per party and have none of their own (measured:
+0 of 14 companies, against 14 for every other key). A plausible answer there
+would put the whole of Sundry Debtors on one leg. The party legs keep
+`resolveSystemGroup` for the head and let `persistLines` resolve the ledger from
+the **party**, which is what they were already doing.
+
+#### Ten new gate properties, three of them writes
+
+(17) exercises the group tree — a created group's derived columns, a re-parent
+rewriting a **subtree**'s paths, a cycle, a primary, a cross-nature move of an
+empty subtree carrying its nature down, and a delete refused for its children.
+(18) resolves all 21 statutory keys and asserts the two control heads are
+refused. (19) moves a posted D2 ledger (allowed) and a posted party ledger across
+control groups (refused). All rolled back, for check (12)'s reason.
+
+⚠️ **Each refusal is asserted against its own message**, through a `refuses()`
+helper that fails when the reason does not match. A bare *"it threw"* would be
+satisfied by a 404 on a mistyped id or a unique-name clash — BUG-0015's standing
+lesson in this repo: *a check that exists as a side-effect of an unrelated one is
+not a check.*
+
+---
+
 ### Verification pass — 2026-08-28
 
 The plan was written from a reading of the source. It has since been checked
@@ -1189,6 +1347,16 @@ every target names a group that exists in the 28.
 
 ### 3.3 The Ledger module
 
+> **Status:** the **backend** landed in P2b‑3b
+> ([record](#p2b-3b-record--2026-08-28)) — as `AccLedgerController`/`Service` and
+> `AccGroupController`/`Service`. ⚠️ **Ledger *creation* is not in it**, and the
+> reason is a measured constraint rather than a scoping choice: while the reports
+> render the legacy chart, a ledger with neither a `legacyTrxGroupId` nor a party
+> has no presentation head and its figures would vanish from every statement. It
+> lands with **P3**. The **frontend** items below moved too — the
+> `/transaction/ledgers` screen to P3, `app-ledger-picker` and `Alt+C` to P4,
+> which is their only consumer.
+
 **Backend**
 - `modules/accounting/` gains `LedgerController`, `LedgerService`,
   `AccGroupController`, `AccGroupService`.
@@ -1674,10 +1842,22 @@ names the rows, **and** an injected disagreement between a voucher's `ledgerId`
 and its `groupId` posts to the voucher's ledger under this phase's code and to
 the group's under P2b‑2's — [§P2b‑3a record](#p2b-3a-record--2026-08-28).
 
-**Gate (P2b‑3b):** the Ledger module's CRUD and `app-ledger-picker`,
-`resolveSystemGroup` → `resolveStatutoryLedger`, and the remaining `trx_groups`
-sites. The parity diff is empty again; the ledger list is
-`@SharedRead({ parties: false })` and `shared-read-party.spec.ts` proves it.
+**Gate (P2b‑3b, met):** 18 routes over `acc_groups`/`acc_ledgers`,
+`resolveSystemGroup` → `resolveStatutoryLedger`, and the **parity diff empty
+again**. `qa:p2-ledgers` 312/312 with ten new properties (three of them writes,
+all rolled back); `npm test` 1,840; five guards, `lint:ci`, `build`,
+`check-mirrors` and `qa:p1-group-tree` 126/126 green. Both list routes are
+`@SharedRead({ parties: false })` and the regenerated inventory shows them with
+`partyReadable=false`, so `shared-read-party.spec.ts` sweeps them. Shown to fail:
+with one statutory ledger's `legacyTrxGroupId` nulled, the leg lands on the real
+statutory ledger under this code and on a **silently created duplicate** under
+P2b‑3a's — [§P2b‑3b record](#p2b-3b-record--2026-08-28).
+
+⚠️ **Two items moved out.** §3.3's `/transaction/ledgers` screen goes with **P3**
+(it renders the tree the Trial Balance is about to) and `app-ledger-picker` with
+**P4** (voucher entry is its only consumer). **Ledger creation** moved to P3 as
+well, and that one is a finding: a ledger nothing places has no presentation
+head, so its figures would vanish from every statement.
 
 **Gate (P2b‑3c):** the import module repointed. Re-import one real Tally backup
 and assert the resulting tree matches the source's parentage.
