@@ -21,14 +21,17 @@ voucher entry, report drill-down), with `qa-artifacts` carrying the parity gate.
 
 ## Progress
 
-**P0 is done (2026-08-28).** The parity harness exists, is green, and — the
-part that matters — has been shown to **fail** on the exact defect P2 risks.
-Nothing in the accounting core has been touched yet; P1 is next.
+**P0 and P1 are done (2026-08-28).** The parity harness exists and has been
+shown to **fail** on the exact defect P2 risks; the group tree exists, is seeded
+in all 14 companies, and its own gate holds at 126/126. Nothing in the
+accounting core has been touched — `trx_groups` is untouched, every journal line
+still points at it, and the parity diff is still empty. **P2 is next, and it is
+the hard one.**
 
 | Phase | Title | Size | Status |
 |---|---|---|---|
 | P0 | Foundations and the parity harness | M | **done** — [§P0 record](#p0-record--2026-08-28) |
-| P1 | Groups become a hierarchy | M | not started |
+| P1 | Groups become a hierarchy | M | **done** — [§P1 record](#p1-record--2026-08-28) |
 | P2 | Ledgers become the postable leaf | XL | not started |
 | P3 | Reports, drill-down, and the Ledger report | L | not started |
 | P4 | Voucher entry | XL | not started |
@@ -92,6 +95,92 @@ companies and reports `PARITY HELD — the diff is empty`.
 3. **`npm run` swallows flags without `--`.** `npm run qa:coa-parity selfcheck
    --company 15` silently runs every company. Write `npm run qa:coa-parity --
    selfcheck --company 15`, or call the script directly.
+
+---
+
+### P1 record — 2026-08-28
+
+The chart of accounts has a tree. Nothing posts to it yet — `trx_groups` is
+untouched, every journal line still points at it, and `qa-coa-parity selfcheck`
+is still an empty diff. P1 is additive by construction, which is what makes it
+safe to have landed before P2 depends on it.
+
+| Artefact | What it is |
+|---|---|
+| `src/const/provisioning/tally-chart.const.ts` (+ spec, **34 tests**) | Tally's 28 as a **tree**, plus `TRX_GROUP_TARGET` — §3.2's mapping as data. ⚠️ It does **not** re-type the 28 names: it reads them from `import/tally-nature-map.const.ts` and adds only the parent linkage and sort order, with a spec asserting the two key sets are identical (V3). |
+| `src/const/materialised-path.const.ts` (+ spec, **22 tests**) | `buildPath` · `subtreePrefix` · `wouldCycle` · `rebuildSubtreePaths`. §3.3's re-parent rule, and the terminator that stops `/1/7/` collecting `/1/70/`. |
+| `src/entities/acc-group.entity.ts` · `migrations/20260828000000-acc-groups.ts` | The table. DDL only — seeding reads the constant, so the names exist once. |
+| `src/services/acc-group-seed.ts` | One seeding definition, shared by `CompanyProvisioningService` and `scripts/seed-acc-groups.ts` (BUG-0032's lesson: put it where a new caller cannot fail to import it). |
+| `ReportsService.groupedTrialBalance()` | The opt-in grouped view. `trialBalance()` is untouched. |
+| `scripts/qa-p1-group-tree.ts` | P1's gate. `npm run qa:p1-group-tree`. |
+
+Seeded into all 14 companies: **392 groups** = 14 × (15 primary + 13 sub), 28
+nature-ambiguous (Tally's own two, per company), zero malformed paths, zero
+depth mismatches.
+
+**Gate: 126 passed, 0 failed.** And, per P0's discipline, shown to fail — twice.
+Stripping a path's terminator is caught by the structural check; the harder
+injection, a **well-formed path pointing at the wrong parent**, was caught three
+ways at once (per-nature NET, the roll-up identity, and the explicit
+prefix-vs-parentId cross-check) while the Σ checks correctly stayed green.
+
+#### ⚠️ The gate's own wording was half wrong, and the half that was wrong matters
+
+P1's gate reads *"grouped Trial Balance totals equal the flat one, per nature
+and overall"*. Two corrections, both load-bearing for P3:
+
+1. **Closing columns are not regroup-invariant.** `closingDebit` is
+   `max(net, 0)`, so merging the thirteen tax heads into Duties & Taxes **nets
+   them before the max is taken** and the closing total legitimately falls. A
+   gate asserting those equal would be asserting that grouping does not group.
+   What ties the two reports is **Σ debit, Σ credit and Σ net** — pure sums,
+   which survive any regrouping. The report exposes both.
+2. **Per-nature totals do not match, by design** — see below.
+
+#### ⚠️⚠️ A second declared exception to the parity gate: ₹1,54,85,553
+
+§3.2 maps input **and** output GST to Duties & Taxes — correct, it is what Tally
+does and it keeps GSTR reconciliation reading one subtree — without noticing
+that Duties & Taxes hangs under **Current Liabilities**. Nature is inherited
+(§3.3), so `TAX_INPUT`, `CGST_INPUT`, `SGST_INPUT` and `IGST_INPUT`, seeded
+under Assets, become Liability-natured and carry a debit balance there, exactly
+as a Tally input-GST ledger does.
+
+Measured across the 14 companies: **₹1,54,85,553.06** (CGST 62,59,652 · SGST
+62,59,649 · IGST 29,66,252 · `TAX_INPUT` nil). Assets and Liabilities both fall
+by that figure, so **the Balance Sheet still balances while it happens** — the
+same property that makes the dual-role party netting invisible to a "does it
+still balance?" check (§4.2, R8).
+
+Unlike R8's, this set is fully enumerable in advance — 4 heads × 14 companies —
+and `NATURE_CHANGING_KEYS` carries it with a spec asserting it is **exactly**
+those four, so a fifth head acquiring a nature change fails a test rather than
+somebody's Balance Sheet. **Reversing the decision is one edit to
+`TRX_GROUP_TARGET`**, pointing the four at a Current Assets child instead; that
+is deliberately all it takes, because the mapping is data and nothing else
+encodes it.
+
+#### Three things the gate found that the plan had not
+
+- **Instrument backing groups are not seeded heads.** `trx_accounts` silently
+  auto-creates a `trx_groups` row per bank account, UPI handle and card (F5),
+  so `TRX_GROUP_TARGET` cannot name them — company 28's Current Account, ₹4.99
+  crore, was landing unmapped. They are routed by **AccountType**, derived from
+  `bookForAccountType` so D-54's rule is reused rather than restated (§3.10) and
+  a new account type is placed the day it is added.
+- **Some backing groups have no account left.** Company 28 carries four whose
+  `trx_accounts` row was hard-deleted and one whose row is soft-deleted, holding
+  ₹1,23,456 each. `fallbackGroupForNature` places them by their own nature and
+  the report lists them in `fellBackToNature`: **a fallback that is reported is
+  safer than an omission that is not** — the alternative was a grouped Trial
+  Balance quietly smaller than the flat one, which loses money and still
+  balances.
+- **The raw-SQL allow-list trap fired, exactly as CLAUDE.md §14 predicts.**
+  Adding ten lines to `company-provisioning.service.ts` moved the `countries`
+  probe from `:441` onto `:451` — an existing key, whose justification describes
+  the **`states`** probe. It would have passed the guard carrying a reason
+  written for a different statement. Every key was re-read against the query now
+  at it, rather than having its number shifted.
 
 ---
 
