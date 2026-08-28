@@ -29,7 +29,11 @@ been run over all 41,690 journal lines as a **dry run**, with zero unresolvable.
 Nothing in the accounting core has been touched: `trx_groups` is untouched,
 every journal line still points at it, and the parity diff is still empty.
 
-**P2b — D5 onward — is next.** It is the first step that is not additive.
+**P2b‑1 is done too: `journal_lines.ledgerId` exists, is backfilled on all
+41,690 lines, is `NOT NULL` behind a foreign key, and is maintained by the
+posting engine.** The parity diff is *still* empty, because no report reads it
+yet — `trxGroupId` survives as a shadow until D9. **P2b‑2 is next**, and it is
+the step where the declared exception finally appears in a report.
 
 > ⚠️ **Building D3 corrected this plan's own headline figure.** §4.2 and F14
 > describe the declared exception as *"Sundry Debtors and Sundry Creditors each
@@ -43,7 +47,8 @@ every journal line still points at it, and the parity diff is still empty.
 | P0 | Foundations and the parity harness | M | **done** — [§P0 record](#p0-record--2026-08-28) |
 | P1 | Groups become a hierarchy | M | **done** — [§P1 record](#p1-record--2026-08-28) |
 | P2a | The ledger layer exists (D1–D4) | L | **done** — [§P2a record](#p2a-record--2026-08-28) |
-| P2b | Ledgers become the postable leaf (D5–D8, module, import) | L | not started |
+| P2b‑1 | The GL names a ledger (D5, D8's third cache) | M | **done** — [§P2b‑1 record](#p2b-1-record--2026-08-28) |
+| P2b‑2 | Reports read the ledger; D6; the Ledger module; the import module | L | not started |
 | P3 | Reports, drill-down, and the Ledger report | L | not started |
 | P4 | Voucher entry | XL | not started |
 | P5 | Bill-wise details | L | not started |
@@ -294,6 +299,91 @@ table stores the figure per party, so the exception stays **a list**.
    of its entries; each was re-read against the statement now at its line before
    the number was changed. **Budget for this in every commit that edits a file
    with entries.**
+
+---
+
+### P2b‑1 record — 2026-08-28
+
+**D5. The general ledger stops naming a group and starts naming a ledger.** This
+is the first step of the programme that is not additive — everything before it
+could have been dropped without touching a book.
+
+`journal_lines.ledgerId` is backfilled on all **41,690** lines, `NOT NULL`,
+behind `fk_journal_lines_ledger`. `trxGroupId` survives beside it as a shadow
+(§3.1, R2), every report still reads it, and **`qa-coa-parity selfcheck` is
+still an empty diff** — which is the point: repointing and re-reading are two
+steps, and doing them together would have made a wrong figure and a wrong
+mechanism indistinguishable.
+
+| Artefact | What it is |
+|---|---|
+| `migrations/20260828200000-journal-line-ledger.ts` | D5 in five statements — nullable column · three backfills in precedence order · **verify** · tighten · index · FK — plus D8's rebuild of the third cache. |
+| `PostingService.persistLines` | Resolves and stamps `ledgerId`, and maintains `acc_ledgers.currentBalance`, in the single writer of `journal_lines` (§4.9). |
+| `src/services/ledger-resolution.ts` | `loadLedgerIndex` · `resolveOrCreateLedger` — posting-time resolution, provisioning a ledger on demand inside the posting transaction. |
+| `PostingService.rebuildBalances` | Now rebuilds the third cache too, so the existing repair door still repairs everything. |
+| `scripts/qa-p2-ledgers.ts` | Checks (10), (11) and (12) — see below. **229/229.** |
+
+#### The backfill and the engine are one step, deliberately
+
+A backfilled column the posting engine does not write **goes stale on the very
+next voucher**, and a column that is stale but present is worse than one that is
+absent, because the next reader believes it. So D5 is not "the migration": it is
+the migration *and* `persistLines`, in one commit.
+
+`ledgerId` being `NOT NULL` sharpens that. A resolution failing at runtime is not
+a wrong figure — it is **every voucher approval throwing**. Which is why the gate
+grew a twelfth property that actually posts.
+
+#### Three new gate properties, and why each exists
+
+- **(10) Every stored `ledgerId` equals what the pure rule answers**, over all
+  41,690 lines. The migration *restates* `resolveLedgerForLine`'s precedence in
+  SQL — a migration in this repo imports nothing, because it is a historical
+  record and a rule it imported would change under it. That makes it a mirror,
+  and §13 is four paragraphs on what an unchecked mirror costs. Shown to fail:
+  repointing one line reports the drift and names the row. It **skips**, rather
+  than passing, before the column exists.
+- **(11) The third balance cache equals its own Σ.** `acc_ledgers.currentBalance`
+  joins `trx_groups.currentBalance` and `trx_accounts.balance` as a duplicate of
+  a sum, and BUG-0042's whole lesson is that a drifted one is invisible to every
+  ledger-derived report. The census is the only thing that sees it.
+- **(12) Posting still works** — a party opening balance for an identity with
+  **no ledger**, exercising the branch that provisions one, asserting the line
+  carries a ledgerId, the ledger landed under a control-head group, and the
+  cache was maintained. Rolled back, and (12e) asserts nothing survived: a gate
+  that leaves a journal entry behind changes the books it is checking, and the
+  parity harness's next capture would have seen it.
+
+#### ⚠️ A ledger is provisioned on demand, and a new party's side comes from the posting
+
+A party invited today has no `party_ledger_plan` row and no ledger. Refusing to
+post a receipt for want of a row the engine can create is a regression, not a
+safety property — so `resolveOrCreateLedger` creates it, **inside the posting
+transaction**, so it commits with the entry that needed it or rolls back with it.
+
+Its side is taken from **the control head the first posting is on**, not from
+`derivePartySide`'s no-activity default. At migration time there was a history to
+weigh and a human to review it (R8); here there is neither — but there is better
+information than a default, namely which side of the books this party has just
+appeared on. It is also what Tally does: you place a party under a group the
+first time you use them.
+
+#### ⚠️⚠️ The new foreign key broke company hard delete, and nothing local would have said so
+
+`journal_lines.ledgerId` is `ON DELETE RESTRICT`. The topological sort had
+`acc_ledgers` at position 25 and `journal_lines` at 62 — so **every company hard
+delete would have been refused**, by a foreign key that had no edge describing
+it. Caught by asking the delete order directly, not by a test: `onDelete`
+behaviour lives only in the raw migration SQL and never in Sequelize's
+association metadata, which is exactly why
+`company-hard-delete-order.const.ts` is hand-transcribed.
+
+**A new FK between two tenant-scoped tables is a new line in that file**, in the
+same commit. Its own spec passes either way — it verifies the graph is
+consistent, not that the graph is complete — and the test that would have caught
+it, `qa-artifacts/tests/cross-service/hard-delete.spec.ts`, needs a running
+stack. Verified afterwards that all **119** `companyId`-bearing tables are still
+in the order.
 
 ---
 
@@ -1231,7 +1321,13 @@ genuinely ambiguous rows.
 the declared exception computed a second independent way and agreeing. The
 parity diff stays empty throughout, because nothing has been repointed.
 
-**Gate (P2b):** parity harness diff is empty on every QA company **apart from
+**Gate (P2b‑1, met):** D5 landed — 41,690 lines repointed, `NOT NULL`, FK — and
+the parity diff is **still empty**, because no report reads the column yet. Plus
+three new properties: the stored column against the pure rule, the third cache
+against its own Σ, and a live posting that provisions a ledger and is rolled
+back. `npm run qa:p2-ledgers` — 229/229.
+
+**Gate (P2b‑2):** parity harness diff is empty on every QA company **apart from
 the enumerated party exception** (§4.2) — 76 parties, asserted row by row from
 `party_ledger_plan`, not tolerated. `npm test`, all three CI guards, and `node scripts/check-mirrors.js`
 green. Re-import one real Tally backup and assert the resulting tree matches the

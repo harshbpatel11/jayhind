@@ -954,6 +954,22 @@ from GSTIN state codes.
 > the whole book into one anonymous bucket while every total stays right, which is
 > how it goes unnoticed (it did, in the QA harness's own trial balance, until
 > Phase 6B).
+>
+> ⚠️ **As of D5 (2026-08-28) it also names a LEDGER, and that is what it will
+> name.** `journal_lines.ledgerId` is `NOT NULL` against `acc_ledgers` — the
+> postable leaf of the Tally-shaped chart (TALLY-PARITY-PLAN.md §3.1) — where a
+> group is now a container whose balance is the sum of its children. All 41,690
+> existing lines were backfilled by `resolveLedgerForLine`'s precedence.
+>
+> **`trxGroupId` is a SHADOW and is still what every report reads**, deliberately,
+> until P3 moves them and D9 drops it (a separate release, after the parity gate
+> has held in production for one cycle). So the paragraph above is still true of
+> the books today; do not read `ledgerId` expecting a statement to agree with it
+> yet. Both are written from the same leg in the same statement by
+> `PostingService.persistLines`, which is the one place they cannot come apart —
+> which is the same reason §4.9's *"if you add a writer of `journal_lines`, it
+> must go through `persistLines`"* now has a third cache riding on it
+> (`acc_ledgers.currentBalance`, BUG-0042's shape a third time).
 
 **CGST and SGST are two levies, not one figure halved** (BUG-0026). Each is
 imposed at **half the rate on the line's own taxable value**, so on any one line
@@ -1238,10 +1254,11 @@ out overstated by the note's full value and pointing the wrong way.
 > When you write a report about what a party owes, say which of the two sides you
 > are reading and what the other one would answer.
 
-**`trx_accounts.balance` and `trx_groups.currentBalance` are CACHES of
-`journal_lines`, not facts** (BUG-0042). `PostingService.persistLines` increments
-both by exactly the figures it writes to the ledger, in the same transaction, and
-nothing else writes them — so each column is a duplicate of a Σ. Every statement
+**`trx_accounts.balance`, `trx_groups.currentBalance` and — since D5 —
+`acc_ledgers.currentBalance` are CACHES of `journal_lines`, not facts**
+(BUG-0042). `PostingService.persistLines` increments
+all three by exactly the figures it writes to the ledger, in the same
+transaction, and nothing else writes them — so each column is a duplicate of a Σ. Every statement
 in `ReportsService` reads the lines (its header says the caches are *"deliberately
 not consulted"*); `getFundsSummary` and the Financial Dashboard read the caches.
 Two consequences:
@@ -1256,8 +1273,11 @@ Two consequences:
   `POST /inventory/rebuild-balances` has always had for the stock buckets. It had
   **no caller at all** until 2026-08-24, so a drifted cache could not be fixed
   through the application. If you add a writer of `journal_lines`, it must go
-  through `persistLines`, or both caches are wrong from that moment on and nothing
-  will tell you.
+  through `persistLines`, or all three caches are wrong from that moment on and
+  nothing will tell you. ⚠️ **A cache and its rebuild are one change, not two** —
+  D5 added `acc_ledgers.currentBalance` to `rebuildBalances` in the same commit
+  as the writer, precisely because BUG-0042 is the case where a derived column
+  had no repair door at all for months.
 
 ### 4.10 Async work
 
@@ -2389,7 +2409,7 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
 | Architecture guards | `src/user-module-boundary.spec.ts`, `src/const/ci-guards/*` — raw-SQL (statement · joins · **the calendar day**), cached-state, scope-registry, marker-decorator, `@Body()`-is-a-DTO and **every-JWT-minter-sets-every-claim**. `admin-back` has its own **undecorated-DTO-property** guard | `npm test` + `scripts/ci-guard-*.ts` |
 | Chart-of-accounts parity | `client-back/scripts/qa-coa-parity.ts` + `src/const/parity-snapshot.const.ts` — the gate for the Tally migration (TALLY-PARITY-PLAN.md §4.2): every report for every company, captured before and after, diffed **per figure**. Deliberately **not an oracle** — it never says what a Trial Balance ought to contain, only whether it answered the same thing twice; `qa-artifacts/tests/reports/` owns the restatement. ⚠️ Its diff reports rows **added and removed**, not only changed, because `trialBalance` suppresses zero rows — so a dual-role party netting to exactly zero leaves the report with no figure moving. And an exception is a **list**: an allowance matching nothing fails as loudly as a difference nobody allowed | `npm run qa:coa-parity -- selfcheck` |
 | The chart-of-accounts **tree** | `client-back/scripts/qa-p1-group-tree.ts` — P1's gate (TALLY-PARITY-PLAN.md §5). Over every company: 28 groups / 15 primary + 13 sub, every `path` terminated and agreeing with its own depth, every flat head placed, and the grouped Trial Balance tying to the flat one. ⚠️ It ties on **Σ debit, Σ credit and Σ net**, never on the closing columns: `closingDebit` is `max(net, 0)`, so merging thirteen tax heads into Duties & Taxes nets them before the max is taken and the closing total legitimately falls — a gate asserting those equal would be asserting that grouping does not group | `npm run qa:p1-group-tree` |
-| The chart-of-accounts **leaf** | `client-back/scripts/qa-p2-ledgers.ts` — P2a's gate (TALLY-PARITY-PLAN.md §5). Eleven properties over every company: every legacy head has a ledger except the two control heads that become **groups**, every party in the union population is planned and applied to a *live* ledger, every instrument is claimed, no ledger is parented into another company's tree — and then **D5's dry run**: `resolveLedgerForLine` over all 41,690 journal lines, with zero unresolvable. ⚠️ Its real value is that last one. §4.1 D5 ends with a `NOT NULL`, and finding a gap *there* stops a migration mid-flight on a live book (V1/F13); finding it here costs one script run. It also computes the declared parity exception a **second, independent way** — from the journal lines through the resolver rather than from `party_ledger_plan`'s own arithmetic — so the two have to agree or one is wrong. That is what caught a stale derived column three steps from its cause | `npm run qa:p2-ledgers` |
+| The chart-of-accounts **leaf** | `client-back/scripts/qa-p2-ledgers.ts` — P2's gate (TALLY-PARITY-PLAN.md §5). Twelve properties over every company: every legacy head has a ledger except the two control heads that become **groups**, every party in the union population is planned and applied to a *live* ledger, every instrument is claimed, no ledger is parented into another company's tree — and then **D5's dry run**: `resolveLedgerForLine` over all 41,690 journal lines, with zero unresolvable. ⚠️ Its real value is that last one. §4.1 D5 ends with a `NOT NULL`, and finding a gap *there* stops a migration mid-flight on a live book (V1/F13); finding it here costs one script run. It also computes the declared parity exception a **second, independent way** — from the journal lines through the resolver rather than from `party_ledger_plan`'s own arithmetic — so the two have to agree or one is wrong. That is what caught a stale derived column three steps from its cause. Since D5 it also compares **every stored `ledgerId` against the pure rule** (the migration restates the precedence in SQL, because a migration here imports nothing — this is the test behind that mirror), censuses the **third** balance cache, and **posts a real party opening balance for an identity with no ledger** in a rolled-back transaction, because `ledgerId` is `NOT NULL` and a resolution failing at runtime is every voucher approval throwing rather than a wrong figure | `npm run qa:p2-ledgers` |
 | Rule-7 parent ids | `qa-artifacts/tests/transactions/jobwork-scope.spec.ts` and `tests/api/parent-scope.spec.ts` — every caller-supplied parent id on a write, probed with a stranger resolved from `company_members` (never from a fixture: the QA world **shares** an identity between two tenants on purpose) | `npm run qa:transactions` |
 | Shared-read exposure | `qa-artifacts/tests/permissions/shared-read-party.spec.ts` — sweeps **every** `@SharedRead()` route as a trading party and asserts the allow-list exactly (D-46). Route list comes from the regenerated inventory, so a new shared read is swept the day it lands | `npm run qa:permissions` |
 | The storage seam | `qa-artifacts/tests/storage/` — nine properties over the tree the ERP now owns (§6.4): the index against the **disk** as a census, keys inside their own company's folder, traversal refusals, the spool drained on refusal too, no static serving, who may be handed the bytes (BUG-0057), and every owned file still having its owner (BUG-0058) | `npm run qa:storage` |
@@ -2794,7 +2814,9 @@ is one nobody reads.
 | Where does today's account head land in Tally's tree? | `client-back/src/const/provisioning/tally-chart.const.ts` `TRX_GROUP_TARGET` — the §3.2 mapping as data, read by both P1's grouped report and P2's D2, so the report and the migration cannot disagree about where a head went |
 | Why are the 28 Tally group names not written out in `tally-chart.const.ts`? | they already exist in `src/const/import/tally-nature-map.const.ts`, and `check-mirrors.js` compares across **submodules** so it could never see a second copy here. The tree adds the parent linkage and sort order; the nature is read from the import table, and a co-located spec asserts the two key sets are identical |
 | Why does an input-GST head show as a Liability in the grouped Trial Balance? | Tally parents Duties & Taxes under Current Liabilities, and nature is inherited (§3.3). ₹1,54,85,553 across the 14 dev companies — `NATURE_CHANGING_KEYS`, the second declared exception to the parity gate. Reversing it is one edit to `TRX_GROUP_TARGET` |
-| What does a journal line NAME, once P2b lands? | an `acc_ledgers` row — the postable **leaf**. A group is a container whose balance is the sum of its children; `trx_groups` is both at once, which is why the Trial Balance prints one "Customer Dues" row where a Tally user expects a group expanding to every customer. ⚠️ **Not yet**: during P2a the ledgers exist and nothing points at them, `journal_lines.trxGroupId` is still the mechanism, and the parity diff is still empty |
+| Why did adding a foreign key break company hard delete? | it needs a line in `src/const/company-hard-delete-order.const.ts`. `onDelete` behaviour lives ONLY in the raw migration SQL — never in Sequelize's association metadata — which is why that edge list is hand-transcribed. D5's `journal_lines.ledgerId` (RESTRICT) put `acc_ledgers` at position 25 and `journal_lines` at 62, so **every** hard delete would have been refused. ⚠️ Its own spec passes either way: it verifies the graph is *consistent*, not that it is *complete*, and the test that catches an omission (`qa-artifacts/tests/cross-service/hard-delete.spec.ts`) needs a running stack |
+| What does a journal line NAME? | **both**, since D5 (2026-08-28): `ledgerId` against `acc_ledgers` (the postable **leaf**) and `trxGroupId` beside it as a shadow. ⚠️ **The shadow is what every report still reads** until P3, and D9 drops it — a separate release. A group is a container whose balance is the sum of its children; `trx_groups` is both at once, which is why the Trial Balance prints one "Customer Dues" row where a Tally user expects a group expanding to every customer |
+| What happens when a party with no ledger is posted to for the first time? | `src/services/ledger-resolution.ts` `resolveOrCreateLedger` provisions one, **inside the posting transaction**, so it commits with the entry that needed it or rolls back with it. Its side comes from the **control head the posting is on** — not `derivePartySide`'s no-activity default, because at migration time there was a history to weigh and a human to review it (`party_ledger_plan`) and here there is neither, but there IS better information than a default. Refusing to post for want of a row the engine can create would be a regression, not a safety property |
 | Which ledger does an existing journal line belong to? | `src/const/ledger.const.ts` `resolveLedgerForLine` — §4.1 D5's precedence, in one place so the dry-run gate and the backfill cannot disagree. ⚠️ Step 1 requires the line to sit on a **control head**, not merely to carry a `partyUserId`: that column is a denormalised aid, and without the condition a sales line carrying the customer's id would post the **revenue** into the customer's ledger with the Trial Balance still balancing |
 | Why does `LedgerResolution` return `via` and `failure` instead of being a union? | this repo compiles with `strictNullChecks: false`, and under it a union discriminated on `ledgerId: number \| null` does **not** narrow — nor does one discriminated on an added `ok: true \| false`. Both were written, both failed to compile at the obvious call site. A result type whose callers need `'failure' in x` to satisfy the compiler is one that will be got wrong |
 | Which side of the books does a party's ledger hang under, and who decided? | `party_ledger_plan` — **the table is the decision, the rule is only a proposal** (§4.1 D3, R8). There is no declared role to parent a party by: `UserKind` is `staff \| party \| system`, `company_parties` has no such column, and `PartyDirection` is decided per voucher and stored nowhere. `derivePartySide` proposes from **gross** volume, `scripts/plan-party-ledgers.ts` writes it, and every row is overridable — deriving it silently was refused as BUG-0034's shape, where the first reader would have been a customer whose creditors figure dropped overnight |
