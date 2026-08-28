@@ -46,8 +46,22 @@ VOUCHER names a ledger too.** All four of D6's holders — `trx.groupId`,
 `trxGroupId` — carry a `ledgerId` beside them, backfilled on **11,856** rows,
 and the posting engine now posts to the ledger *the document says* rather than
 re-deriving one. The parity diff is **empty** across the change. **P2b‑3b is
-next** — the Ledger module's own CRUD, `app-ledger-picker`, and
-`resolveSystemGroup` → `resolveStatutoryLedger`.
+done** as well — 18 routes over `acc_groups`/`acc_ledgers`, and the statutory
+legs now ask `acc_ledgers.systemKey` directly instead of walking D2's
+correspondence.
+
+**And P2b‑3c is done, which closes P2: the import keeps the customer's chart of
+accounts instead of flattening it** (F15). The source's own Groups become
+`acc_groups` rows under their source parents, and a head the import creates gets
+its ledger **where the source filed it** rather than from
+`fallbackGroupForNature` at first posting. Measured on the real Tally backup in
+`qa-artifacts/fixtures/tally`: **60 of its 230 ledgers land somewhere new**, among
+them 15 Fixed Assets and 17 Duties & Taxes that were being reported as current
+assets and current liabilities. Building the gate also found a live defect —
+both callers of the placement fallback read `trx_natures.name` where the rule
+switches on `AccountNature`, so **all 33 fallback-placed ledgers on the
+development database were in Suspense A/c** — fixed and repaired. The parity diff
+is **empty** across the whole phase. **P3 is next.**
 
 > ⚠️ **Building D3 corrected this plan's own headline figure.** §4.2 and F14
 > describe the declared exception as *"Sundry Debtors and Sundry Creditors each
@@ -65,7 +79,7 @@ next** — the Ledger module's own CRUD, `app-ledger-picker`, and
 | P2b‑2 | Reports read the ledger (the declared exception appears) | M | **done** — [§P2b‑2 record](#p2b-2-record--2026-08-28) |
 | P2b‑3a | D6 — the voucher names a ledger | M | **done** — [§P2b‑3a record](#p2b-3a-record--2026-08-28) |
 | P2b‑3b | The Ledger module API; `resolveStatutoryLedger` | M | **done** — [§P2b‑3b record](#p2b-3b-record--2026-08-28) |
-| P2b‑3c | The Data Import module | M | not started |
+| P2b‑3c | The Data Import module | M | **done** — [§P2b‑3c record](#p2b-3c-record--2026-08-29) |
 | P3 | Reports, drill-down, and the Ledger report | L | not started |
 | P4 | Voucher entry | XL | not started |
 | P5 | Bill-wise details | L | not started |
@@ -854,6 +868,156 @@ not a check.*
 
 ---
 
+### P2b‑3c record — 2026-08-29
+
+**The import stops flattening the customer's chart of accounts.** F15's upside,
+delivered, and the last slice of P2.
+
+| | |
+|---|---|
+| Parity diff across the change | **empty** |
+| `qa:p2c-import-tree` (new) | **227/227** over 14 companies, 19 properties each |
+| `qa:p2-ledgers` | **326/326** — one new census, per company |
+| `npm test` | 1,861 in 125 suites (+21) |
+| Migrations | 2 — an enum widening, and a repair that **moved 33 ledgers** |
+| Ledgers that would have been misplaced, per import of the real backup | **60 of 230** |
+
+| Artefact | What it is |
+|---|---|
+| `src/const/import/import-group-tree.const.ts` (+ spec, **21 tests**) | The pure plan: which source groups **are** one of Tally's 28, which are the customer's own and must be created (**parents first**), and which cannot be placed at all. Plus `sourcePlacementApplies`, the three-way answer to *"may this kind of ledger be parented where the source put it?"* |
+| `ImportCommitService.commitGroupTree` | The tree, committed once per batch **before** the ledger rows, in its own transaction. Reserved groups resolve by name; the customer's own are created through `AccGroupService.create`, so `path`, `depth` and the inherited `nature` have one definition. |
+| `ImportCommitService.placeLedgerForHead` | The imported head's ledger, put where the source said. |
+| `ledger-resolution.ts` `provisionLedgerForHead` | The head branch of `resolveOrCreateLedger`, extracted, with the placement as its **only** overridable input. |
+| `20260828400000-import-resolved-acc-group` | `import_staging_masters.resolvedTargetType` gains `acc_group`. Group rows sat at `parsed` for ever before, because nothing committed them. |
+| `20260828500000-ledger-nature-fallback-repair` | 33 ledgers out of Suspense A/c — below. |
+| `scripts/qa-p2c-import-tree.ts` | The gate. Parses the real backup, stages it into a real batch, runs the real commit, reads `acc_groups` back, rolls everything back. |
+
+#### What actually moves, measured on a real customer's books
+
+`qa-artifacts/fixtures/tally/Master.json` is a genuine Tally Prime export — 314
+messages, 50 Groups, 230 Ledgers. Two measurements from it shaped the phase:
+
+- **It has zero custom groups.** Its tree *is* Tally's 28. So the celebrated
+  half of F15 — *"the tree the customer arrives with can be preserved rather
+  than reconciled"* — is real but was not what this customer needed.
+- **60 of its 230 ledgers were landing in the wrong place**, because a head the
+  import creates has no ledger until its first posting and then gets one from
+  `fallbackGroupForNature`: 15 under Fixed Assets, 17 under Duties & Taxes, 7
+  under Unsecured Loans, 3 under Capital Account, 3 under Loans & Advances, and
+  so on — every asset one reported as a **current** asset. A factory building in
+  current assets, on a Balance Sheet that balanced.
+
+So the phase's value is in the **ledger** placement rather than in the group
+creation, which is the opposite of what the plan expected, and is why the gate
+carries both a real export and a synthetic subtree: the export proves the
+placement, and only a synthetic tree exercises the create path at all.
+
+#### ⚠️ `TrxGroupService.create` posts before it returns, so the placement had to MOVE
+
+The first cut of `placeLedgerForHead` only ever *created* a ledger, and it was a
+silent no-op. `TrxGroupService.create` posts the head's opening balance before
+returning — statements are journal-derived, so the column alone would be
+invisible to them — and that posting runs `persistLines`, which provisions the
+ledger through `resolveOrCreateLedger` on its way. By the time the import states
+a placement the ledger **already exists**, and `provisionLedgerForHead`
+faithfully resolves it.
+
+The move is safe by construction rather than by permission: the ledger carries
+the head's `legacyTrxGroupId`, which is `presentationGroupId`'s first branch, so
+no report's rows change. It is put to `describeLedgerMoveBlock` anyway, so the
+import cannot make a move the Ledger module would refuse — and it is only
+correct because **the head was created in this same transaction**. A ledger
+somebody has since re-filed by hand is a decision, and an import does not
+restate decisions already taken (D-19). A re-import of the same source ledger
+takes `match-existing` and never arrives here.
+
+**Property (9) of the gate is the only one that sees this**, and it exists
+because the first version of the gate did not have it: (6) calls
+`provisionLedgerForHead` directly, so deleting the whole of this phase's change
+to the import left every other check green.
+
+#### ⚠️⚠️ Two of the three ledger kinds are deliberately NOT placed from the source
+
+`sourcePlacementApplies` returns true for a plain account head only, and each
+refusal is a constraint rather than a preference:
+
+- **A party ledger** would break the presentation. `presentationGroupId`'s party
+  branch matches `groupId` against the two control groups **exactly**, not
+  against their subtrees — that is what makes the branch unambiguous. A party
+  under a customer's own `Sundry Debtors › Export` has **no presentation head at
+  all**, and its money leaves every statement while the books balance. The same
+  wall P2b‑3b hit when it tried to add ledger creation, and the same answer: P3.
+- **An instrument ledger** is placed by its `AccountType`
+  (`instrumentTargetGroup`, derived from `bookForAccountType` so an account
+  cannot fall out of both a book and the tree), it is a **system** ledger, and
+  `describeLedgerMoveBlock` refuses to move one: *"where it sits decides how
+  statutory figures are reported"*. Honouring the source's bank sub-grouping too
+  would be two rules for one placement, and the type has to win, because the
+  type is what the cash and bank books read.
+
+#### 🐞 The nature fallback read the wrong column, in both callers, and the gate agreed with it
+
+`fallbackGroupForNature` switches on the **`AccountNature` enum** — `'Asset'`,
+`'Liability'`, `'Income'`, `'Expense'`. Both callers asked the database for
+`trx_natures.name`, which is the display **plural** (`'Assets'`), so every arm
+missed and the `default` answered: **`Suspense A/c`**, for every fallback-placed
+head whatever its nature.
+
+All **33** fallback-placed ledgers on the development database were there, and
+every one carries a real nature — 14 a retired `Party Payment` head that belongs
+in Indirect Expenses, 19 an orphaned instrument's backing group that belongs in
+Current Assets. Every balance is `0.00`, and
+`presentationGroupId` reads `legacyTrxGroupId`, so **no report was wrong** — and
+every one of them would have been a wrong row in the Balance Sheet and the P&L
+the day P3 renders `acc_groups` instead.
+
+Three things worth carrying out of it:
+
+- **The parity gate could not have caught this.** §4.2 compares reports, and no
+  report reads `groupId` yet. A defect that is invisible until a later phase
+  needs a **census of the data**, which is what `qa-p2-ledgers` (4c) now is.
+- ⚠️ **`qa-p2-ledgers`' own restatement of the placement rule read `n.name`
+  too**, so it agreed with the defect and could not see it. That is the mirror
+  problem inside a gate: *a check that restates the code by copying the code's
+  query is a check that cannot fail*. (4c) asks a question about the **rows**
+  instead — *is any ledger in Suspense A/c with a nature of its own?* — and has
+  no way to inherit the mistake.
+- **`Suspense A/c` is reachable only as that `default` arm** — nothing in
+  `TRX_GROUP_TARGET` maps into it — which is what makes the repair unambiguous
+  and the census exact.
+
+#### Two injected regressions, both reproduced
+
+- **Create-only placement** (the first cut): the specimen ledger lands in
+  **Current Assets (92)** rather than **Fixed Assets (90)**; (9) and (9b) both
+  fail and name the groups. Every other property stays green, which is the point.
+- **Source order instead of parents-first** in `planGroupTree`: the unit spec
+  fails, the gate's (2b) fails naming `CNC Machines → Plant & Machinery`, and the
+  commit refuses loudly — *"group \"CNC Machines\" names parent \"plant &
+  machinery\", which was not created first"* — rather than orphaning a subtree.
+
+#### What P2b‑3c deliberately did NOT do
+
+- **The voucher import was already correct and needed no repointing.** §5's plan
+  says its 13 `trxGroupId` references *"must repoint inside P2"*; D6 is what
+  answered that, by deriving `ledgerId` in the **one writer of each table**. So
+  `ResolvedVoucherLedger.kind: 'group'` stays: a caller stating a ledger id is
+  exactly what D6 forbids (`ledgerId` is on no DTO, §4.1 D6), and the GL-only
+  `imported-journal` path resolves through `persistLines` like every other
+  posting. Nothing to do is a finding, not an omission.
+- **It does not re-file a ledger that already exists** for a head the import
+  merely matched. That is `describeLedgerMoveBlock`'s question asked with no
+  human behind it.
+- ⚠️ **P1's grouped Trial Balance still places an imported head by nature**
+  (`reports.service.ts` — correctly, off `accountNature`), so an imported Fixed
+  Assets head appears under Current Assets *there* while its ledger sits under
+  Fixed Assets. A transitional discrepancy between the optional grouped view and
+  the tree, for exactly as long as P3 takes: that report's rows come from
+  `acc_groups` afterwards and the two become one answer. Recorded rather than
+  patched, because patching it would give the placement a second definition.
+
+---
+
 ### Verification pass — 2026-08-28
 
 The plan was written from a reading of the source. It has since been checked
@@ -1093,6 +1257,14 @@ single beneficiary: today it must **flatten** a customer's Tally tree into our
 flat groups through a mapping-review screen, because there is no tree to import
 *into*. After P2 there is. See [§3.2](#32-mapping-todays-groups-onto-tallys-tree)
 and [P2](#p2--ledgers-become-the-postable-leaf-xl--the-hard-one).
+
+> ✅ **Closed by P2b‑3c**, and it was half right. The tree can now be preserved —
+> but the real Tally backup this repo carries has **zero** custom groups, so what
+> the phase actually recovered was the **ledger placement**: 60 of that
+> customer's 230 ledgers were being filed by `fallbackGroupForNature` instead of
+> where they belonged. And the 13 `trxGroupId` references needed no repointing at
+> all, because D6 derives the ledger in the one writer of each table. See
+> [§P2b‑3c record](#p2b-3c-record--2026-08-29).
 
 **F16 — In fourteen companies, not one user has created an account head.** `[evidence]`
 Every company carries exactly **one** `sales` group, one `purchase`, one
@@ -1792,7 +1964,11 @@ Balance gains an *optional* grouped view reading the new tree through
 > module's own CRUD, `app-ledger-picker` and `resolveSystemGroup` →
 > `resolveStatutoryLedger`. **P2b‑3c** is the Data Import module below. Both
 > remaining slices are additive or mechanical, and both are gated on the diff
-> being empty again.
+> being empty again. **Both are now done** —
+> [§P2b‑3b record](#p2b-3b-record--2026-08-28),
+> [§P2b‑3c record](#p2b-3c-record--2026-08-29).
+
+**All of P2 is done as of 2026-08-29.**
 
 D1–D8. `acc_ledgers`, the party and instrument ledgers, `journal_lines.ledgerId`,
 the four other id holders, `resolveSystemGroup` → `resolveStatutoryLedger`, and all
@@ -1859,8 +2035,20 @@ P2b‑3a's — [§P2b‑3b record](#p2b-3b-record--2026-08-28).
 well, and that one is a finding: a ledger nothing places has no presentation
 head, so its figures would vanish from every statement.
 
-**Gate (P2b‑3c):** the import module repointed. Re-import one real Tally backup
-and assert the resulting tree matches the source's parentage.
+**Gate (P2b‑3c, met):** the real Tally backup is re-imported into a real batch
+and the resulting `acc_groups` rows are read back and checked against the
+source's own parent chain — `npm run qa:p2c-import-tree`, **227/227** over 14
+companies, every write rolled back. The parity diff is **empty** across the
+change. Shown to fail twice: a create-only placement lands the specimen in
+Current Assets rather than Fixed Assets while every other property stays green,
+and source-ordered creates fail the spec, the gate and the commit itself.
+
+⚠️ **The voucher import needed no repointing**, and that is a finding rather than
+a skipped step: D6 derives `ledgerId` in the one writer of each table, so a
+caller stating one is exactly what it forbids. What the phase actually closed is
+the **ledger placement** — 60 of the real backup's 230 ledgers were landing in
+Current Assets or Current Liabilities whatever the customer's tree said. See
+[§P2b‑3c record](#p2b-3c-record--2026-08-29).
 
 ### P3 · Reports, drill-down, and the Ledger report `[L]`
 
@@ -1949,7 +2137,7 @@ review comment — which is the good news.
 | `shared-read-party.spec.ts` | Sweeps every `@SharedRead()` route as a trading party and asserts the allow-list **exactly**. The ledger picker will be swept the day it lands (§3.3). |
 | `parent-scope.spec.ts` · §4.3 rule 7 | Every caller-supplied `ledgerId`, `groupId`, `costCentreId`, `billReferenceId` needs an ownership check before it is written against. These point at company-scoped tables, so `findByPk` under the hooks is enough — but a `*UserId` still needs `assertMemberIsOurs`. Put the checks at a **seam**, not per call site (BUG-0032). |
 | `check-mirrors.js` (root repo) | Nine checks. New permission keys must land in `permission-registry.ts`, `module-licence.const.ts`, the frontend `module-licence.ts` and `navigation.config.ts` **together**. Retiring `trx-nature` means retiring it in four places. ⚠️ It compares **across submodules only**, so the second copy of Tally's 28 group names — `tally-chart.const.ts` beside `tally-nature-map.const.ts`, both in `client-back` — is invisible to it (§3.2, V3). That pair needs a co-located spec asserting identical key sets, or it is a mirror with nothing behind it. |
-| Data Import — `src/const/import/` | Not a guard, but it fails the same way: `voucher-import.const.ts`, `opening-balance.const.ts`, `party-import.const.ts` and four services all resolve a **group** as the posting target and must repoint inside P2 (F15). `voucher-import.const.spec.ts` and `opening-balance.const.spec.ts` are where it shows. |
+| Data Import — `src/const/import/` | **Answered by P2b‑3c**, and not the way this row expected. The 13 `trxGroupId` references stay: D6 derives the ledger in the one writer of each table, so a caller stating one is what it forbids. What did change is `import-group-tree.const.ts` (+ 21 tests) and where an imported head's ledger LANDS. `scripts/qa-p2c-import-tree.ts` is the gate. |
 | D-49's writer list · `assertPostingAllowed` | The unified entry screen adds writers of `journal_entries` and `stock_movements`. Every one must clear the financial-period gate on **both** dates when it supersedes an approved voucher (BUG-0028). `grep -rn "reverseSource\|inventoryService.reverse"` is the check, and CLAUDE.md §4.9 must list every writer. |
 
 And **CLAUDE.md itself**: §15 requires the map to be updated in the *same commit*
