@@ -2387,6 +2387,7 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
 |---|---|---|
 | Unit (Jest) | `src/**/*.spec.ts` — 112 suites / 1572 tests in client-back, 9 / 176 in admin-back; mostly beside `const/*.const.ts` | `npm test` |
 | Architecture guards | `src/user-module-boundary.spec.ts`, `src/const/ci-guards/*` — raw-SQL (statement · joins · **the calendar day**), cached-state, scope-registry, marker-decorator, `@Body()`-is-a-DTO and **every-JWT-minter-sets-every-claim**. `admin-back` has its own **undecorated-DTO-property** guard | `npm test` + `scripts/ci-guard-*.ts` |
+| Chart-of-accounts parity | `client-back/scripts/qa-coa-parity.ts` + `src/const/parity-snapshot.const.ts` — the gate for the Tally migration (TALLY-PARITY-PLAN.md §4.2): every report for every company, captured before and after, diffed **per figure**. Deliberately **not an oracle** — it never says what a Trial Balance ought to contain, only whether it answered the same thing twice; `qa-artifacts/tests/reports/` owns the restatement. ⚠️ Its diff reports rows **added and removed**, not only changed, because `trialBalance` suppresses zero rows — so a dual-role party netting to exactly zero leaves the report with no figure moving. And an exception is a **list**: an allowance matching nothing fails as loudly as a difference nobody allowed | `npm run qa:coa-parity -- selfcheck` |
 | Rule-7 parent ids | `qa-artifacts/tests/transactions/jobwork-scope.spec.ts` and `tests/api/parent-scope.spec.ts` — every caller-supplied parent id on a write, probed with a stranger resolved from `company_members` (never from a fixture: the QA world **shares** an identity between two tenants on purpose) | `npm run qa:transactions` |
 | Shared-read exposure | `qa-artifacts/tests/permissions/shared-read-party.spec.ts` — sweeps **every** `@SharedRead()` route as a trading party and asserts the allow-list exactly (D-46). Route list comes from the regenerated inventory, so a new shared read is swept the day it lands | `npm run qa:permissions` |
 | The storage seam | `qa-artifacts/tests/storage/` — nine properties over the tree the ERP now owns (§6.4): the index against the **disk** as a census, keys inside their own company's folder, traversal refusals, the spool drained on refusal too, no static serving, who may be handed the bytes (BUG-0057), and every owned file still having its owner (BUG-0058) | `npm run qa:storage` |
@@ -2517,15 +2518,30 @@ nobody re-opens a settled question.
 ### Still open
 
 1. **Test coverage is uneven — a program of work, not a bug.** `src/const/` is
-   well covered (1572 unit tests across 112 suites in client-back, 176 in
-   admin-back, all passing and needing no DB). Services and controllers rely
-   mostly on the `qa-*.ts` harnesses, which need a live stack and aren't run in
-   CI. Neither frontend has meaningful component tests (`admin-front` has no
-   test target at all). This can't be closed in one change; the useful next
-   steps, in order: (a) get the three `ci-guard-*.ts` scripts and `npm test`
-   running in CI on both backends — they're fast and DB-free; (b) add a test
-   target to `admin-front`; (c) convert the highest-value `qa-*.ts` harnesses
-   into Jest suites with a seeded test DB.
+   well covered (1710 unit tests across 120 suites in client-back, 191 across 10
+   in admin-back, all passing and needing no DB). Services and controllers rely
+   mostly on the `qa-*.ts` harnesses, which need a live stack. Neither frontend
+   has meaningful component tests (`admin-front` has no test target at all).
+
+   > **(a) is done, 2026-08-28.** Both backends have
+   > `.github/workflows/ci.yml` running `npm test`, `lint:ci` and `build`, and
+   > client-back adds `npm run guards` — **all five** tree-scanning guards, not
+   > the three this entry named (`raw-sql`, `cached-state`, `scope-registry`,
+   > `body-dto`, `decorators`). admin-back needs no equivalent script: its one
+   > guard reads `src/**/*.ts` from **inside its own spec**, so `npm test` runs
+   > it. Built as P0 of TALLY-PARITY-PLAN.md, which could not proceed safely
+   > without it.
+   >
+   > ⚠️ The pipeline is deliberately **DB-free**. The `qa-*.ts` harnesses hit
+   > real endpoints against a seeded MySQL and are **not** wired in — a
+   > half-configured harness gives a permanently-red pipeline, which this same
+   > section already records as the way a check stops being read. And `npm run
+   > build` is a typecheck, **not** proof the app boots: a provider cycle
+   > compiles and passes `npm test` while Nest cannot resolve it (§14). That
+   > check is `scripts/dump-routes.ts`, which needs a database.
+
+   The remaining steps: (b) add a test target to `admin-front`; (c) convert the
+   highest-value `qa-*.ts` harnesses into Jest suites with a seeded test DB.
 2. **Migrations are a single squashed baseline** in both backends
    (`00000000000000-initial-schema.ts`). Correct while no environment is
    deployed. The moment one is, incremental migrations become mandatory and the
@@ -2771,6 +2787,8 @@ is one nobody reads.
 | Which of the three empty GSTIN answers is this? | `src/services/gst.service.ts` `lookupRaw` (BUG-0061) — unknown number vs. no registry key vs. hub unreachable; `fetchRaw` flattens all three and must not be used where a person reads the result |
 | Do the two `voucher-lifecycle` files agree about what a rule MEANS? | `scripts/vectors/voucher-lifecycle.vectors.json` + `node scripts/check-mirrors.js` — 487 behavioural comparisons, each row checked against both sides *and* against the restated rule |
 | Are the mirrored constants still in sync? | `node scripts/check-mirrors.js` |
+| Did the chart-of-accounts migration move a figure? | `client-back` `npm run qa:coa-parity -- capture before` … `diff before after` (TALLY-PARITY-PLAN.md §4.2). `selfcheck` captures twice on unchanged code and is what proves the harness is reproducible before anyone reads a later diff as a defect |
+| Why is a parity diff failing on an exception I declared? | it matched **nothing** — `judge()` in `parity-snapshot.const.ts` fails an unmet allowance, because a list claiming a movement that did not happen describes a migration that did not happen |
 | What is a licence switch CALLED — `product` or `productEnabled`? | the column is `productEnabled`, the wire/API capability is `product`; `admin-back` `COMPANY_FEATURE_COLUMN` maps between them and `admin-front` `FEATURE_WIRE_KEY` is the console's half (BUG-0066, §5) |
 
 ---
