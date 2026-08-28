@@ -37,8 +37,17 @@ posting engine.**
 resolves through `ledgerId`, and the declared exception has appeared —
 **76,445 moved paths across seven report families, every one of them declared,
 nothing else.** `trxGroupId` survives as a shadow for two labels and a handful
-of unaffected reads until D9. **P2b‑3 is next** — D6's four other holders of a
-group id, the Ledger module and the import module.
+of unaffected reads until D9.
+
+**P2b‑3 split into three, on the same argument the two splits before it used**
+(see [§P2b‑3a record](#p2b-3a-record--2026-08-28)), and **P2b‑3a is done: the
+VOUCHER names a ledger too.** All four of D6's holders — `trx.groupId`,
+`trx_charges.groupId`, `trx_payment_receipts.trxGroupId` and a journal line's
+`trxGroupId` — carry a `ledgerId` beside them, backfilled on **11,856** rows,
+and the posting engine now posts to the ledger *the document says* rather than
+re-deriving one. The parity diff is **empty** across the change. **P2b‑3b is
+next** — the Ledger module's own CRUD, `app-ledger-picker`, and
+`resolveSystemGroup` → `resolveStatutoryLedger`.
 
 > ⚠️ **Building D3 corrected this plan's own headline figure.** §4.2 and F14
 > describe the declared exception as *"Sundry Debtors and Sundry Creditors each
@@ -54,7 +63,9 @@ group id, the Ledger module and the import module.
 | P2a | The ledger layer exists (D1–D4) | L | **done** — [§P2a record](#p2a-record--2026-08-28) |
 | P2b‑1 | The GL names a ledger (D5, D8's third cache) | M | **done** — [§P2b‑1 record](#p2b-1-record--2026-08-28) |
 | P2b‑2 | Reports read the ledger (the declared exception appears) | M | **done** — [§P2b‑2 record](#p2b-2-record--2026-08-28) |
-| P2b‑3 | D6; the Ledger module; the import module | L | not started |
+| P2b‑3a | D6 — the voucher names a ledger | M | **done** — [§P2b‑3a record](#p2b-3a-record--2026-08-28) |
+| P2b‑3b | The Ledger module; `resolveStatutoryLedger`; `app-ledger-picker` | L | not started |
+| P2b‑3c | The Data Import module | M | not started |
 | P3 | Reports, drill-down, and the Ledger report | L | not started |
 | P4 | Voucher entry | XL | not started |
 | P5 | Bill-wise details | L | not started |
@@ -528,6 +539,160 @@ BUG-0043's rule, which this codebase has already paid for twice.
 > and if a future capture shows a `topGroups` row that is **not** a control head,
 > that is the ranking cascading. Do not widen the exception to cover it; drop the
 > panel from the snapshot the way `monthlyTrend` is dropped.
+
+---
+
+### P2b‑3a record — 2026-08-28
+
+**D6, for the four holders of a group id that are not the general ledger.** D5
+gave the GL a `ledgerId`; this gives it to the **document** — which is where a
+person chose the head in the first place. Backfilled on **11,856** rows, behind
+four foreign keys, and the posting engine now believes the column instead of
+re-deriving it.
+
+| | |
+|---|---|
+| `trx.ledgerId` | 11,495 rows · NOT NULL |
+| `trx_charges.ledgerId` | 90 rows · NOT NULL |
+| `trx_payment_receipts.ledgerId` | 271 journals · **nullable**, see below |
+| `trx_payment_receipt_lines.ledgerId` | 0 rows (the table is unused on this install) · NOT NULL |
+| Parity diff across the change | **empty** |
+| `qa:p2-ledgers` | **302/302**, with six new properties |
+| `npm test` | 1,825 in 124 suites |
+
+| Artefact | What it is |
+|---|---|
+| `migrations/20260828300000-voucher-head-ledger.ts` | The four columns, as one loop over a `HOLDERS` table rather than four copies — nullable · backfill · **verify** · tighten · index · FK. |
+| `ledger.const.ts` `voucherHeadRefs` (+ 6 specs) | D6's rule, expressed as a **projection** of D5's — see below. |
+| `ledger.const.ts` `controlHeadNotPostable` | The one refusal message, and the argument for refusing rather than provisioning. |
+| `tally-chart.const.ts` `isControlHead` (+ 5 specs) | The same three lines, extracted from the four places that had written them out. |
+| `ledger-resolution.ts` `resolveLedgersForHeads` / `resolveLedgerForHead` | The seam the four writer services share. |
+| `PostingService` | `ResolvedLeg.ledgerId`, `PostingRequest.mainLedgerId`, `charges[].ledgerId` — and `persistLines` believing a leg that carries one. |
+| `company-hard-delete-order.const.ts` | Four new edges. P2b‑1's lesson, applied without having to relearn it. |
+
+#### D6 is not a second rule, and saying so is the design
+
+A voucher head — `trx.groupId`, a charge's, a journal line's — is a posting
+target with **no party and no instrument behind it**, which is exactly the
+degenerate case `resolveLedgerForLine`'s third precedence arm already answers. So
+there is deliberately **no `resolveLedgerForHead` in `ledger.const.ts`**: the
+pure layer gained a five-line *projection* (`voucherHeadRefs`) and nothing else.
+
+A second resolution function would have been a mirror of a rule ten lines above
+it — §13's shape, inside one file. The spec asserts the property that keeps it
+one rule: a head **cannot reach the party arm even when the head IS a control
+head**. If a later edit gave `voucherHeadRefs` a `partyUserId` — *"the voucher
+knows its supplier, after all"* — a Sales voucher's **revenue** would post into
+the customer's ledger and the Trial Balance would lose its Sales row with
+everything still balancing.
+
+#### ⚠️ The stamp is in the four WRITERS, not in the two save paths
+
+`TrxWriteService.saveTrx` is the seam six callers share and it would have been
+the obvious place. It is the wrong place: `Trx.create` is reachable from
+`TrxService` directly, and `ImportVoucherCommitService` calls
+`TrxPaymentReceiptService.create` **without going through the controller** that
+assembles the DTO. A check in either save path would have been correct for every
+caller somebody thought of — BUG-0032 exactly.
+
+So each stamp sits in the one writer of its own table — `TrxService`,
+`TrxChargeService`, `TrxPaymentReceiptService`, `TrxPaymentReceiptLineService` —
+where a new caller cannot get a row in without it.
+
+**And `ledgerId` is on no DTO.** It is derived from the head, in the service,
+which is CLAUDE.md §12's rule about a column the server owns: `whitelist: true`
+strips only fields nobody *declared*, so declaring it would have handed any
+caller a cross-company ledger id to aim at (§4.3 rule 7 — BUG-0025's own three
+ids being the very columns this phase touches). P2b‑3b is where the direction
+reverses — the picker sends the **ledger** and the group becomes the derived
+half — and the four writers are the seam that flips.
+
+#### ⚠️⚠️ A control head is refused, not provisioned
+
+`resolveOrCreateLedger`'s head branch would happily have created a ledger named
+*"Customer Dues (Sundry Debtors)"* **under** Sundry Debtors — resurrecting as a
+leaf the head that D3's party ledgers replaced, and `presentationGroupId` would
+then report it under the very control head it had vacated. A silently wrong chart
+of accounts with every total still adding up.
+
+Measured before deciding: **0** journal lines, **0** vouchers and **0** charges
+in the installation sit on a control head without a party. But the head *pickers*
+offer every group, so D6 is the step that makes it reachable by a person rather
+than only by a bug. It answers a `400` naming the head.
+
+#### ⚠️⚠️ The receipt header's column is nullable, and the first cut of the backfill got it wrong
+
+`trx_payment_receipts.trxGroupId` is `NOT NULL` and is **residue for two of the
+three voucher types**: `postPaymentReceipt` reads it only for a Journal. Two of
+the 3,308 rows — a payment draft and a receipt draft — name a **control head**,
+i.e. one of the two heads that deliberately has no ledger. A `NOT NULL` here
+would have had to invent a value for them.
+
+The first version of the migration scoped only the *verification* by voucher
+type and left the backfill unscoped, so it handed **3,035 payment and receipt
+rows** a ledger their posting will never read — while
+`TrxPaymentReceiptService.create` leaves that column null for those types. A
+migration and a writer disagreeing about what a column means is P2b‑1's own
+warning, one table over: *a value true for the old rows and absent for the new
+ones is worse than absent for all, because the next reader believes it.*
+
+What caught it is the **phrasing of the check**: (16) asserts *"set for every
+Journal, null for every Payment and Receipt"* rather than *"not null"*. The
+weaker version passes on 3,035 wrong rows. The migration was corrected and
+re-run from `down`, so what is committed is a single correct historical record.
+
+#### The gate was shown to fail — and D6's real claim needed a different test
+
+Six new properties. (15) compares the stored `ledgerId` on **all four** holders
+against what the pure rule answers, which is the check behind the migration's
+SQL restatement, exactly as (10) is for the general ledger. Injected drift on
+`trx` and on `trx_payment_receipts` reports **3 failures** naming the rows;
+reverting restores 302/302.
+
+But (15) and the parity diff together still cannot answer the question the phase
+is actually about: **does the posting engine follow the document, or does it
+still re-derive from the group?** The two agree on every row in the
+installation, which is why nothing that reads real data can tell them apart. So
+they were made to disagree — one approved voucher's `trx.ledgerId` repointed at
+`Cash In Hand`, `groupId` untouched, and the voucher re-posted in a rolled-back
+transaction:
+
+- Under P2b‑3a the main leg posted to **ledger 1**, the one the voucher names.
+- Under P2b‑2's code the identical injection posted to **ledger 23**, the one the
+  group resolves to.
+
+That second half is the acceptance test, the same shape P2b‑2 used. *"Every
+figure is unchanged"* is necessary and says nothing; *"the engine reads the
+column we spent this phase filling"* is the property.
+
+#### Two things found on the way that were not D6
+
+- **A reversal now carries its original's ledger.** `reverseSource` rebuilt each
+  opposite leg from the group and let resolution answer again. It answers the
+  same thing today and a *different* thing the moment anything moves underneath
+  — a party ledger re-parented, a head's ledger replaced — leaving a cancelled
+  voucher that nets to zero overall and to something non-zero on two ledgers.
+  `journal_lines.ledgerId` is `NOT NULL`, so the original always has one to
+  copy.
+- **A `ci-guard-raw-sql` allow-list entry was deleted, not re-keyed.**
+  `posting.service.ts:215` moved under this phase's +35 lines, and re-reading it
+  the way CLAUDE.md §14 asks found the justification *already dead*: it said
+  *"`user_details` has no `companyId` column"*, which stopped being true on
+  2026-08-20, and the query has bound it ever since. Its only remaining effect
+  was to exempt whatever query drifted onto line 215. Verified by removing it —
+  still green. **Re-reading a key means asking both *is this still the
+  statement?* and *does that statement still need an exemption?***
+
+#### Why P2b‑3 split into three
+
+The same argument the two splits before it used. P2b‑3 as written was D6 **plus**
+the Ledger module's CRUD and `app-ledger-picker` **plus**
+`resolveSystemGroup` → `resolveStatutoryLedger` **plus** the import module — and
+D6 is the only part of that which touches the **write path of the busiest write
+in the product**. Landing it beside a new frontend picker would have put a
+figure-moving risk and a UI change in one commit, which is the thing P2b‑2's
+gate was structured to prevent. One phase, one gate, nothing else in the commit
+to confuse a difference.
 
 ---
 
@@ -1276,7 +1441,7 @@ for figure, on every company.
 | **D3** | One ledger per party, under Sundry Debtors or Sundry Creditors — **population and parentage per the note below**. Name from `company_parties.displayName ?? users.name`, which finally gives `displayName` a reader, the sweep BUG-0040's note says is still owed. | `partyUserId` on the ledger |
 | **D4** | One ledger per `trx_accounts` row, under Bank Accounts / Cash-in-Hand / Current Liabilities by `AccountType`. `trx_accounts.ledgerId` written. | `trxAccountId` on the ledger |
 | **D5** | **Backfill `journal_lines.ledgerId`**, in this precedence: `partyUserId` set on a control head → that party's ledger; else `trxAccountId` set → that account's ledger; else → the ledger whose `legacyTrxGroupId` matches `trxGroupId`. Then `NOT NULL`. | the shadow `trxGroupId`, kept |
-| **D6** | Repoint the other four holders of a group id: `trx.groupId`, `trx_charges.groupId`, `trx_payment_receipts.trxGroupId`, and journal voucher `lines[].trxGroupId`. | shadow columns |
+| **D6** | Repoint the other four holders of a group id: `trx.groupId`, `trx_charges.groupId`, `trx_payment_receipts.trxGroupId`, and journal voucher `lines[].trxGroupId`. Each gains a `ledgerId` beside it, derived in the **one writer of its own table** and never taken from the body; the posting engine believes it rather than re-deriving. ⚠️ The receipt header's is deliberately **nullable** — its head column is residue for a Payment and a Receipt, two rows of which name a control head that has no ledger at all. **Done** — [§P2b‑3a](#p2b-3a-record--2026-08-28). | shadow columns |
 | **D7** | Backfill `bill_references` from `trx` (New Ref) and `trx_payment_receipt_transactions` (Agst Ref), plus D-55's synthesised opening bills. | drop table |
 | **D8** | Rebuild both caches through `PostingService.rebuildBalances` — the existing repair door at `POST /trx-accounts/rebuild-balances`. **Not** a second writer (F11, BUG-0042). | re-run |
 | **D9** | Drop `trx_natures`, the `groupFor` column and the shadow columns — **a separate release**, after the parity gate has held in production for one cycle. | — |
@@ -1450,11 +1615,16 @@ Balance gains an *optional* grouped view reading the new tree through
 > lines name a ledger. **P2b‑2 is the reports reading it**, which is the only
 > step in the whole programme that moves a figure, so it lands with the parity
 > diff as its entire gate and nothing else in the commit to confuse a
-> difference. **P2b‑3 is what remains:** D6's four other holders of a group id,
-> the Ledger module's CRUD and `app-ledger-picker`, `resolveSystemGroup` →
-> `resolveStatutoryLedger`, the remaining `trx_groups` sites, and the Data
-> Import module below — all of it additive or mechanical, and all of it gated on
-> the diff being empty again.
+> difference.
+>
+> **P2b‑3 split into three on 2026-08-28**, on the same argument: D6 is the only
+> part of it that touches the write path of the busiest write in the product, so
+> it lands on its own with the diff as its gate. **P2b‑3a is D6 — done**
+> ([§P2b‑3a record](#p2b-3a-record--2026-08-28)). **P2b‑3b** is the Ledger
+> module's own CRUD, `app-ledger-picker` and `resolveSystemGroup` →
+> `resolveStatutoryLedger`. **P2b‑3c** is the Data Import module below. Both
+> remaining slices are additive or mechanical, and both are gated on the diff
+> being empty again.
 
 D1–D8. `acc_ledgers`, the party and instrument ledgers, `journal_lines.ledgerId`,
 the four other id holders, `resolveSystemGroup` → `resolveStatutoryLedger`, and all
@@ -1494,11 +1664,23 @@ and `node scripts/check-mirrors.js` green; `qa:p1-group-tree` 126/126 and
 left alone reports 47 differences under the new code and **an empty diff under
 the old** — [§P2b‑2 record](#p2b-2-record--2026-08-28).
 
-**Gate (P2b‑3):** D6's four other id holders repointed, the Ledger module's CRUD
-and `app-ledger-picker`, `resolveSystemGroup` → `resolveStatutoryLedger` and the
-import module. The parity diff is empty again *on top of* P2b‑2's exception —
-nothing in that phase may move a figure. Re-import one real Tally backup and
-assert the resulting tree matches the source's parentage.
+**Gate (P2b‑3a, met):** all four id holders carry a `ledgerId` — 11,856 rows
+backfilled, four foreign keys, four new hard-delete edges — and the **parity
+diff across the change is empty**, captured before and after on the same
+database. `qa:p2-ledgers` 302/302 with six new properties; `npm test` 1,825; all
+five guards, `lint:ci`, `build`, `check-mirrors` and `qa:p1-group-tree` 126/126
+green. Shown to fail twice: injected drift on two holders reports 3 failures and
+names the rows, **and** an injected disagreement between a voucher's `ledgerId`
+and its `groupId` posts to the voucher's ledger under this phase's code and to
+the group's under P2b‑2's — [§P2b‑3a record](#p2b-3a-record--2026-08-28).
+
+**Gate (P2b‑3b):** the Ledger module's CRUD and `app-ledger-picker`,
+`resolveSystemGroup` → `resolveStatutoryLedger`, and the remaining `trx_groups`
+sites. The parity diff is empty again; the ledger list is
+`@SharedRead({ parties: false })` and `shared-read-party.spec.ts` proves it.
+
+**Gate (P2b‑3c):** the import module repointed. Re-import one real Tally backup
+and assert the resulting tree matches the source's parentage.
 
 ### P3 · Reports, drill-down, and the Ledger report `[L]`
 
