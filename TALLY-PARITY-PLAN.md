@@ -31,9 +31,14 @@ every journal line still points at it, and the parity diff is still empty.
 
 **P2b‑1 is done too: `journal_lines.ledgerId` exists, is backfilled on all
 41,690 lines, is `NOT NULL` behind a foreign key, and is maintained by the
-posting engine.** The parity diff is *still* empty, because no report reads it
-yet — `trxGroupId` survives as a shadow until D9. **P2b‑2 is next**, and it is
-the step where the declared exception finally appears in a report.
+posting engine.**
+
+**And P2b‑2 is done: the reports read it.** Every figure-bearing statement now
+resolves through `ledgerId`, and the declared exception has appeared —
+**76,445 moved paths across seven report families, every one of them declared,
+nothing else.** `trxGroupId` survives as a shadow for two labels and a handful
+of unaffected reads until D9. **P2b‑3 is next** — D6's four other holders of a
+group id, the Ledger module and the import module.
 
 > ⚠️ **Building D3 corrected this plan's own headline figure.** §4.2 and F14
 > describe the declared exception as *"Sundry Debtors and Sundry Creditors each
@@ -48,7 +53,8 @@ the step where the declared exception finally appears in a report.
 | P1 | Groups become a hierarchy | M | **done** — [§P1 record](#p1-record--2026-08-28) |
 | P2a | The ledger layer exists (D1–D4) | L | **done** — [§P2a record](#p2a-record--2026-08-28) |
 | P2b‑1 | The GL names a ledger (D5, D8's third cache) | M | **done** — [§P2b‑1 record](#p2b-1-record--2026-08-28) |
-| P2b‑2 | Reports read the ledger; D6; the Ledger module; the import module | L | not started |
+| P2b‑2 | Reports read the ledger (the declared exception appears) | M | **done** — [§P2b‑2 record](#p2b-2-record--2026-08-28) |
+| P2b‑3 | D6; the Ledger module; the import module | L | not started |
 | P3 | Reports, drill-down, and the Ledger report | L | not started |
 | P4 | Voucher entry | XL | not started |
 | P5 | Bill-wise details | L | not started |
@@ -384,6 +390,144 @@ consistent, not that the graph is complete — and the test that would have caug
 it, `qa-artifacts/tests/cross-service/hard-delete.spec.ts`, needs a running
 stack. Verified afterwards that all **119** `companyId`-bearing tables are still
 in the order.
+
+---
+
+### P2b‑2 record — 2026-08-28
+
+**The reports stopped reading the shadow.** Every figure-bearing statement now
+aggregates by `journal_lines.ledgerId` and maps each ledger back to the legacy
+head it is presented under; `trialBalance`, `profitAndLoss`, `balanceSheet`,
+`groupedTrialBalance`, `groupStatement`, both Outstanding reports, the party
+statement and the Financial Dashboard's two analytics panels. **This is the
+step where the declared exception finally appears in a report**, and it did:
+
+| | |
+|---|---|
+| Paths that moved | **76,445**, across **seven** report families and nothing else |
+| Undeclared differences | **0** |
+| Unmet allowances | **0** |
+| Δ Sundry Debtors / Creditors | **−₹2,51,44,323.21 / +₹2,51,44,323.21** — exactly what `party_ledger_plan` declared |
+| Journal lines reported under a different head than they were posted to | **4,281** live (5,393 including cancelled), across 8 companies |
+| `qa-p2-ledgers` | **232/232**, with three new properties |
+
+| Artefact | What it is |
+|---|---|
+| `src/const/ledger-presentation.const.ts` (+ spec, **15 tests**) | The transitional rule: **which legacy head a ledger reports under**. Two branches — a `legacyTrxGroupId` *is* that head (D2 and D4's 536 ledgers); a party ledger reports under the control head of the side D3 parented it to (815). `presentationJoinSql` / `presentationGroupExpr` are the same rule in SQL, written once for the ten statements that paste it. |
+| `qa-coa-parity exceptions` | Writes the declared exception as a **list** — 513 entries, each naming the party or the head it is about. |
+| `qa-p2-ledgers` (13) (13b) (14) | The presentation rule is total over every posting ledger; the SQL says what the pure rule says; and **no party is outstanding on both sides at once**. |
+
+#### Why the reports still render the legacy chart
+
+Because repointing and re-rendering are two steps — P2b‑1's argument, one phase
+on. **P3** is where the Trial Balance becomes a tree of `acc_groups` and a line
+names its ledger. P2b‑2 changes only the mechanism, so that a wrong figure and a
+wrong mechanism stay distinguishable, and its gate is that **exactly one thing
+moves**.
+
+That it did is the result worth reading twice. Seven families changed —
+`groupStatements` (75,407 paths, all on the two control heads of the 8 affected
+companies), `trialBalance`, `balanceSheet`, `financialDashboard`,
+`outstanding.vendor`, `outstanding.customer`, `parties.summary`. The Day Book,
+both registers, the cash and bank books, daily cash, every party statement,
+every pending-bill list and both cache censuses are **byte-identical**.
+
+#### ⚠️ The gate was shown to fail, and the way it fails is the proof
+
+P0's discipline: an empty diff proves nothing until the harness has been shown
+to fail. So one `journal_lines` row in company 15 was repointed from the
+`Purchase` ledger to `General Expenses` — **`ledgerId` only, leaving the shadow
+`trxGroupId` untouched**, which is exactly the shape of a mis-mapped backfill.
+
+- Under the new code the harness reported **47 differences**, naming
+  ₹1,75,455.32 in every place it surfaced: the P&L expense rows, both Trial
+  Balance periods, the dashboard's group panel.
+- Under the **old** code, the same injected row produced **an empty diff**.
+
+That second half is the phase's actual acceptance test. It is not "the reports
+still answer the same"; it is *"the reports are reading the column we spent
+P2b‑1 filling"* — and nothing else could have said so, because both versions
+agree on every figure that is not a merged party's.
+
+#### The exception is generated, and it is derived from the LINES
+
+513 allowances, not 76,445, because §4.2's own test for an exception that has
+stopped being one is *"a list nobody could review"*. One entry per **named row**
+— a control head's statement, a Trial Balance row, a party's summary card, a
+party's line in an Outstanding report — each carrying the party's name, the side
+D3 parented them to, and the amount displaced.
+
+Three things about it that are deliberate:
+
+- **It is derived from the repointing, not from `party_ledger_plan`.** The plan
+  is D3's *decision*, and `qa-p2-ledgers` (8b) already checks the movement
+  against it. What the allow-file needs is the other question — *which figures
+  does the repointing touch?* — and the honest source for that is every live
+  journal line whose ledger's presentation head differs from the head it was
+  posted to. The plan supplies only the **reason** text.
+- **`judge` fails an allowance that matched nothing**, so the generator may not
+  be generous. Getting that right needed three predicates, not one, and
+  companies 32 and 33 are what proved it: their displaced lines predate the
+  active financial year and net to zero on each head, so **that year's Trial
+  Balance row does not move even though the head's membership did**. A period
+  column moves iff a displaced line falls inside it; an opening moves iff the
+  lines before it do not net; a closing — and every total, and the Balance Sheet
+  — moves iff the lines up to the period's end do not net.
+- **`periodsOf` is now shared by `capture` and `exceptions`**, because a period
+  label is half of every allowance path. Two derivations of one label is the
+  mirror problem this plan is about, one level down.
+
+The file is **generated, not committed** (`scripts/_reports/` is gitignored, and
+the ids in it are one installation's). Re-run `npm run qa:coa-parity --
+exceptions` before every diff.
+
+#### ⚠️⚠️ Two reads are deliberately still on the shadow, and they are LABELS
+
+`dayBook`'s line label and `accountBook`'s `particulars` still join
+`trx_groups` through `jl.trxGroupId`. They are not figures, and moving them now
+would relabel **5,393 lines** to the *wrong* head's name on the way to the right
+one — P3 turns both into the **ledger's** name, which is what a Tally user reads
+in a Day Book ("Ramesh Traders", not "Customer Dues"). Moving them in this phase
+would also have cost the gate a per-entry allowance list, i.e. the thing §4.2
+says an exception may not become.
+
+The other shadow readers, all of which answer the **same figure** either way
+because their heads are 1:1 with a D2 ledger — listed so the D9 sweep has a
+list rather than a grep (§13 still-open #3):
+
+| Reader | Why it is unaffected |
+|---|---|
+| `DashboardService.cashBankBalance` · `.profitMtd` · `.gstLiability` | instrument and tax heads, one ledger each |
+| `Gstr3bService` GL cross-check | tax heads |
+| `ExportJobService` day-book export | a **label**, same class as the two above |
+| `PostingService.rebuildBalances` | it maintains `trx_groups.currentBalance`, which **is** the shadow's own cache and must keep reading it |
+| `party-ledger-plan.ts` | it measures the historical position *by head*; reading it through the ledger would make D3's own derivation circular |
+
+`DashboardService.partyOutstanding` is the one that **was** moved, and had to be:
+it is the KPI card sitting one screen from the Outstanding reports, and leaving
+it behind would have shipped a card and a breakdown that count different rows —
+BUG-0043's rule, which this codebase has already paid for twice.
+
+#### The tape measure changed too, and both changes were needed before the capture
+
+- **Outstanding rows had no identity.** `vendorId`/`customerId` are in no
+  `IDENTITY_KEYS` entry, so those rows fell back to their **index** — and both
+  reports are `ORDER BY outstanding DESC`, so one moved balance renumbered every
+  row behind it and reported the whole report as changed. Property 2 of
+  `parity-snapshot.const.ts`, failing on the one report the exception is most
+  about.
+- **The Financial Dashboard was not in the snapshot at all**, and the merge moves
+  money between two account **natures** on its top panel. It is in now
+  (`formatVersion` 2), with `monthlyTrend` replaced by a marker because it is
+  the one figure in the whole snapshot derived from *today* rather than a stated
+  period.
+
+> ⚠️ `financialDashboard.topGroups` is a **top-20 ranking**. On this data every
+> row it moved is one of the 16 control heads, so the exception stays
+> attributable — but a ranking is the one shape a parity diff cannot attribute,
+> and if a future capture shows a `topGroups` row that is **not** a control head,
+> that is the ranking cascading. Do not widen the exception to cover it; drop the
+> panel from the snapshot the way `monthlyTrend` is dropped.
 
 ---
 
@@ -1230,6 +1374,15 @@ not ship until the diff is empty — except in exactly one place, named below.**
 > and the diff is asserted to contain *those rows and nothing else*. An exception
 > list that is a list is a gate; an exception that is a tolerance is not.
 >
+> ✅ **Built, and it is `npm run qa:coa-parity -- exceptions`** (P2b‑2). 513
+> entries, one per **named row** rather than per path — 76,445 paths would be the
+> list nobody could review that the sentence above is warning about. Each names
+> the party or the head it is about, and each is derived from the **repointing
+> itself** (every live line whose ledger's presentation head differs from the
+> head it was posted to), with `party_ledger_plan` supplying only the reason
+> text — so the allow-file and the plan are two independent derivations that have
+> to agree.
+>
 > One more consequence, easy to miss: `trialBalance`'s
 > `HAVING openingNet <> 0 OR periodDebit <> 0 OR periodCredit <> 0` suppresses
 > zero rows. A dual-role party whose two sides net to **exactly** zero does not
@@ -1293,10 +1446,15 @@ Balance gains an *optional* grouped view reading the new tree through
 > run is the cheap way to find out. **P2a is done** —
 > [§P2a record](#p2a-record--2026-08-28).
 >
-> **P2b is what remains:** D5–D8, the four other holders of a group id, the
-> Ledger module's CRUD and `app-ledger-picker`, `resolveSystemGroup` →
-> `resolveStatutoryLedger`, all 65 `trx_groups` sites, and the Data Import
-> module below.
+> **P2b split again on 2026-08-28, on the same argument.** P2b‑1 is D5 — the
+> lines name a ledger. **P2b‑2 is the reports reading it**, which is the only
+> step in the whole programme that moves a figure, so it lands with the parity
+> diff as its entire gate and nothing else in the commit to confuse a
+> difference. **P2b‑3 is what remains:** D6's four other holders of a group id,
+> the Ledger module's CRUD and `app-ledger-picker`, `resolveSystemGroup` →
+> `resolveStatutoryLedger`, the remaining `trx_groups` sites, and the Data
+> Import module below — all of it additive or mechanical, and all of it gated on
+> the diff being empty again.
 
 D1–D8. `acc_ledgers`, the party and instrument ledgers, `journal_lines.ledgerId`,
 the four other id holders, `resolveSystemGroup` → `resolveStatutoryLedger`, and all
@@ -1327,11 +1485,20 @@ three new properties: the stored column against the pure rule, the third cache
 against its own Σ, and a live posting that provisions a ledger and is rolled
 back. `npm run qa:p2-ledgers` — 229/229.
 
-**Gate (P2b‑2):** parity harness diff is empty on every QA company **apart from
-the enumerated party exception** (§4.2) — 76 parties, asserted row by row from
-`party_ledger_plan`, not tolerated. `npm test`, all three CI guards, and `node scripts/check-mirrors.js`
-green. Re-import one real Tally backup and assert the resulting tree matches the
-source's parentage.
+**Gate (P2b‑2, met):** the parity diff contains **the enumerated party exception
+and nothing else** — 76,445 paths, 0 undeclared, 0 unmet, against a 513-entry
+allow-file generated by `qa-coa-parity exceptions` and derived from the
+repointing itself. `npm test` (1,812), all five CI guards, `lint:ci`, `build`
+and `node scripts/check-mirrors.js` green; `qa:p1-group-tree` 126/126 and
+`qa:p2-ledgers` 232/232. Shown to fail: a `ledgerId` repointed with the shadow
+left alone reports 47 differences under the new code and **an empty diff under
+the old** — [§P2b‑2 record](#p2b-2-record--2026-08-28).
+
+**Gate (P2b‑3):** D6's four other id holders repointed, the Ledger module's CRUD
+and `app-ledger-picker`, `resolveSystemGroup` → `resolveStatutoryLedger` and the
+import module. The parity diff is empty again *on top of* P2b‑2's exception —
+nothing in that phase may move a figure. Re-import one real Tally backup and
+assert the resulting tree matches the source's parentage.
 
 ### P3 · Reports, drill-down, and the Ledger report `[L]`
 
