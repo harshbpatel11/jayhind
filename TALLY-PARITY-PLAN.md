@@ -167,7 +167,28 @@ contradicted the screen it replaces, and the screen was wrong: the old Payment
 drew its **head** as the debit row with the amount beside it, and that head is a
 leg of **0 of 974 posted payments and 0 of 1,888 receipts** (against 204 of 204
 for journals) — the ledger actually debited, the party, was in a side panel with
-no Dr against it. **P4c — Item mode, `trx-add-edit` re-hosted — is next.**
+no Dr against it.
+
+**And P4c is done: the item grid is on the same surface.** Purchase, Sales and
+both notes are typed at `/transaction/voucher/<type>` beside the four cash
+vouchers — eight types, one surface, two components — and `trx-add-edit` was
+**re-hosted, never rewritten**: no DTO, no service, an empty backend diff, and
+its 2,250 lines untouched but for the keyboard. The type bar became a shared
+component because one surface cannot have two copies of its own button row, and
+F4/F6 stopped focusing pickers, which is P4b's correction made a fourth time.
+⚠️ Building it found every blank item voucher **born dirty** — P4a's head
+preselect propagates through the `ControlValueAccessor`'s view→model path, which
+Angular reads as a keystroke — so making a type switch a navigation turned
+*"Discard unsaved changes?"* into a prompt between every pair of the eight
+vouchers on an empty form.
+
+⚠️⚠️ **`Ctrl+H` was not built, deliberately**, and the measurement is why: all
+9,970 financial vouchers carry at least one item row, `trx_items` names a product
+and never a ledger, and `buildLegs` gives a sales voucher exactly **one** `Main`
+leg. Tally's Accounting Invoice needs a per-line ledger allocation this schema
+does not have — a figure-moving change, not a re-host. It is now **P4e**, on
+P4b's own ruling: *a toggle with one destination is a button that lies.* **P4d —
+Workflow Document mode — is next.**
 
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
@@ -201,8 +222,9 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P3d‑2 | `/transaction/ledgers` — the Chart of Accounts screen | M | **done** — [§P3d‑2 record](#p3d-2-record--2026-08-29) |
 | P4a | `app-ledger-picker`, `Alt+C`, and `groupFor` stops deciding (F4) | M | **done** — [§P4a record](#p4a-record--2026-08-29) |
 | P4b | The unified entry screen + the accounting (Dr/Cr) mode; the third mode named (F6) | M | **done** — [§P4b record](#p4b-record--2026-08-29) |
-| P4c | Item mode — `trx-add-edit` re-hosted, `Ctrl+H` | L | not started |
+| P4c | Item mode — `trx-add-edit` re-hosted onto the surface | L | **done** — [§P4c record](#p4c-record--2026-08-30) |
 | P4d | Workflow Document mode, and the remaining route redirects | M | not started |
+| P4e | `Ctrl+H` — what an Accounting Invoice IS in this schema | L | not started |
 | P5 | Bill-wise details | L | not started |
 | P6 | Trading Account and Gross Profit | M | not started |
 | P7 | Cost centres | L | not started |
@@ -2809,6 +2831,183 @@ Three things this phase deliberately did **not** do:
 - **`Ctrl+H` does not exist yet.** There is one mode on this screen and nothing
   to toggle to until P4c; a toggle with one destination is a button that lies.
 
+
+### P4c record — 2026-08-30
+
+**Purchase, Sales, Debit Note and Credit Note are typed on the same surface as
+the four cash vouchers.** `/transaction/voucher/<type>` now hosts **eight** types
+across two components — `VoucherEntryComponent` for the Dr/Cr grid (P4b) and
+`TrxAddEditComponent` for the item grid — and the second was **re-hosted, never
+rewritten**: its 2,250 lines are untouched but for the keyboard. The header
+strip, the options bar, `revealInvalidPanel`, the pricing engine, the e-invoice
+and e-way bill paths, HSN/UQC and price capture all arrived as they were, which
+is the whole of §3.5's risk note.
+
+No DTO changed, no service changed, the backend diff is **empty**, and the
+parity diff is empty by construction.
+
+#### One surface means one type bar, so the bar became a component
+
+`app-voucher-type-bar` (`components/shared/voucher-type-bar/`) is rendered by
+both halves. Copying the `@for` into the second screen would have been the mirror
+problem *inside one repo*, on a bar whose entire purpose is that every voucher is
+one key away from every other — and the two copies would have had to agree about
+eight buttons, their order and their labels.
+
+It is deliberately **presentational**: it emits the type asked for and knows
+nothing about routing. Where a type is typed is `entrySurfaceFor()`'s answer —
+one function, read by the bar's two hosts, both route files, the drill spine and
+the scan review, so nothing can come to a different answer about where F9 goes.
+The six Workflow Document types are absent from it, which keeps P4d a **seam**
+rather than a shim: a key naming one navigates to the route it already has.
+
+#### ⚠️ F4 and F6 changed meaning here, exactly as P4b changed them three times
+
+The item form bound bare **F4** to *focus the account head* and **F6** to *focus
+the party* — ours, not Tally's, and the opposite of what the same two keys did in
+`TransactionLayoutComponent` one level up in the same module. P4b made precisely
+this correction on the three cash-voucher screens; leaving it uncorrected would
+have meant F4 opening a Contra on a Payment and focusing a picker on a Purchase,
+which is worse than either rule alone. §3.5's map wins on both. `Alt+N` / `Alt+D`
+(add and remove a line) are the grid's own, collide with no voucher chord, and
+stayed.
+
+`Ctrl+A` and `F12` arrived with the re-host — the item form had neither, and F12
+opens `TransactionConfigEditComponent` as a dialog, the same second host P4b gave
+it rather than a second editor.
+
+⚠️ **`Ctrl+A` costs more on this half than on the other, and it was taken
+anyway.** On a two-row cash voucher there is nothing to select; on a twenty-line
+item grid *select all* is a chord an operator's fingers already know, and it now
+accepts the voucher instead. Three things decided it: §3.5 asks for it by name,
+Tally's Ctrl+A **is** accept, and one surface answering the same chord two ways
+depending on which half you are on is worse than either rule. The blast radius is
+bounded — `onSubmit()` on an incomplete voucher shows its validation errors and
+sends nothing — and `Ctrl+S` stays as the alias this screen has always had.
+
+#### ⚠️⚠️ Building it found a blank new voucher being born dirty
+
+`app-ledger-picker`'s `preselectDefault` (P4a) applies the seeded head through
+`onSelection`, which propagates via `onChange` — the `ControlValueAccessor`'s
+**view→model** path. Angular reads that as the operator having typed something,
+so it marks the control `dirty` **and** `touched`: every brand-new Purchase,
+Sales, Debit Note and Credit Note was dirty before anybody had typed a character.
+
+It was invisible while nothing navigated away from a blank voucher without being
+asked to. P4c makes a type switch a **navigation** — deliberately, so
+`pendingChangesGuard` is what asks about a dirty voucher rather than a
+`window.confirm` written into the screen — and the defect surfaced immediately as
+*"Discard unsaved changes?"* between **every pair of the eight vouchers**, on an
+empty form, on the busiest screen in the product.
+
+The rule it breaks was already ruled in this codebase, for the party form's
+country/state default: **a default is a starting point, not a change to somebody's
+saved row**, applied into an empty field and *never marking the form dirty*. The
+fix restores pristine and untouched on that control alone — `markAsPristine`
+walks up and re-marks the parent only when every sibling is pristine too, so a
+form dirtied by a real edit elsewhere stays dirty, which is what makes clearing
+it after the fact safe rather than needing a silent write path.
+
+⚠️ The general shape is worth keeping: **a programmatic write through a CVA is
+indistinguishable from a keystroke**, and the only thing that separates them is
+the component deciding which it was. P4b's `applyNewVoucherDefaults` already
+called `markAsPristine()` for exactly this reason on the head it looks up by key;
+what it did not do was fix the picker, so the four screens that had not yet met a
+guard went on carrying it.
+
+⚠️⚠️ **The first cut of the fix undid `touched` as well, and that broke `Alt+C`.**
+`onSelection` marks the control touched too, so clearing both looked like the
+symmetrical thing to do — and `markAsUntouched()` in that subscription **empties
+the open dropdown's search box**, which is where `Alt+C` reads the new ledger's
+name from. Tally's *"the term that found nothing becomes the name"* silently
+became a ledger called `""`. Caught by `qa:money`, on P4a's own gate, in the
+full run rather than in the new one: **the phase's own suite is not the whole
+gate.** `markAsPristine` alone is what the defect was about — the guard reads
+`dirty` and nothing here reads `touched` — so the fix is now the narrower
+statement. **Fix the flag the bug is about, not the flag beside it.**
+
+#### The drill spine stopped landing via a redirect
+
+`drillRoute` spelled `/transaction/vouchers/<type>/:id/edit` for all eight
+drillable types — which, since P4b, meant four of them arrived through a
+redirect, and after P4c all eight would have. It asks `entrySurfaceFor` now.
+
+Esc was never broken by it (`DrillService` sets `ours` before navigating and
+reads `urlAfterRedirects`, so one `NavigationEnd` arrives and the stack survives)
+— but `drill()`'s own *"am I already here?"* comparison is against the
+pre-redirect URL, and a route stack storing a URL the router immediately replaces
+is a fact waiting to be relied on. `VOUCHER_EDIT_SEGMENTS` stays a hand-written
+list and keeps its argument: *"does a posting naming this document open a screen
+at all?"* is a different question from *"where is this type typed?"*, and only the
+second moves as each mode is re-hosted.
+
+#### The gate, and three injections
+
+`qa-artifacts/tests/ui/money/voucher-rehost.ui.spec.ts` +
+`voucher-rehost-rules.ts` (restated, never imported). **Six properties, in a
+browser**, because P4c moves no figure and a snapshot diff is therefore empty by
+construction and says nothing about any of it — P3d's argument, P4a's and P4b's.
+
+1. **eight types are one surface**, and the old entry paths land on it;
+2. ⚠️ **the LISTS did not move** — the property the redirect itself can break,
+   since `sales` and `sales/new` are one segment apart and a `pathMatch` wrong by
+   one turns every voucher list in the module into a blank new voucher;
+3. **both halves offer the same eight buttons in the same order** — asserted as a
+   *sequence*, because a scrambled bar is a different defect from a short one —
+   and the six Workflow Documents are on neither;
+4. ⚠️ **one key crosses the halves**: F5 from a Sales lands on a Payment, F8 from
+   a Payment lands on a Sales. That second one left the surface entirely before
+   this phase;
+5. **the form arrived whole** — the header strip, the items grid, the options bar
+   and P4a's head picker, because a stub renders a route just as well as the real
+   form does;
+6. ⚠️⚠️ **F4 and F6 switch the voucher rather than focusing a field**, and
+   `Alt+N` still adds a line.
+
+Shown to fail: the F4 focus binding put back (1 fails), a redirect that drops its
+`/new` segment (2 fail — (1) and (2)), and item mode un-hosted from
+`ENTRY_SURFACE_TYPES` (5 fail; only the list property survives, correctly, since
+the entry routes come back with it). The dirty-form defect above is the fourth
+and was found *by* the gate rather than injected into it.
+
+⚠️ **One existing property changed its meaning and was rewritten rather than
+re-pointed.** `transaction-panel.ui.spec.ts` asserted that F4 on a full-page entry
+form does **not** move the URL — true of the pre-P4c item form, whose F4 focused a
+picker. The module-level keys standing down and the form's own keys taking over
+are two different facts, and they now land on two different URLs: the property is
+which of the two handlers answered (`/transaction/voucher/contra/new`, not
+`/transaction/vouchers/contra`), which is a stronger statement than the one it
+replaced.
+
+#### ⚠️ `Ctrl+H` was NOT built, and that is a decision rather than a shortfall
+
+§3.5 asks for `Ctrl+H` to toggle **Accounting Invoice ↔ Item Invoice**. Measured
+before writing any of it:
+
+- **all 9,970 financial vouchers carry at least one item row** — there is no
+  no-items shape in the data at all;
+- **`trx_items` names a `productId`, never a ledger** (`id companyId trxId
+  productId unitPrice quantity … hsnCode gstSupplyClass`);
+- **`buildLegs` gives a sales voucher exactly one `Main` leg** — the voucher's
+  single head.
+
+So Tally's Accounting Invoice — N income/expense ledger rows each with its own
+amount — is **not representable**: it needs a per-line ledger allocation the
+schema does not have and a posting engine that emits several `Main` legs. That is
+a migration and a figure-moving change, not a re-host, and sizing it inside a
+phase whose whole discipline is *"nothing inside the form changes"* would have
+been the wrong trade.
+
+The need is real and small and already has an answer: **474 vouchers are
+service-only** (416 sales, 35 credit notes, 23 purchases) — 4.8% of the financial
+documents, entered through the item grid with a service product, which is exactly
+what a Tally operator would type as an Accounting Invoice.
+
+It gets its own decision and its own phase, **P4e**, on P4b's own ruling one phase
+on: *a toggle with one destination is a button that lies.* The two candidate
+shapes are recorded in §3.5 so the next phase starts from the measurement rather
+than re-deriving it.
+
 ---
 
 ### Verification pass — 2026-08-28
@@ -3418,9 +3617,9 @@ It is the whole of the "full Tally replacement" decision.
 | Element | Behaviour |
 |---|---|
 | **Voucher type** | `F4` Contra · `F5` Payment · `F6` Receipt · `F7` Journal · `F8` Sales · `F9` Purchase · `Alt+F5` Debit Note · `Alt+F6` Credit Note, plus `Ctrl+F8/F9` for orders. Switching type on an unsaved blank voucher is free; on a dirty one it asks. |
-| **Mode** | `Ctrl+H` toggles **Accounting Invoice** ↔ **Item Invoice**. Contra, Payment, Receipt and Journal are accounting-only. Sales, Purchase and both notes default to Item Invoice and remember per voucher type. The third mode is the **Workflow Document** (F6, decided 2026-08-29) and is deliberately **not** a `Ctrl+H` destination — see below. |
+| **Mode** | `Ctrl+H` toggles **Accounting Invoice** ↔ **Item Invoice**. Contra, Payment, Receipt and Journal are accounting-only. Sales, Purchase and both notes default to Item Invoice and remember per voucher type. The third mode is the **Workflow Document** (F6, decided 2026-08-29) and is deliberately **not** a `Ctrl+H` destination — see below. ⚠️ **Not built at P4c, and it is now P4e** — an Accounting Invoice is not representable in this schema; the measurement is below. |
 | **Accounting mode grid** | **Done (P4b.)** Dr/Cr rows: side · ledger · amount · (bill-wise popup if the ledger is bill-wise — P5) · (cost-centre popup if applicable — P7). Running Dr and Cr totals with the difference shown live; save is refused while it is non-zero, **in the voucher's own words** rather than a form error. ⚠️ The rows are **derived from `buildLegs`**, so what the screen draws is what the voucher posts — which is how P4b found the old Payment screen drawing its *head* as the debit row, a head that is a leg of none of the 2,862 posted payments and receipts. |
-| **Item mode grid** | **The existing form, re-hosted.** `trx-add-edit`'s item grid, its pricing engine, its GST classification, its charges and its attachments move in as a child component. `applyCatalogueSnapshots`, `TrxWriteService`, the e-invoice and e-way bill paths, HSN/UQC and price capture are **untouched**. |
+| **Item mode grid** | **Done (P4c.)** The existing form, re-hosted: `trx-add-edit` is routed under `/transaction/voucher/<type>` and gains the shell's type bar and Tally's key map, and nothing inside it changed. `applyCatalogueSnapshots`, `TrxWriteService`, the e-invoice and e-way bill paths, HSN/UQC and price capture are **untouched**. ⚠️ Re-hosted as a **sibling component on the same surface**, not as a child of `VoucherEntryComponent` — both already render `.vch-shell` and `.vch-titlebar`, so nesting would have meant one screen drawing two title bars and the child's own `CanComponentDeactivate` sitting under a guard it no longer owned. What they share is the **type bar**, which became one component. |
 | **`Alt+C`** | Create ledger / stock item / cost centre inline from the field that needed it. **The ledger half is done (P4a)**, on every head field. |
 | **`Ctrl+A`** | Accept and save from anywhere. `Ctrl+S` kept as an alias — several screens already bind it. **Done (P4b)** on the accounting types. |
 | **`F12`** | Per-voucher-type configuration, replacing `/transaction-config/:trxType` as a modal rather than a route. **Done (P4b)** — the same editor component, given a second host rather than a second implementation. |
@@ -3446,6 +3645,38 @@ It is the whole of the "full Tally replacement" decision.
 > `voucher-entry.const.ts` is the rule and its spec asserts the set against
 > `buildLegs` returning no legs at all, so the mode cannot drift from the
 > posting behaviour that defines it.
+
+> ⚠️ **`Ctrl+H` IS NOT BUILDABLE AS A TOGGLE HERE — measured 2026-08-30, at P4c**,
+> and this is where P4e starts. Tally's Accounting Invoice is N income/expense
+> ledger rows, each with its own amount. In this schema:
+>
+> - **all 9,970 financial vouchers carry at least one `trx_items` row** — there is
+>   no no-items shape in the data at all;
+> - **`trx_items` names a `productId` and never a ledger** (`id companyId trxId
+>   productId unitPrice quantity discountType discountValue discountAmount amount
+>   totalTaxAmount totalAmount … hsnCode gstSupplyClass`);
+> - **`buildLegs` gives a sales voucher exactly one `Main` leg** — the voucher's
+>   single head (`trx.groupId` / `.ledgerId`).
+>
+> So the money lives in the item lines and the classification is one head for the
+> whole document. The need is real and small: **474 vouchers are service-only**
+> (416 sales, 35 credit notes, 23 purchases — 4.8%), entered through the item grid
+> with a service product, which is precisely what a Tally operator would type as
+> an Accounting Invoice.
+>
+> Two shapes are available and the choice is P4e's, not a detail:
+>
+> - **Single-head.** A no-items form: party + the one income/expense head +
+>   amount + tax. Reuses `buildLegs` unchanged and needs only the server to accept
+>   a net stated without item lines. Covers the 474; is **not** Tally's N-ledger
+>   invoice.
+> - **Full multi-ledger.** A per-line allocation (`trx_items.ledgerId`, or a
+>   `trx_ledger_allocations` table) and a posting engine emitting several `Main`
+>   legs, plus a migration and a backfill. **XL, and it moves figures** — closer
+>   in size to P2 than to P4c.
+>
+> Until one is chosen there is nothing to toggle to, which is P4b's own ruling:
+> *a toggle with one destination is a button that lies.*
 
 > ⚠️ **What must not be lost.** The voucher options bar, `revealInvalidPanel`, the
 > maker–checker lifecycle and `voucher-lifecycle.const.ts`'s rules all stay exactly
@@ -4078,6 +4309,16 @@ of each voucher type without a mouse.
 > screen's own table — 14 types as data, 14 row plans run on both sides. It is
 > the only thing tying the entry screen to the posting engine across the repo
 > boundary, and both of its failure modes were reproduced.
+
+> **P4c is done** ([record](#p4c-record--2026-08-30)): the surface hosts **eight**
+> types across two components, with `trx-add-edit` re-hosted and untouched. The
+> keyboard half of the gate is met for those eight; the remaining six meet it when
+> P4d re-hosts them, and their keys navigate until then rather than pretending.
+>
+> ⚠️ **`Ctrl+H` moved out of this phase into P4e**, because an Accounting Invoice
+> is not representable in this schema — see §3.5's measurement. The phase heading
+> above still lists it among P4's keys, which is right: it is P4's work, and it is
+> the last of it.
 
 ### P5 · Bill-wise details `[L]`
 
