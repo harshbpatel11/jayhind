@@ -1240,6 +1240,40 @@ silently missing its later months is worse than one that says the period is too
 long; property (14) asserts the refusal *against its own message*, so a 404 on a
 mistyped id cannot satisfy it.
 
+#### 🐞 The cash/bank picker could not render a saved voucher's own account, and never could
+
+`PaginatedSelectSource.ensure()` is how every voucher screen pins the account a
+saved voucher already names — *"pin it, or that picker opens blank on an edit"*,
+in all three of the components this phase deleted. It fetches by id, and that
+fetch has been answering **400** the whole time:
+
+```
+POST /trx-accounts/list  {"filters":{"id":[{"type":"numeric","value":46,…}]}}
+→ 400 Invalid Type numeric for Database Field id Type BIGINT
+```
+
+The shared paginator's `checkDataTypeAndFilterType` whitelisted `INTEGER` and
+the float family and **not `BIGINT`** — and `TrxAccount.id` is declared
+`DataType.BIGINT` on the model (the column itself is `int`; model and schema
+disagree, which is its own thing to fix). So the account rendered only when it
+happened to be in the picker's first page, and a QA tenant has three accounts,
+which is why nobody saw it. On a migrated book with hundreds it is P4a's
+data-loss shape exactly: a blank field reads as *"nothing chosen"*, the operator
+picks something, and the save writes it over a value that was there all along.
+
+`BIGINT`, `MEDIUMINT`, `SMALLINT` and `TINYINT` are in the list now, in **both
+backends** — they carried the identical omission, §13's standing shape — with a
+per-width spec and `BOOLEAN` as the control, still refused. Four genuine `BIGINT`
+columns could not be filtered on either (`stored_files.size`,
+`chat_messages.fileSize`, `export_jobs.totalBytes`, `companies.maxStorageBytes`),
+nor could `trx.placeOfSupplyStateCode`, a `TINYINT` GST state code.
+
+⚠️ **It was found by a probe watching RESPONSES, not by an assertion.** The
+screen looked right, because the value it could not fetch was on the page
+anyway. Property (8) now asserts both halves — the rendered account *and* that
+nothing the screen asked for was refused — and fails when `BIGINT` is taken back
+out.
+
 #### ⚠️ Two of the eight properties trip the ERP's own rate limiter
 
 Measured: the file is green run after run on its own, and inside a full
@@ -2669,7 +2703,7 @@ deletes three of one folder over.
 #### The gate, and five injections
 
 `qa-artifacts/tests/ui/money/voucher-entry.ui.spec.ts` +
-`voucher-entry-rules.ts` (restated, never imported). **Eight properties, in a
+`voucher-entry-rules.ts` (restated, never imported). **Nine properties, in a
 browser**, because P4b moves **no figure**: every one of the four still posts
 through the API it always did, no DTO changed, and the backend diff is two new
 files — a pure const and its spec — so the parity diff is empty by construction
@@ -2691,11 +2725,14 @@ and says nothing about any of it.
    looks identical on screen);
 6. a Payment's head is on no grid row, and is a leg of none of the company's
    posted payments;
-7. every type has a mode, and only the four are on this screen.
+7. every type has a mode, and only the four are on this screen;
+8. a saved voucher **renders the accounts it names**, and nothing it asked for
+   was refused — the property that found the defect below.
 
 Shown to fail: the payment's Dr row put back to the head (2 fail), the legacy
 redirects removed (1 fails), the unbalanced journal allowed to leave the page (1
-fails), and P4a's chord swallow re-added to `app-select` (1 fails).
+fails), P4a's chord swallow re-added to `app-select` (1 fails), and `BIGINT`
+taken back out of the numeric whitelist (1 fails).
 
 ⚠️ **A fifth injection PASSED, and the property was the problem** — P3d‑1's
 lesson and P4a's, a third time. Swapping the contra's two grid cells so the Dr

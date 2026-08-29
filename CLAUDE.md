@@ -2545,6 +2545,23 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
   primary key to every list's `ORDER BY`, so two pages of one query cannot
   overlap or skip a row. `PlatformUsersService` keeps a tighter 200 of its own,
   deliberately — it is the only list that reads across every company.
+- **A numeric filter is accepted on every integer WIDTH, not only `INTEGER`.**
+  `checkDataTypeAndFilterType`'s whitelist listed `INTEGER` and the float family,
+  so a numeric filter on a column a model declares as `BIGINT` answered
+  `400 Invalid Type numeric for Database Field id Type BIGINT`. `TrxAccount.id`
+  is declared `DataType.BIGINT` (the column itself is `int` — the model and the
+  schema disagree, which is a separate thing to fix), so
+  `PaginatedSelectSource.ensure()` — how **every voucher screen** pins the
+  cash/bank account a saved voucher already names — 400ed on every edit, and the
+  account rendered only when it happened to be in the picker's first page. A QA
+  tenant has three accounts, which is why it survived. Four genuine `BIGINT`
+  columns (`stored_files.size`, `chat_messages.fileSize`,
+  `export_jobs.totalBytes`, `companies.maxStorageBytes`) and a `TINYINT` GST
+  state code (`trx.placeOfSupplyStateCode`) could not be filtered on either.
+  ⚠️ **Both backends carried the identical omission** (§13's standing shape) and
+  both are fixed; `BOOLEAN` is deliberately still refused a numeric filter, and
+  the widths listed are the ones `attr.type.key` reports —
+  `DataType.TINYINT.UNSIGNED` keys as `TINYINT`.
 - **A filter naming a column no model declares is a `400`**, the same answer an
   undeclared *sort* column already got; it used to be dropped silently, which
   returned the **unfiltered** table to a caller who asked for a subset. A dotted
@@ -3057,6 +3074,7 @@ is one nobody reads.
 | The frozen cross-service contracts | `_ops/adr/frozen-contracts.md` |
 | Which planning docs are missing, and what `§20.9` means | `_ops/README.md` |
 | Is a queue's "degrade without Redis" fallback actually reachable? | `src/const/queue-deadline.const.ts` `withQueueDeadline` (BUG-0062) — ioredis buffers a command issued during an outage for ever, so an unbounded `await queue.add(...)` makes the `catch` below it dead code and hangs the request instead |
+| Why does a picker show a placeholder over a value the row actually holds? | if it is a cash/bank picker on a voucher, it was `checkDataTypeAndFilterType` refusing a numeric filter on `BIGINT` — the fetch-by-id behind `PaginatedSelectSource.ensure()` (§10, P4b). More generally it is the missing `include` (§14's job-work row): a foreign key rides on the model whether or not you join its association |
 | Why did a re-extract do nothing? | `InvoiceScanService.discardFinishedJob` (BUG-0060) — BullMQ treats `add()` with a held `jobId` as a duplicate, and `removeOnFail: 100` holds a failed scan's id |
 | Which of the three empty GSTIN answers is this? | `src/services/gst.service.ts` `lookupRaw` (BUG-0061) — unknown number vs. no registry key vs. hub unreachable; `fetchRaw` flattens all three and must not be used where a person reads the result |
 | Do the two `voucher-lifecycle` files agree about what a rule MEANS? | `scripts/vectors/voucher-lifecycle.vectors.json` + `node scripts/check-mirrors.js` — 487 behavioural comparisons, each row checked against both sides *and* against the restated rule |
