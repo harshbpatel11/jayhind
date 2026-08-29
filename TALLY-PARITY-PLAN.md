@@ -81,7 +81,25 @@ unchanged as `legacy*` and are what the harness captures — so **the parity dif
 is empty** and the tree is tied to them head by head by `qa:p3b-statements`
 (309/309). Two figures move on a customer's sheet, both declared: the four GST
 input heads become liabilities (₹1,54,85,553.06), and **a loss moves to the
-Assets side**, which is Tally's own placement. **P3c is next.**
+Assets side**, which is Tally's own placement.
+
+**And P3c‑1 is done: the presentation layer is gone.** `ledger-presentation
+.const.ts` is deleted, and with it the three `legacy*` statements, `?view=legacy`,
+the Trial Balance's `natureShift` annotation and the parity harness's exception
+generator. The last three product callers moved onto `acc_groups`, the Group Book
+took the tree's id space, the Financial Dashboard's two panels stopped describing
+the flat chart, and `qa-artifacts/tests/reports/` was ported to the tree — which
+found that its party-facing oracles had been asking the legacy question all
+along, and took the suite from **25 failures to 8** against a measured baseline.
+No report renders `trx_groups` any more. **P3c‑2 — ledger creation — is next**,
+and it is unblocked for the first time.
+
+⚠️ **The parity harness's question changed with it**, which is the phase in one
+line: it existed to ask *"did a figure move as the mechanism changed underneath a
+report whose shape is fixed?"*, and there is no longer a second derivation to
+hold the tree against. That question is finished. `diff --rebased` is how a pair
+straddling the change declares which reports are not the same report on both
+sides — seven of them, and the diff over everything else is **empty**.
 
 > ⚠️ **Building D3 corrected this plan's own headline figure.** §4.2 and F14
 > describe the declared exception as *"Sundry Debtors and Sundry Creditors each
@@ -102,7 +120,8 @@ Assets side**, which is Tally's own placement. **P3c is next.**
 | P2b‑3c | The Data Import module | M | **done** — [§P2b‑3c record](#p2b-3c-record--2026-08-29) |
 | P3a | The Ledger report and the Group Summary | M | **done** — [§P3a record](#p3a-record--2026-08-29) |
 | P3b | The statements become the tree (Trial Balance, Balance Sheet, P&L) | M | **done** — [§P3b record](#p3b-record--2026-08-29) |
-| P3c | Ledger creation; the presentation layer retires | M | not started |
+| P3c‑1 | The presentation layer retires | M | **done** — [§P3c‑1 record](#p3c-1-record--2026-08-29) |
+| P3c‑2 | Ledger creation | M | not started |
 | P3d | The drill-down spine and `/transaction/ledgers` | M | not started |
 | P4 | Voucher entry | XL | not started |
 | P5 | Bill-wise details | L | not started |
@@ -1176,14 +1195,15 @@ Balance Sheet takes Tally's section order, and the two label reads cross over �
 so it lands alone with the parity diff as its entire gate and nothing else in
 the commit to confuse a difference.
 
-**P3c** is ledger **creation**, and it is third rather than first for a measured
-reason recorded twice already (§3.3, and the P2b‑3b record): while any
-figure-bearing report resolves through `presentationGroupId`, a ledger with
-neither a `legacyTrxGroupId` nor a party has **no presentation head**, and its
-money would leave every statement silently. Creation becomes safe on the day the
-last such report stops asking — which is what P3b does and P3c finishes, by
-retiring the transitional rule from the party statement, the two Outstanding
-reports and the Financial Dashboard.
+**P3c** split again, into **P3c‑1** (the presentation layer retires) and
+**P3c‑2** (ledger creation), and creation is second for a measured reason
+recorded twice already (§3.3, and the P2b‑3b record): while any figure-bearing
+report resolves through `presentationGroupId`, a ledger with neither a
+`legacyTrxGroupId` nor a party has **no presentation head**, and its money would
+leave every statement silently. Creation becomes safe on the day the last such
+report stops asking — which is what P3b began and P3c‑1 finished, by retiring
+the transitional rule from the party statement, the two Outstanding reports and
+the Financial Dashboard, and the rule itself with them.
 
 **P3d** is the drill-down spine — the shared `DrillTarget` resolver, Tally's
 Esc-as-a-route-stack, and the `/transaction/ledgers` tree-plus-grid screen. It is
@@ -1369,6 +1389,252 @@ Two things were found doing it, and both are the shape §13 keeps recording:
   measured by stashing the phase and re-running — and every one of them still
   fails for its own reason. P3b's own 24 were all shape, and are what the view
   parameter answers.
+
+---
+
+### P3c‑1 record — 2026-08-29
+
+**The presentation layer retired.** `ledger-presentation.const.ts` is deleted,
+and with it the three `legacy*` statements, `?view=legacy`, the Trial Balance's
+`natureShift` annotation and the parity harness's exception generator. The last
+three product callers moved onto `acc_groups`, the Group Book took the tree's id
+space, the Financial Dashboard's two panels stopped describing the flat chart,
+and `qa-artifacts/tests/reports/` — 10,314 lines whose oracle was Σ by legacy
+head — was ported to the tree.
+
+| | |
+|---|---|
+| Parity diff across the change | **empty**, over everything that is still the same report — 803,098 paths compared per figure, seven declared re-basings |
+| `npm test` | 1,892 in 126 suites |
+| `qa:p1-group-tree` · `qa:p2-ledgers` · `qa:p2c-import-tree` | 56 · 325 · 227 |
+| `qa:p3-ledger-report` · `qa:p3b-statements` | 140 · 323 |
+| `qa-artifacts` `qa:reports` | **203 passed · 8 failed** against **186 · 25** on `main` — measured by stashing the phase, restarting the backend and re-running, and the eight are a strict subset of the twenty-five |
+| five guards · `check-mirrors` · `lint:ci` · `build` (both repos) | green |
+| Migrations | **none** — this phase adds no column and no table |
+
+#### P3c split in two, and creation is second
+
+Same argument as the four splits before it, with the order reversed for a
+reason the plan already records twice (§3.3, the P2b‑3b record): ledger
+**creation** is blocked until the retirement lands, because while any
+figure-bearing report resolves through `presentationGroupId` a hand-created
+ledger has no presentation head and its money leaves that report silently. So
+**P3c‑1** is the retirement — the slice that can move a figure — and **P3c‑2**
+is `AccLedgerService.create` and its gate, which is additive.
+
+#### ⚠️ The harness's own question changed, and that is the phase
+
+`qa-coa-parity` was built to ask *"did a figure move as the mechanism changed
+underneath a report whose shape is fixed?"* — and it answered that question
+seven times, from P1 to P3b, by capturing the FLAT statements either side of
+every change. Deleting the presentation rule deletes the flat derivation, so
+there is no longer a fixed shape to hold the tree against. **That question is
+finished**: the mechanism change is complete, every step of it was gated, and
+from here the harness asks the ordinary one — *did anything move between these
+two builds?* — of the reports a customer actually reads.
+
+Three consequences, all of them decisions rather than side effects:
+
+- **`diff --rebased <prefix>` is new, and it is NOT an allowance.** An allowance
+  says *"this figure moved, and here is why"* — a statement about the books,
+  judged per path. A re-basing says *"this report is not the same report on the
+  two sides"*, which is a statement about the tape measure: a pair straddling
+  P3c has the flat Trial Balance on one side and the `acc_groups` tree on the
+  other, and diffing them reports tens of thousands of rows added and removed,
+  taking every figure with them. The paths under a declared prefix are dropped
+  from **both** sides, the count dropped is printed rather than swallowed, and a
+  prefix matching nothing **fails** exactly as an unmet allowance does.
+- **Seven prefixes were declared and no eighth was needed**, which is the
+  measurement: `trialBalance`, `profitAndLoss`, `balanceSheet`,
+  `groupStatements`, the dashboard's `natures` and `topGroups`, and
+  `meta.groups` — the harness's own census of which chart it enumerates. The
+  diff over **everything else** is empty: both Outstanding reports, every
+  party's summary, statement and pending bills, the Day Book, the registers, the
+  cash and bank books, the daily cash reports, the dashboard's summary and
+  account panel, and all three balance caches.
+- **`exceptions` retired with the reports it named.** Every path it emitted was
+  a row of a flat statement — a Trial Balance section keyed by
+  `trx_natures.accountNature`, a Balance Sheet row keyed by a `trx_groups` id —
+  so it could only emit allowances matching nothing, which `judge` fails,
+  correctly and confusingly. It has no successor because it has no remaining
+  job: the movement it declared was applied and diffed at P2b‑2. The note where
+  it stood records what it was and why a later phase wanting one should write
+  its own rather than teach this one a third report shape.
+
+#### The gates lost their second opinion, and each one says what it does now
+
+Every tie in the programme has been *two derivations of one figure meeting*.
+Half of those derivations was the flat report, so five gates had to be re-based
+in this commit. The pattern is the same in each: what was a comparison against
+another REPORT becomes a comparison against **Σ over `journal_lines`**, restated
+in the gate — which is the discipline `qa-artifacts` has always used and which
+does not depend on a second report being right either.
+
+| Gate | Was | Is |
+|---|---|---|
+| `qa-p3b-statements` (3) | Σ debit/credit/net identical to the flat report | identical to Σ over `journal_lines` |
+| `qa-p3b-statements` (4) | **head by head** against the flat closing | **ledger by ledger** against that ledger's own Σ |
+| `qa-p3b-statements` (10) | the sheet reconciled to the flat one, less the nature shift and the moved loss | the two movements as **placements** — the four GST input ledgers on the liability side, the P&L A/c on the side its own balance takes — plus each side totalling its own sections |
+| `qa-p3b-statements` (11) | P&L identical to the flat report | P&L against Σ for the Income- and Expense-natured groups |
+| `qa-p1-group-tree` (3)(4) | the tree's totals, overall and per nature, against the flat report | **retired** — the questions moved to `qa-p3b-statements` (3) and (10); restating them here would be two scripts deriving the same Σ from the same rows |
+| `qa-p3-ledger-report` (6) | Σ ledger closings by legacy head vs the flat Trial Balance | Σ by **group** vs the Trial Balance node's own `ownClosing` |
+| `qa-p2-ledgers` (13) | the presentation rule is total, and its SQL restatement agrees with the pure one | every posting ledger is filed under one of Tally's 15 **primaries**, so its money is somewhere a statement walks |
+| `qa-p2-ledgers` (19) | a posted ledger whose presentation head does not change may be re-filed | a posted ledger may be re-filed **within its own nature** |
+| `qa-p2c-import-tree` (6b)(7) | a placed ledger still reports under its own legacy head; a party under a sub-group has no presentation head | the placement keeps the head's **nature**; a party under a sub-group is invisible to the four party-side reads |
+
+The numbering gaps in `qa-p1-group-tree` are left in place deliberately, so a
+reader looking for (3) finds out where it went.
+
+#### ⚠️ `qa-p2-ledgers` (8b) was the one the plan asked P3c to decide
+
+The P3b record left it open: it compared the resolver's measured movement
+against `party_ledger_plan.displacedBalance`, a figure **frozen at migration
+time**, and so could only stay green on a book nobody posts to — one party of
+company 28 gained ₹5,25,960 on the control head they were not parented to and
+the check went red for a reason that was not a defect.
+
+Decided: it compares against **what actually happened**, derived a second and
+independent way — one SQL statement over the stored `ledgerId` and the shadow
+head each line was posted to, against the TypeScript resolver's own tally. The
+plan row is *the record of a movement that happened* and is deliberately not
+refreshed (§4.1 D3); where each party's ledger hangs is already (2c)'s question,
+so what was worth a second opinion here was the **arithmetic**, and it is now
+recomputed from the rows that exist today rather than from a column describing
+the day the migration ran. 326 → 325 checks, all green.
+
+#### Two figures move on the Financial Dashboard, and one of them is BUG-0043's rule
+
+The dashboard's nature and group panels were the last two product surfaces
+reading the flat chart, and moving them is what the phase's name means. Both are
+declared re-basings above; what a customer sees change:
+
+- **The nature panel's money moves by the GST-input shift** — the four input
+  heads are Assets on the legacy chart and Liabilities on Tally's (₹1,54,85,553.06
+  across the fourteen development companies), P1's declared shift arriving on a
+  third surface after the Balance Sheet. `trx_natures` stays the row source: it
+  is exactly four rows per company with no drift (F8), and it is the four
+  natures' display names and `trxType`.
+- **"Top groups" are `acc_groups` rows**, and each one's activity is its **own**
+  ledgers' — not its subtree's, because a parent and its child would then both
+  count the same line and a "top 20 by activity" list would fill up with
+  ancestors.
+
+⚠️ **The card and the breakdown had to be brought back into agreement, and the
+port broke it first.** `totalGroups` still counted `trx_groups` while the panel
+under it counted `acc_groups` — D-56's exact shape, *a KPI card and the
+breakdown drawn under it must count the same rows* — and the spec that noticed
+was `qa-artifacts`' own, not a review. It counts the tree now. The two still
+differ by exactly the **nature-less** groups (Tally's Suspense A/c and Branch /
+Divisions carry no nature deliberately, so no nature row can claim them), and
+that difference is asserted against the rows rather than allowed for.
+
+#### The Group Book moved id spaces, and three callers had to move with it
+
+`GET /reports/group-statement/:groupId` takes an `acc_groups` id, reports the
+whole **subtree** by `path` prefix, and the third id space on that controller is
+gone — `:ledgerId` on the Ledger report is the only other one left. What had to
+follow it, and is worth knowing because none of it is in the service:
+
+- the screen's picker, from `trx-groups/list` to a new `acc-groups/list` feed;
+- the Transaction dashboard's funds cards, which deep-linked with the
+  per-instrument backing group `trx_accounts` auto-creates (F5, F16).
+  `getFundsSummary` now also answers `accGroupId` — the group the instrument's
+  **ledger** hangs under — and the link is deliberately **wider** than it was:
+  it opens the group every bank account shares rather than one account's own
+  statement. The per-account drill is P3a's Ledger report, whose screen lands in
+  P3d; until then the widening is visible (the Group Book names the group it is
+  showing) rather than silent;
+- two QA specs that picked "the busiest head" straight out of
+  `journal_lines.trxGroupId`, which is now an id in a different space. Both
+  answered **404**, which is the right answer and is exactly how a silent id-space
+  change would have looked if the route had gone on answering.
+
+#### `describeLedgerMoveBlock` became a rule about NATURE
+
+It asked whether a move changed the ledger's *presentation head*, and that rule
+permitted moving one of D2/D4's 536 ledgers anywhere in the tree — because its
+`legacyTrxGroupId` decided where it printed whatever group it hung under. The
+statements read the tree now, so where a ledger hangs **is** where it prints, and
+the question that survives is `describeGroupReparentBlock`'s third rule one level
+down: **a posted ledger may not cross an account nature**, because that re-signs
+figures already reported (D-19's forward-only doctrine).
+
+It keeps D3's protection through a rule that outlives the transition: Sundry
+Debtors is an Asset and Sundry Creditors a Liability, so moving a posted party
+between them is still refused. And it is deliberately *permissive* within a
+nature — a posted ledger re-filed under a sibling group is a pure re-filing, and
+a blanket "posted ledgers do not move" would have been the wrong rule.
+
+#### The QA suite was ported, and the port is what found the rest
+
+`qa-artifacts/tests/reports/` restated the FLAT statements — R1 of
+`statement-rules.ts` read *"a ledger head is a `trx_groups` row"* — and reached
+them through `?view=legacy` at 61 call sites. The oracle is the tree now:
+`ledgerFigures` (Σ per ledger) and `groupFigures` (the same, rolled up by the
+materialised `path`, with the terminator carried because `/1/7/` must not
+collect `/1/70/`).
+
+Two things fell out that are worth carrying:
+
+- **Σ is taken over the LEAVES, never over the tree.** A parent's figure
+  includes its whole subtree, so adding the nodes up counts every line once per
+  ancestor. Three sums survive any regrouping — Σ period debit, Σ period credit,
+  Σ net — and they are the only figures a grouped report may be held to
+  identically; the closing columns are `max(net, 0)` over the primaries, so
+  merging thirteen tax heads into Duties & Taxes legitimately changes them.
+- **The party-facing oracles were still asking the legacy question**, and that
+  is why twelve of `main`'s twenty-five failures were failing. They computed a
+  party's position from the two `trx_groups` control heads — *which head was
+  this line posted to?* — where every report answers *which group does this
+  party's ledger hang under?* The two differ by the whole of D3's movement, per
+  tenant. `party-rules.ts`, `agreement-rules.ts`, `dashboard-rules.ts` and
+  `party-statement.spec.ts` all read the tree now.
+
+⚠️ **The suite is not green, and the honest number is the one measured on
+`main`.** 25 fail before this phase and 8 after, and the eight are a **strict
+subset** of the twenty-five — checked by stashing the phase, restarting the
+backend and re-running, then diffing the failing set by name. What is left is
+the same family one layer out: fixtures and party-facing oracles outside
+`tests/reports/` that assume a party is a debtor, written before D3 gave a party
+one ledger on one side.
+
+Two of them were fixed on the way and are worth naming, because both were an
+oracle **encoding the pre-D3 world in an arithmetic** rather than in a query:
+
+- **`Math.max(receivable, payable)`** read a party's control balance. Exactly one
+  of the two is non-zero after D3 and either can be **negative** — a party who
+  has paid us more than they owe carries a net advance on their own side — so
+  `max` picked the zero from the other side and reported a real ₹17,16,889 as
+  ₹0. It is a sum now.
+- **Which parties are "single-sided"** was read off the LEDGER, and D3 made that
+  the wrong question: every party has one ledger under one group now, so *every*
+  party reads as single-sided there while their documents may still have two
+  sides. It is asked of `trx` — did this party both buy and sell? — which is
+  what the annexure under test is built from.
+
+And one reconciliation had to be **netted**: R6 held a party's receivable against
+their sales-side documents and their payable against their purchase-side ones,
+separately, which is only well-posed while a party has a position on each head.
+The statement that survives is stronger — *the party's single ledger net is their
+sales side less their purchase side, plus the opening nothing documents* — and it
+held on all 187 of alpha's parties where the pair it replaced failed on 22.
+
+#### What P3c‑2 inherits
+
+Nothing blocks ledger creation any more: no figure-bearing report resolves
+through a presentation rule, so a ledger created under any group appears on the
+Trial Balance under it. `AccLedgerService` has `update`, `move`, `remove`,
+`findOne` and `findAll` and no `create`; the class doc still explains why, and
+that explanation is now history rather than a constraint — P3c‑2 replaces it
+along with `POST /acc-ledgers`, its DTO, `groupAcceptsLedgers` at the seam, and
+the gate §P3's entry names: *a ledger created through the API appears on the
+Trial Balance, the Group Summary and the Balance Sheet.*
+
+⚠️ **`openingBalance` is a separate question and is deliberately still absent.**
+D2 copied each legacy head's figure onto its ledger and the *entry* is still
+posted from `trx_groups` (`JournalSourceType.GroupOpening`); accepting one here
+too would post it twice, once per chart, with the trial balance balancing
+throughout.
 
 ---
 
@@ -2410,10 +2676,11 @@ Current Assets or Current Liabilities whatever the customer's tree said. See
 > before it.** **P3a** is the additive half — the two reports §3.10 calls *new*,
 > which read the new chart directly and move nothing. **P3b** is the only slice
 > that changes what a customer sees, so it lands alone with the parity diff as
-> its whole gate. **P3c** is ledger creation, which cannot come earlier: while
-> any figure-bearing report resolves through `presentationGroupId`, a
-> hand-created ledger has no presentation head and its money leaves every
-> statement (§3.3, and the P2b‑3b record). **P3d** is the navigation spine and
+> its whole gate. **P3c** split in two: **P3c‑1** retires the presentation
+> layer, and **P3c‑2** is ledger creation, which cannot come earlier — while any
+> figure-bearing report resolves through `presentationGroupId`, a hand-created
+> ledger has no presentation head and its money leaves every statement (§3.3,
+> and the P2b‑3b record). **P3d** is the navigation spine and
 > the Chart of Accounts screen, last because it has no backend risk in it and
 > because the reports it moves between must exist first.
 
@@ -2457,12 +2724,33 @@ is asked of the rows instead — the 691-entry `head → ledger` allowance list 
 obvious alternative wanted would have been derived by re-running the report's
 own query, which is P2b‑3c's lesson.
 
-**P3c — ledger creation, and the presentation layer retires.** The remaining
-`presentationGroupId` callers — `party-statement.service.ts`, `trx.service.ts`'s
-two Outstanding reads and `financial-dashboard.service.ts`'s inverted join — move
-onto `acc_groups`, and `AccLedgerService` gains the `create` §3.3 asked for.
+**P3c‑1 — the presentation layer retires. Done**
+([record](#p3c-1-record--2026-08-29)). The remaining `presentationGroupId`
+callers — `party-statement.service.ts`, `trx.service.ts`'s two Outstanding reads
+and `financial-dashboard.service.ts`'s inverted join — moved onto `acc_groups`;
+the rule, the three `legacy*` statements, `?view=legacy`, `natureShift` and the
+harness's exception generator are deleted; the Group Book took the tree's id
+space; and `qa-artifacts/tests/reports/` was ported to the tree.
 
-**Gate (P3c):** a ledger created through the API appears on the Trial Balance,
+**Gate (P3c‑1, met):** the parity diff, **empty** over everything that is still
+the same report — seven declared re-basings, 803,098 paths compared per figure —
+plus five re-based gate scripts (`qa:p1-group-tree` 56, `qa:p2-ledgers` 325,
+`qa:p3-ledger-report` 140, `qa:p3b-statements` 323, `qa:p2c-import-tree` 227) and
+`qa-artifacts`' own suite at **203 passed · 8 failed** against a measured
+baseline of **186 · 25** on `main`, the eight a strict subset of the
+twenty-five. ⚠️ The half of every earlier gate that was *another report* is gone
+with the flat statements; each tie is now against **Σ over `journal_lines`**,
+restated in the gate. `diff --rebased` is the new declaration and it is not an
+allowance: it says *this report is not the same report on both sides*, drops the
+paths under a named prefix from BOTH, prints how many it dropped, and fails a
+prefix that matches nothing.
+
+**P3c‑2 — ledger creation.** `AccLedgerService` gains the `create` §3.3 asked
+for, with `groupAcceptsLedgers` at the seam. Unblocked for the first time: no
+figure-bearing report resolves through a presentation rule any more, so a new
+leaf has somewhere to appear.
+
+**Gate (P3c‑2):** a ledger created through the API appears on the Trial Balance,
 the Group Summary and the Balance Sheet — the property whose absence is why
 creation was deferred twice.
 
