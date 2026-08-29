@@ -1,0 +1,243 @@
+{
+  "_": "Shared behavioural table for the Chart of Accounts' five refusals — see scripts/check-mirrors.js check 10. `jayhind-client-back/src/const/ledger.const.ts` enforces them; `jayhindi-client-front/src/utils/ledger-rules.util.ts` states them on screen so an operator reads the reason instead of meeting a 400. Both must answer every expanded row with the SAME SENTENCE, and both must match the sentence stated here — so a wording one side quietly improved, and a rule both sides forgot together, are different failures.",
+
+  "__regions": "A case's `given` holds ARRAYS: every combination is expanded and compared, so a case is a statement about a REGION of the fact space rather than one row. The regions of each rule below partition it exactly — 182 comparisons over 22 hand-written cases. Ordering matters inside a rule and the cases say which arm they are about.",
+
+  "__unknown": "`hasPostings` / `subtreeHasPostings` may be `null` here, meaning ABSENT — the browser cannot know whether a ledger has posted, and inventing a guess would produce a refusal that is sometimes wrong. Both sides must then answer `null` (allowed) and let the server, which does know, refuse with the same sentence. That equivalence is a rule, not an accident, so it is in the table.",
+
+  "messages": {
+    "no-nature": "This group has no account nature, so a ledger under it would have no side of the books to report on. File it under an Asset, Liability, Income or Expense group instead.",
+    "control-group": "Sundry Debtors and Sundry Creditors hold one ledger per trading party, created with the party itself — a ledger made by hand here would carry a balance that no outstanding or statement report could attribute to anybody. Add the party instead, or use a sub-group.",
+    "children": "This group has ${childGroupCount} sub-group(s). Move or delete them first.",
+    "ledgers": "This group holds ${ledgerCount} ledger(s). Move or delete them first.",
+    "primary-delete": "A primary group is part of the Balance Sheet and Profit & Loss structure and cannot be deleted.",
+    "predefined-delete": "This is a predefined group and cannot be deleted. Tally treats its own 28 the same way.",
+    "primary-move": "A primary group is part of the Balance Sheet and Profit & Loss structure and cannot be moved.",
+    "cycle": "A group cannot be moved inside its own subtree.",
+    "group-nature": "This group already has posted entries, and the destination sits under a different account nature — moving it would re-sign figures that have already been reported. Create the group in the new place and use it going forward instead.",
+    "ledger-system-move": "This is a system ledger. Where it sits decides how statutory figures are reported, so it is placed by the chart of accounts rather than moved by hand.",
+    "ledger-nature": "This ledger already has posted entries, and the destination sits under a different account nature — moving it would re-sign figures that have already been reported. Move it while it is empty, or leave it where its history was posted.",
+    "ledger-system-delete": "This is a system ledger and cannot be deleted. Deactivate it instead if it is no longer used.",
+    "ledger-posted": "This ledger carries posted entries and cannot be deleted. Deactivate it instead — the entries that name it must stay readable."
+  },
+
+  "placement": [
+    {
+      "id": "place-no-nature",
+      "given": {
+        "nature": [null],
+        "systemKey": [null, "TALLY:SUNDRY_DEBTORS", "TALLY:SUNDRY_CREDITORS", "TALLY:FIXED_ASSETS"],
+        "isPrimary": [true, false],
+        "isParty": [true, false]
+      },
+      "expect": "no-nature",
+      "why": "the nature arm is asked FIRST, so Suspense A/c answers about its missing nature even when it is also a control group — a ledger with no side of the books cannot be paired with a trx_groups twin, whose accountNature is NOT NULL"
+    },
+    {
+      "id": "place-control-by-hand",
+      "given": {
+        "nature": ["Asset", "Liability", "Income", "Expense"],
+        "systemKey": ["TALLY:SUNDRY_DEBTORS", "TALLY:SUNDRY_CREDITORS"],
+        "isPrimary": [true, false],
+        "isParty": [false]
+      },
+      "expect": "control-group",
+      "why": "in this ERP a debtor/creditor ledger IS a party (D3): one made by hand carries no partyUserId, so its balance sits on the Balance Sheet and appears in no receivables report at all"
+    },
+    {
+      "id": "place-control-is-party",
+      "given": {
+        "nature": ["Asset", "Liability", "Income", "Expense"],
+        "systemKey": ["TALLY:SUNDRY_DEBTORS", "TALLY:SUNDRY_CREDITORS"],
+        "isPrimary": [true, false],
+        "isParty": [true]
+      },
+      "expect": null,
+      "why": "a ledger that already IS a party belongs under a control group — that is where D3 put every one of them. Moving a posted one across the two is refused by the move rule, whose message describes the real problem"
+    },
+    {
+      "id": "place-ordinary-group",
+      "given": {
+        "nature": ["Asset", "Liability", "Income", "Expense"],
+        "systemKey": [null, "TALLY:FIXED_ASSETS"],
+        "isPrimary": [true, false],
+        "isParty": [true, false]
+      },
+      "expect": null,
+      "why": "Tally allows a ledger under any group, primary ones included, and so does this — an operator who wants a Fixed Assets ledger without inventing a sub-group gets one. isPrimary is deliberately NOT a refusal"
+    }
+  ],
+
+  "groupDelete": [
+    {
+      "id": "del-children-first",
+      "given": {
+        "childGroupCount": [1, 3],
+        "ledgerCount": [0, 1, 12],
+        "isPrimary": [true, false],
+        "isSystem": [true, false]
+      },
+      "expect": "children",
+      "why": "the counts come before the structural refusals because they are the answers an operator can act on — and acc_groups.parentId is RESTRICT, so an unguarded delete surfaces as a 409 naming a constraint"
+    },
+    {
+      "id": "del-ledgers-next",
+      "given": {
+        "childGroupCount": [0],
+        "ledgerCount": [1, 12],
+        "isPrimary": [true, false],
+        "isSystem": [true, false]
+      },
+      "expect": "ledgers",
+      "why": "this group's OWN ledgers, never the subtree's — GET /acc-groups/tree carries the same count per node so the screen can say it without asking"
+    },
+    {
+      "id": "del-primary",
+      "given": {
+        "childGroupCount": [0],
+        "ledgerCount": [0],
+        "isPrimary": [true],
+        "isSystem": [true, false]
+      },
+      "expect": "primary-delete",
+      "why": "Tally's 15 primaries ARE the sections of the Balance Sheet and the P&L"
+    },
+    {
+      "id": "del-predefined",
+      "given": {
+        "childGroupCount": [0],
+        "ledgerCount": [0],
+        "isPrimary": [false],
+        "isSystem": [true]
+      },
+      "expect": "predefined-delete",
+      "why": "structural rows shipped as an editable master is how a company ends up without a Sales head (F8)"
+    },
+    {
+      "id": "del-allowed",
+      "given": {
+        "childGroupCount": [0],
+        "ledgerCount": [0],
+        "isPrimary": [false],
+        "isSystem": [false]
+      },
+      "expect": null,
+      "why": "an empty group somebody made is theirs to remove"
+    }
+  ],
+
+  "groupReparent": [
+    {
+      "id": "move-primary",
+      "given": {
+        "isPrimary": [true],
+        "isSystem": [true, false],
+        "createsCycle": [true, false],
+        "natureChanges": [true, false],
+        "subtreeHasPostings": [true, false, null]
+      },
+      "expect": "primary-move",
+      "why": "moving a primary is not a re-parent, it is a different chart of accounts"
+    },
+    {
+      "id": "move-cycle",
+      "given": {
+        "isPrimary": [false],
+        "isSystem": [true, false],
+        "createsCycle": [true],
+        "natureChanges": [true, false],
+        "subtreeHasPostings": [true, false, null]
+      },
+      "expect": "cycle",
+      "why": "a tree that became a ring makes a roll-up either walk for ever or truncate silently, and the second is the one that ships"
+    },
+    {
+      "id": "move-nature-posted",
+      "given": {
+        "isPrimary": [false],
+        "isSystem": [true, false],
+        "createsCycle": [false],
+        "natureChanges": [true],
+        "subtreeHasPostings": [true]
+      },
+      "expect": "group-nature",
+      "why": "nature is inherited and denormalised onto every descendant, so the move re-signs figures already reported — money between the P&L and the Balance Sheet with both still balancing (D-19)"
+    },
+    {
+      "id": "move-nature-empty-or-unknown",
+      "given": {
+        "isPrimary": [false],
+        "isSystem": [true, false],
+        "createsCycle": [false],
+        "natureChanges": [true],
+        "subtreeHasPostings": [false, null]
+      },
+      "expect": null,
+      "why": "an empty subtree has nothing to re-sign, which is what makes this a rule about postings rather than about natures — and an ABSENT count is the browser's honest 'not known here', answered by the server"
+    },
+    {
+      "id": "move-within-nature",
+      "given": {
+        "isPrimary": [false],
+        "isSystem": [true, false],
+        "createsCycle": [false],
+        "natureChanges": [false],
+        "subtreeHasPostings": [true, false, null]
+      },
+      "expect": null,
+      "why": "a pure re-filing, postings and all — and isSystem does NOT block a move: the seeded 28 may not be deleted or renamed, but their placement is a choice Tally allows too"
+    }
+  ],
+
+  "ledgerMove": [
+    {
+      "id": "lmove-system",
+      "given": {
+        "isSystem": [true],
+        "natureChanges": [true, false],
+        "hasPostings": [true, false, null]
+      },
+      "expect": "ledger-system-move",
+      "why": "where a statutory head sits is what decides whether input GST reports as an asset or a liability (NATURE_CHANGING_KEYS, ₹1,54,85,553 across the development companies) — a declared decision, not an operator's"
+    },
+    {
+      "id": "lmove-nature-posted",
+      "given": { "isSystem": [false], "natureChanges": [true], "hasPostings": [true] },
+      "expect": "ledger-nature",
+      "why": "D3's declared parity exception happening again, one party at a time, with no plan row and no human review behind it"
+    },
+    {
+      "id": "lmove-nature-empty-or-unknown",
+      "given": { "isSystem": [false], "natureChanges": [true], "hasPostings": [false, null] },
+      "expect": null,
+      "why": "an empty ledger has nothing to re-sign; an absent count is the server's question"
+    },
+    {
+      "id": "lmove-within-nature",
+      "given": { "isSystem": [false], "natureChanges": [false], "hasPostings": [true, false, null] },
+      "expect": null,
+      "why": "the ledger appears under a different group on the Trial Balance and its figures keep their sign and their statement"
+    }
+  ],
+
+  "ledgerDelete": [
+    {
+      "id": "ldel-system",
+      "given": { "isSystem": [true], "hasPostings": [true, false, null] },
+      "expect": "ledger-system-delete",
+      "why": "refused whether or not it has posted — F8's argument about structural rows in an editable master"
+    },
+    {
+      "id": "ldel-posted",
+      "given": { "isSystem": [false], "hasPostings": [true] },
+      "expect": "ledger-posted",
+      "why": "journal_lines.ledgerId is a real FK and every statement that printed it names it — such a ledger deactivates (BUG-0059's rule generalised)"
+    },
+    {
+      "id": "ldel-allowed",
+      "given": { "isSystem": [false], "hasPostings": [false, null] },
+      "expect": null,
+      "why": "an unposted ledger somebody made by mistake is theirs to remove; an absent count is the server's question"
+    }
+  ]
+}

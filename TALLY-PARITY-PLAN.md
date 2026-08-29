@@ -121,8 +121,28 @@ injections passed first time, because the busiest ledger's last posting is
 assertion, was what could not fail. Building it found `POST /acc-ledgers/list`
 answering **every call with a 500** since P2b‑3b — an include naming an alias
 `AccLedger` never declared — which nothing had noticed because nothing had
-called it. **P3d‑2 — `/transaction/ledgers`, the tree-plus-grid Chart of
-Accounts — is next**, and it is the last of §3.3.
+called it.
+
+**And P3d‑2 is done, which closes P3: the Chart of Accounts is a screen.**
+`/transaction/ledgers` is the `acc_groups` tree with the selected group's
+`acc_ledgers` beside it, and **every refusal the API makes is made on the screen,
+in the API's own sentence** — which is what P3's gate asked for and why the
+mirrored thing is the **wording**: `check-mirrors.js` check 10 runs both
+implementations of the five `describe*Block` rules over 182 rows and compares the
+text, and both failure modes were reproduced. The two arms that turn on whether
+anything has **posted** are deliberately left to the server — the browser has no
+such field and a guess would be a refusal that is sometimes wrong — so the dialog
+warns, the request goes, and the refusal comes back in the same words. Masters ▸
+**Nature** retired with it (a nature is inherited in the new chart, and F8 measured
+`trx_natures` as four fixed rows per company); Masters ▸ **Transaction Group**
+deliberately did not, because it is still the only door to a legacy head's
+opening balance and its `groupFor` until D9. ⚠️ Building it found the two-pane
+layout leaving the grid's own toolbar at **719px** — one pixel under the 720 its
+container query fires at — so the widest screen the app supports was the one
+showing the compact search button.
+
+**P4 — voucher entry — is next**, and `app-ledger-picker` with `Alt+C` goes with
+it, because P4 is their only consumer.
 
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
@@ -153,7 +173,7 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P3c‑1 | The presentation layer retires | M | **done** — [§P3c‑1 record](#p3c-1-record--2026-08-29) |
 | P3c‑2 | Ledger creation | M | **done** — [§P3c‑2 record](#p3c-2-record--2026-08-29) |
 | P3d‑1 | The drill-down spine, Esc as a route stack, the Ledger report's screen | M | **done** — [§P3d‑1 record](#p3d-1-record--2026-08-29) |
-| P3d‑2 | `/transaction/ledgers` — the Chart of Accounts screen | M | not started |
+| P3d‑2 | `/transaction/ledgers` — the Chart of Accounts screen | M | **done** — [§P3d‑2 record](#p3d-2-record--2026-08-29) |
 | P4 | Voucher entry | XL | not started |
 | P5 | Bill-wise details | L | not started |
 | P6 | Trading Account and Gross Profit | M | not started |
@@ -2043,6 +2063,294 @@ Three things this phase deliberately did **not** do:
   `trx_accounts` — is the **instrument** master: account numbers, IFSC, type,
   facts a ledger row does not model. It is re-homed with D9, not before.
 
+### P3d‑2 record — 2026-08-29
+
+**`/transaction/ledgers` exists: the Chart of Accounts is a screen.** The
+`acc_groups` tree on the left, the selected group's `acc_ledgers` on the right,
+create/rename/move/delete on both halves — and **every refusal the API makes is
+made on the screen too, in the API's own sentence**, which is what P3's gate asks
+for. §3.3's frontend is finished except for `app-ledger-picker` and `Alt+C`,
+which belong to P4 because P4 is their only consumer.
+
+| | |
+|---|---|
+| `qa:screens` (new: `chart-of-accounts.ui.spec.ts`, five properties) | **50/50** over the 29-route sweep, the five new properties among them — and the four refusal properties **shown to fail four times** |
+| `qa:a11y` · `/transaction/ledgers` | green — the census in `tests/ui/masters/screens.ts` feeds the accessibility sweep, so the new screen was swept the day it landed |
+| Parity diff across the change | **empty by construction** — the backend diff is one field on `GET /acc-groups/tree` (a route no captured report reads) and `@DeletedAt` on two entities, whose effect on a report is to exclude archived rows that do not exist. The five gate scripts above are what actually watched the second one |
+| `check-mirrors` (new: check 10) | green — **182 behavioural comparisons over 21 region cases**, comparing the message TEXT, both failure modes reproduced |
+| `npm test` (client-back) | 1,896 in 126 suites — unchanged; this phase adds no rule to `src/const/` |
+| `qa:p2-ledgers` | **333/333** — including (20)'s create-and-post probe over the same two entities the paranoid fix touches |
+| `qa:p1-group-tree` · `qa:p3-ledger-report` · `qa:p3b-statements` · `qa:p2c-import-tree` | 56 · 140 · 323 · 227 — unchanged, and re-run **because** the paranoid fix changes what every Sequelize read of those two tables returns |
+| five guards · `lint:ci` · `build` (both repos) | green |
+| Migrations | **none** — and the entity fix below needed none either: the `deletedAt` column was always in both tables; what was missing was the model saying so |
+
+| Artefact | What it is |
+|---|---|
+| `client-front/src/components/admin/transaction/ledgers/` | The screen, and its three dialogs: `group-add-edit`, `ledger-add-edit`, `move-dialog` (shared by a group re-parent and a ledger move — two rules, one question). |
+| `client-front/src/utils/ledger-rules.util.ts` | The five `describe*Block` refusals, mirrored. The **wording** is the mirrored thing. |
+| `scripts/vectors/ledger-rules.vectors.json` + `check-mirrors.js` check 10 | The shared table, and the check that runs both implementations against it. |
+| `client-back` `AccGroupService.tree()` → `AccGroupTreeNode` | Each node carries its own `ledgerCount` — the number `describeGroupDeleteBlock`'s sentence names. |
+| `client-back` `acc-ledger.entity.ts` · `acc-group.entity.ts` | `@DeletedAt` on both, which is what makes a delete an **archive** — see the defect below. The rest of the backend is untouched. |
+| `qa-artifacts/tests/ui/masters/chart-of-accounts.ui.spec.ts` + `coa-rules.ts` | The gate, and the sentences restated a third time. |
+| `styles/custom/_coa-dialog.scss` | The dialogs' shared rules — **global**, for §14's `.jwd__full` reason. |
+
+#### The refusal is the deliverable, so the wording is what the mirror compares
+
+P3d‑2's gate is not *"the screen refuses"* — it is *"each with the message that
+names the actual problem rather than a dead button"*. Those messages are the work
+`ledger.const.ts` did: each one names the problem **and the alternative** (*add
+the party instead, or use a sub-group*; *deactivate it instead — the entries that
+name it must stay readable*; *create the group in the new place and use it going
+forward*). A screen that refused correctly and said *"Not allowed"* would satisfy
+every check in this repo and none of the gate.
+
+So the mirror is compared **by message**, not by verdict:
+`check-mirrors.js` check 10 loads both implementations, expands 21 hand-written
+**region** cases into 182 rows (a case's `given` holds arrays, so one case is a
+statement about a region of the fact space and the regions partition it exactly),
+and asserts `client-back === client-front === the table's own sentence`. Three
+answers, so a failure says which kind it is — and both were reproduced:
+
+- shortening one sentence on the frontend only → **DRIFT**, 16 rows, printing
+  both strings;
+- deleting the control-group arm from **both** sides → **RULE CHANGED**, 16 rows,
+  because the table states its own answer.
+
+⚠️ **And check 10 still cannot gate this phase**, which is why the browser test
+exists. Agreeing about a sentence is not showing it: a screen that computed the
+right refusal and rendered nothing — or disabled a button silently — passes all
+182 comparisons.
+
+#### ⚠️ A refused action stays CLICKABLE, and clicking it answers why
+
+The obvious reading of CLAUDE.md §9 (*"a screen must never offer an action the
+server will refuse"*) is a disabled menu item. That is the wrong instrument here,
+for a measured reason: **Material renders no tooltip on a disabled item**, so a
+greyed-out *New ledger* under Sundry Debtors is precisely the *"dead button"* the
+gate names, and the sentence — the thing this phase is about — has nowhere to go.
+
+So the rule is read as it was written: never send a request the server will
+refuse. A click that never leaves the browser offers nothing. *New ledger* under
+a control group answers with the API's own paragraph and opens no form; the
+picker inside the dialog lists **every** group, including the refused ones, and
+choosing one prints the reason beside it and disables Create. Omitting them was
+the tidier screen and the worse one — an operator looking for Sundry Debtors
+would conclude the picker was broken and learn nothing.
+
+The gate asserts the *"never sends"* half directly: it counts
+`POST /acc-ledgers`, `DELETE /acc-ledgers/:id` and `DELETE /acc-groups/:id`
+requests and expects **zero** for the refusals the browser owns. Without that
+clause a 400 caught and toasted would look identical on screen.
+
+#### Two arms are the SERVER's, and the browser says so rather than guessing
+
+`describeLedgerMoveBlock` and `describeGroupReparentBlock` each turn on whether
+anything has **posted**, and that is on no payload this screen reads. Both were
+available cheaply — an `EXISTS` per row on the list, a subtree count on the tree
+— and both were **declined**: a *"this has posted entries"* refusal that is
+sometimes wrong teaches an operator to ignore refusals, and the honest shape is
+already available.
+
+So `hasPostings` is **optional** in the mirror, an absent one means *"not known
+here"*, and the rule does not fire. What the dialog does instead is say what will
+happen: *"The destination sits under a different account nature (Asset →
+Liability). If this ledger already has posted entries the move will be refused,
+because it would re-sign figures that have already been reported."* Then the
+request goes and the server refuses it — **in the same words**, which is what
+check 10 guarantees and what the gate asserts by text.
+
+⚠️ The vector table states that equivalence with a `null`, deliberately: *both
+sides answer "allowed" when the fact is absent* is a rule, not an accident of two
+signatures. Injecting `hasPostings: true` into the dialog — the "helpful" guess —
+turns the warning into a refusal and fails the gate.
+
+#### `GET /acc-groups/tree` carries `ledgerCount`, because the sentence names a number
+
+*"This group holds 12 ledger(s). Move or delete them first."* is a specific claim
+about the operator's own chart. The count is `describeGroupDeleteBlock`'s second
+arm and the one an operator meets most often, and nothing in the tree payload
+could answer it — child groups are derivable from `parentId`, ledgers are not.
+
+One grouped read under the tenant hooks (`AccLedger.findAll` with a `COUNT`), not
+a per-node subquery and not raw SQL — so there is nothing for
+`ci-guard-raw-sql` to have an opinion about, and §6's *"do not cache the ledger
+tree"* row stays satisfied: the screen re-reads it on every visit and after every
+write.
+
+It is this group's **own** ledgers, never the subtree's — that is the question
+the rule asks, and a subtree figure would make a parent holding nothing look
+undeletable. The gate reads the real count out of the database and expects that
+sentence: **a mirrored message built on a number nothing checked is a confident
+lie about somebody's books**, and injecting `ledgerCount: 0` fails it.
+
+#### ⚠️ The two-pane layout put the grid's toolbar ONE PIXEL under its own container query
+
+At 1440 — the widest breakpoint, and the QA viewport — the ledger grid rendered
+the **compact search button** instead of its inline search field. Nothing was
+wrong on either side. `app-paginated-table` collapses its quick search at
+`@container (max-width: 720px)`, measured on its own `.toolbar-container`; with
+the tree column at 300px that element came out at **719px**.
+
+Measured rather than reasoned, and the numbers are the point: the content column
+is 1152, the page container 1120, the grid pane **800**, and the toolbar **719**
+— the table's own padding sits between the last two, so the pane looked like it
+had 80px of headroom and had none. The column gives up 60px (240px, gap
+`--ds-space-4`), which puts the toolbar at **783**.
+
+Two things worth carrying. **A container query is measured on the container, not
+on the pane you sized** — and the two differ by whatever padding lies between.
+And a layout sitting one pixel from a threshold is the intermediate-width failure
+`_breakpoints.scss` was written about: it is not a bug you find by reading, and
+at 1441px it would have looked fine.
+
+#### Masters ▸ Nature is retired; Masters ▸ Transaction Group deliberately is NOT
+
+§3.3 says this screen replaces three Masters screens. Two of those retirements
+are not this phase's to make, and the plan's own wording had them mixed together:
+
+- **Nature is gone** — the grid, its route, its Masters tab and its nav entry.
+  In the new chart a nature is inherited from the primary group, and `trx_natures`
+  was never a master with anything to maintain: F8 measured exactly four rows per
+  company across all fourteen, with no drift to preserve. `transaction/masters/
+  trx-nature` redirects to `transaction/ledgers`. The table itself goes at D9.
+  ⚠️ Its **dialog** went with it, and that was the less obvious half: the Nature
+  master's add/edit dialog survived as the Transaction Group form's
+  create-on-the-fly (`AddDialogService.addEditNature`), which would have left a
+  nature an operator could **create and never see again**. Worse than either end
+  state, so the picker is a plain one now.
+- **Transaction Group stays.** `trx_groups` is still the voucher head master and
+  the **only door** to a head's opening balance and its `groupFor` — both of
+  which a P3c‑2 twin cannot receive, because the twin is `isSystem` and
+  `TrxGroupService` refuses a system row. Retiring it now would remove
+  capability, so D9 retires it, and both the Masters shell and the nav config say
+  which chart is which.
+- **The instrument master stays**, as P3d‑1 already recorded: `trx_accounts` is
+  account numbers, IFSC and type — facts a ledger row does not model. It keeps
+  the name *"Chart of Accounts"* in the rail until D9, which is why the new
+  screen is called **Ledgers** there — and why `permission-registry.ts` was
+  relabelled to match: `acc-ledgers` read *"Chart of Accounts"* in the permission
+  matrix, which is the name the rail gives the OTHER screen, so an admin granting
+  it read one name and found a different screen under it. `trx-nature` is now
+  *"Nature (picker feed)"* for the same reason — its screen is gone, its key
+  still gates the list the Transaction Group form's nature picker reads.
+
+#### 🐞 `acc_ledgers` and `acc_groups` were NOT paranoid, so their soft delete erased the row
+*(found by property 5 — the round trip — and fixed in this phase)*
+
+Both tables have carried a `deletedAt` column since their own migrations, and
+every raw statement that reads them says `deletedAt IS NULL`. **Neither model
+declared it** — no `@DeletedAt`, no `paranoid: true` — so sequelize-typescript
+left them non-paranoid and `BaseCrudService.remove`'s first stage
+(`row.destroy()`) **physically deleted** the row.
+
+Everything around it was built for the two-stage delete and could not work:
+`GET /acc-ledgers/restore/:id` and `bulk-restore` had nothing to find,
+`POST …/list { isDeleted: true }` was empty by construction, and
+`carryTwin`'s `force: Boolean(ledger.deletedAt)` — the line that decides whether
+the legacy twin is archived or erased with its ledger — read a column the model
+never selected, so it was always `false`.
+
+Three things worth carrying:
+
+- **It was invisible until something deleted SUCCESSFULLY.** P2b‑3b built the
+  routes, P3c‑2 built create, and nothing in `npm test`, five guards, `lint:ci`
+  or `build` deletes anything. ⚠️ `qa:p2-ledgers` **does** call
+  `AccGroupService.remove` — at (17f) — and could not have caught this, because
+  it calls it through `refuses(...)`: the assertion is that the delete is
+  *refused*, so the line that would have erased the row was never reached. A
+  check that only ever exercises the refusal path is blind to what the happy path
+  does, which is the same shape as BUG-0068 (*an endpoint nothing calls is an
+  endpoint nobody has run*) with the same two tables in it.
+- **The four refusal properties would never have found it**, because a refusal
+  is what they measure and every refusal was correct. What found it is the
+  property that does the ordinary thing and then **looks for the tombstone**.
+- **The fix is one decorator per entity**, and it also makes every Sequelize read
+  of those tables exclude archived rows — which is what all of them already
+  intended, since the raw SQL beside them says so out loud.
+
+⚠️ No migration: the column was always there. What was missing was the model's
+knowledge of it.
+
+#### 🐞 A filter is a `FilterCondition[]`, and a bare value matches nothing silently
+
+Found while building, in this phase's own code: `filters: { groupId: 17 }` on
+`POST /acc-ledgers/list` produced *"No records found"* for a group holding **353**
+ledgers. The shape is `[{ type: 'numeric', matchMode: 'equals', value, operator }]`
+and a bare number is neither refused nor applied — D-34's `ignoredFilters` names
+a filter the server could not *resolve*, not one whose shape it could not read.
+
+Recorded because the symptom is the dangerous kind: an empty grid is what a group
+with no ledgers looks like, so a screen filtering by a mistyped key reads as
+correct.
+
+#### The gate, and the four injections
+
+Four properties, each a question about what an operator is told:
+
+1. **What the browser knows, the browser says — and nothing is sent.** Sundry
+   Debtors refuses a hand-made ledger from the tree menu *and* from the dialog's
+   picker, with the exact paragraph, Create disabled, and **zero** create
+   requests.
+2. **What only the server knows, the server answers — in the same words.** A
+   cross-nature move of a posted ledger: the dialog warns, the request goes, the
+   refusal is asserted by text, and the ledger's `groupId` is re-read from the
+   database to prove the refusal refused.
+3. **A delete is refused twice, differently.** The system ledger in the browser
+   (no request), the posted ledger by the server (one request), and the two
+   sentences are different — each naming its own alternative.
+4. **The counts are real, and a group shows exactly its own ledgers.** The
+   paginator's total against `COUNT(*) WHERE groupId`, and the delete refusal's
+   number against the same query.
+
+5. **And the screen can actually create one** — through the dialog, found in
+   the grid, with the `trx_groups` **twin** asserted (P3c‑2's pair, without which
+   a ledger is visible and not postable), then deleted through the same screen
+   with the twin going too. ⚠️ Four refusal properties would every one of them
+   pass on a master screen whose Create button was broken, and that is not
+   hypothetical: `POST /acc-ledgers/list` answered every call with a 500 for a
+   month because nothing called it (BUG-0068).
+
+**Shown to fail four times**: dropping the placement check from the screen (1),
+guessing `hasPostings: true` in the move dialog (2), dropping `isSystem` from the
+delete check (3), and returning `ledgerCount: 0` from the tree (4).
+
+⚠️ One of them found a defect in the **test** rather than the screen, and it is
+worth naming: the first three assertions read `.snk-card--error .snk__msg` and
+matched **nothing** — `SnackbarComponent` promotes a single-line message to
+`.snk__title` — so the sentence was on screen in front of the reader while the
+locator reported *"element not found"*. A refusal test whose selector cannot see
+a one-line refusal is inert on every refusal this screen makes.
+
+#### What P4 inherits
+
+§3.3's frontend is finished apart from **`app-ledger-picker` and `Alt+C`**, which
+are P4's: the picker replaces the six group pickers the voucher screens use
+today, and create-on-the-fly is the same `AddDialogService` shape this phase's
+dialogs already return a created row for (`POST /acc-ledgers` answers the row for
+exactly that reason).
+
+Three things this phase deliberately did **not** do:
+
+- **No opening balance on a ledger.** D2 copied each legacy head's figure onto
+  its ledger and the opening *entry* is still posted from `trx_groups`, so a
+  figure accepted here would be posted twice with the trial balance balancing
+  throughout. The form says a new ledger opens at nil rather than leaving
+  somebody hunting for the field; it moves at D9, with the head that owns it.
+- **No bill-wise or cost-centre behaviour**, only the two flags — they are
+  stored and read by P5 and P7. Accepting them now is what stops a company
+  revisiting every ledger when those phases land.
+- **No `deletedBy` on either table.** BUG-0068's lesson stands: who deleted a
+  ledger is the audit trail's answer, and the column would be a migration **plus**
+  an edge in `company-hard-delete-order.const.ts`. So the archived view carries
+  no *Deleted By* column, deliberately.
+- **No archived view for GROUPS.** The ledger grid has one (it is
+  `app-paginated-table`'s own Active/Archived tabs, and the entity fix above is
+  what made it reachable at all), and the tree deliberately shows live groups
+  only: a group can only be deleted once it holds no sub-groups and no ledgers,
+  so an archived group is an empty container, and a second tree of empty
+  containers is a screen for a case nobody has. `POST /acc-groups/bulk-restore`
+  and `GET /acc-groups/restore/:id` are the door if one is ever wanted.
+
 ---
 
 ### Verification pass — 2026-08-28
@@ -2552,9 +2860,12 @@ every target names a group that exists in the 28.
 > ([record](#p3c-2-record--2026-08-29)) — it waited for P3c‑1 because a ledger
 > with neither a `legacyTrxGroupId` nor a party had no presentation head and its
 > figures vanished from every statement, and ⚠️ it writes the **pair** because
-> `journal_lines.trxGroupId` is `NOT NULL` until D9. The **frontend** items below
-> are what is left: the `/transaction/ledgers` screen in **P3d‑2**,
-> `app-ledger-picker` and `Alt+C` in P4, which is their only consumer.
+> `journal_lines.trxGroupId` is `NOT NULL` until D9. **The `/transaction/ledgers`
+> screen landed in P3d‑2** ([record](#p3d-2-record--2026-08-29)), with the five
+> refusals mirrored into `client-front/src/utils/ledger-rules.util.ts` and
+> compared **by message text** across the repos (`check-mirrors.js` check 10).
+> What is left of this section is `app-ledger-picker` and `Alt+C`, in **P4**,
+> which is their only consumer.
 > ⚠️ **`POST /acc-ledgers/list` — the feed named below — answered every call
 > with a 500** from the day it was built until P3d‑1 called it: it included a
 > `deletedByUser` alias `AccLedger` never declares (these two tables carry
@@ -2573,10 +2884,17 @@ every target names a group that exists in the 28.
   and is refused across natures once the subtree has postings.
 
 **Frontend**
-- `/transaction/ledgers` — a tree-plus-grid Chart of Accounts replacing today's
-  three separate Masters screens (Nature, Group, Account). ⚠️ The third of those
-  is the **instrument** master (`trx_accounts`: account numbers, IFSC, type),
-  which a ledger row does not model — it is re-homed with D9, not by P3d‑2.
+- `/transaction/ledgers` — a tree-plus-grid Chart of Accounts. **Done (P3d‑2.)**
+  ⚠️ It replaces **one** of the three Masters screens named here, not three.
+  **Nature** retired with it (inherited from the primary group now; F8 measured
+  `trx_natures` as four fixed rows per company) — its create-on-the-fly dialog
+  went too, since a nature nobody can see afterwards is worse than either end
+  state. **Transaction Group stays until D9**: `trx_groups` is still the voucher
+  head master and the only door to a head's opening balance and its `groupFor`,
+  neither of which a P3c‑2 twin can receive (it is `isSystem`). And the third is
+  the **instrument** master (`trx_accounts`: account numbers, IFSC, type), which
+  a ledger row does not model — re-homed with D9, which is why the new screen is
+  called *"Ledgers"* in the rail and that one keeps *"Chart of Accounts"*.
 - Ledger create/alter with Tally's field order: Name → Under → opening balance with
   Dr/Cr → bill-wise → cost centres → GST/statutory detail.
 - `app-ledger-picker`, a paginated searchable select used by **every** voucher
@@ -3211,14 +3529,28 @@ busiest ledger's last posting is *today* and today is what the screen's own
 default period puts in `to`: the **fixture** was what could not fail, not the
 assertion.
 
-**P3d‑2 — `/transaction/ledgers`, the Chart of Accounts screen.** The
-tree-plus-grid master replacing Masters ▸ Nature and ▸ Group, over the
-`acc_groups`/`acc_ledgers` API that has been complete since P3c‑2.
+**P3d‑2 — `/transaction/ledgers`, the Chart of Accounts screen. Done**
+([record](#p3d-2-record--2026-08-29)). The tree-plus-grid master over the
+`acc_groups`/`acc_ledgers` API that has been complete since P3c‑2. It replaces
+Masters ▸ **Nature**; Masters ▸ **Transaction Group** deliberately stays until
+D9, because it is still the only door to a legacy head's opening balance and its
+`groupFor`.
 
-**Gate (P3d‑2):** every rule the API refuses is refused on the screen too — a
-ledger under a control group, a cross-nature move of a posted ledger, a delete
-of a posted or system row — each with the message that names the actual problem
-rather than a dead button.
+**Gate (P3d‑2, met):** every rule the API refuses is refused on the screen too —
+each with the message that names the actual problem rather than a dead button —
+measured as four properties in a browser
+(`qa-artifacts/tests/ui/masters/chart-of-accounts.ui.spec.ts`, run by `npm run
+qa:screens`) and **shown to fail four times**. The refusals are mirrored into
+`client-front/src/utils/ledger-rules.util.ts` and compared **by message text**,
+not by verdict, by `check-mirrors.js` check 10 — 182 rows over 21 region cases,
+with DRIFT and RULE CHANGED both reproduced. ⚠️ That check still cannot gate the
+phase: agreeing about a sentence is not showing it, and a screen that computed
+the right refusal and rendered nothing passes all 182 comparisons. ⚠️⚠️ Two arms
+turn on whether anything has **posted**, which is on no payload this screen
+reads; those are left to the server rather than guessed, the dialog says what
+will happen, and the gate asserts the server's sentence by text. The parity diff
+is **empty by construction** — the whole backend diff is one field on
+`GET /acc-groups/tree`, a route no captured report reads.
 
 ### P4 · Voucher entry `[XL]`
 
@@ -3297,7 +3629,7 @@ review comment — which is the good news.
 | `audit-coverage.const.ts` | Ledger and group mutations are identity-and-money adjacent; tag them `@Audit()` and add the controllers to the covered set, or the new handlers sit outside a line D-36 drew deliberately. |
 | `shared-read-party.spec.ts` | Sweeps every `@SharedRead()` route as a trading party and asserts the allow-list **exactly**. The ledger picker will be swept the day it lands (§3.3). |
 | `parent-scope.spec.ts` · §4.3 rule 7 | Every caller-supplied `ledgerId`, `groupId`, `costCentreId`, `billReferenceId` needs an ownership check before it is written against. These point at company-scoped tables, so `findByPk` under the hooks is enough — but a `*UserId` still needs `assertMemberIsOurs`. Put the checks at a **seam**, not per call site (BUG-0032). |
-| `check-mirrors.js` (root repo) | Nine checks. New permission keys must land in `permission-registry.ts`, `module-licence.const.ts`, the frontend `module-licence.ts` and `navigation.config.ts` **together**. Retiring `trx-nature` means retiring it in four places. ⚠️ It compares **across submodules only**, so the second copy of Tally's 28 group names — `tally-chart.const.ts` beside `tally-nature-map.const.ts`, both in `client-back` — is invisible to it (§3.2, V3). That pair needs a co-located spec asserting identical key sets, or it is a mirror with nothing behind it. |
+| `check-mirrors.js` (root repo) | **Ten** checks since P3d‑2, whose check 10 runs both copies of the Chart of Accounts' five refusals over `scripts/vectors/ledger-rules.vectors.json` and compares the **message text** — the sentence is the deliverable there, so a mirror agreeing about the verdict and not the wording is the drift that matters. New permission keys must land in `permission-registry.ts`, `module-licence.const.ts`, the frontend `module-licence.ts` and `navigation.config.ts` **together**. ⚠️ *"Retiring `trx-nature` means retiring it in four places"* — this row's own earlier wording — turned out to be **wrong in the safe direction**, and P3d‑2 measured it: retiring the *screen* touches `navigation.config.ts` alone. The key stays in `permission-registry.ts` and in **both** copies of `MODULE_BY_PERMISSION_KEY` because `TrxNatureController` still uses it and check 3 compares those two maps exactly — pulling the key would have left the API ungated or the check red. The key goes with the table, at D9. ⚠️ It compares **across submodules only**, so the second copy of Tally's 28 group names — `tally-chart.const.ts` beside `tally-nature-map.const.ts`, both in `client-back` — is invisible to it (§3.2, V3). That pair needs a co-located spec asserting identical key sets, or it is a mirror with nothing behind it. |
 | Data Import — `src/const/import/` | **Answered by P2b‑3c**, and not the way this row expected. The 13 `trxGroupId` references stay: D6 derives the ledger in the one writer of each table, so a caller stating one is what it forbids. What did change is `import-group-tree.const.ts` (+ 21 tests) and where an imported head's ledger LANDS. `scripts/qa-p2c-import-tree.ts` is the gate. |
 | D-49's writer list · `assertPostingAllowed` | The unified entry screen adds writers of `journal_entries` and `stock_movements`. Every one must clear the financial-period gate on **both** dates when it supersedes an approved voucher (BUG-0028). `grep -rn "reverseSource\|inventoryService.reverse"` is the check, and CLAUDE.md §4.9 must list every writer. |
 

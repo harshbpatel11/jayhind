@@ -511,6 +511,185 @@ if (hubFeatureColumns && hubFeaturesDto && consoleFeatures) {
   }
 }
 
+// ── 10. the Chart of Accounts' refusals: same verdict AND same SENTENCE ─────
+//
+// `ledger.const.ts` decides what the API refuses; `ledger-rules.util.ts` says
+// the same thing on the Chart of Accounts screen (P3d‑2), so an operator reads
+// the reason rather than meeting a 400 on a button that looked live.
+//
+// ⚠️ This check compares the **message text**, not only the verdict, and that is
+// the point of it. A mirror that agreed about *whether* to refuse and disagreed
+// about *why* would leave one wording on screen and another in the toast the
+// same click produces — and the wording is the deliverable here: each of these
+// sentences names the actual problem and the alternative (deactivate it, use a
+// sub-group, add the party), which is what P3d‑2's gate asks for.
+//
+// ⚠️⚠️ Two arms turn on a fact only the database has (`hasPostings`,
+// `subtreeHasPostings`). The browser passes **nothing** rather than a guess, and
+// both sides must then answer "allowed" so the request goes and the server —
+// which does know — refuses with this same sentence. The vector table states
+// that equivalence with a `null`, because it is a rule and not an accident.
+{
+  const BACK_LR = 'jayhind-client-back/src/const/ledger.const.ts';
+  const FRONT_LR = 'jayhindi-client-front/src/utils/ledger-rules.util.ts';
+  const vectorFile = path.join(__dirname, 'vectors/ledger-rules.vectors.json');
+
+  const backLr = read(path.join(ROOT, BACK_LR));
+  const frontLr = read(path.join(ROOT, FRONT_LR));
+
+  // The name check first, and it is not redundant: a rule that exists on one
+  // side only has no vector to fail, which is check 5's argument for keeping a
+  // name comparison beside a behavioural one.
+  if (backLr && frontLr) {
+    const REFUSALS = /^describe[A-Z].*Block$/;
+    const b = parseExportedFunctions(backLr).filter((n) => REFUSALS.test(n));
+    const f = parseExportedFunctions(frontLr).filter((n) => REFUSALS.test(n));
+    for (const n of b) if (!f.includes(n)) failures.push(`ledger-rules: '${n}' exists in client-back but not client-front — the screen cannot state a refusal it does not have`);
+    for (const n of f) if (!b.includes(n)) failures.push(`ledger-rules: '${n}' exists in client-front but not client-back`);
+  }
+
+  let table;
+  try {
+    table = JSON.parse(fs.readFileSync(vectorFile, 'utf8'));
+  } catch (err) {
+    failures.push(`ledger-rules vectors: could not read ${path.relative(ROOT, vectorFile)} — ${err.message}`);
+  }
+
+  if (table && backLr && frontLr) {
+    let back, front;
+    try {
+      back = loadTsModule(...splitRepoPath(BACK_LR));
+      front = loadTsModule(...splitRepoPath(FRONT_LR));
+    } catch (err) {
+      failures.push(`ledger-rules vectors: ${err.message}`);
+    }
+
+    // A case's `given` holds arrays: the cross-product is expanded here, so one
+    // hand-written case is a statement about a REGION of the fact space. The
+    // regions of each rule partition it exactly — which is what makes 22 cases
+    // an exhaustive table rather than a sample.
+    const expand = (given) => {
+      const keys = Object.keys(given);
+      let rows = [{}];
+      for (const k of keys) {
+        const values = Array.isArray(given[k]) ? given[k] : [given[k]];
+        rows = rows.flatMap((row) => values.map((v) => ({ ...row, [k]: v })));
+      }
+      return rows;
+    };
+
+    // `null` in a vector means ABSENT, not "null was passed" — the browser
+    // simply does not have the field. Dropping the key is what reproduces that;
+    // passing an explicit null would test a shape no caller produces.
+    const dropUnknown = (row, keys) => {
+      const out = { ...row };
+      for (const k of keys) if (out[k] === null) delete out[k];
+      return out;
+    };
+
+    // The expected sentence, with the counts substituted from the row itself.
+    // The placeholder NAMES its field, so this is a mechanical substitution and
+    // never a second opinion about which arm won.
+    const sentence = (id, row) => {
+      if (id === null) return null;
+      const template = table.messages[id];
+      if (template === undefined) return `«no message called '${id}' in the table»`;
+      return template.replace(/\$\{(\w+)\}/g, (_, k) => String(row[k]));
+    };
+
+    // How each rule's row becomes the two calls. Deliberately dumb: anything
+    // clever here could reconcile a real disagreement into agreement, which is
+    // the one failure mode a parity check cannot afford.
+    const RULES = [
+      {
+        section: 'placement',
+        call: (mod, row) => mod.describeLedgerPlacementBlock(
+          { isPrimary: row.isPrimary, systemKey: row.systemKey, nature: row.nature },
+          { isParty: row.isParty },
+        ),
+      },
+      {
+        section: 'groupDelete',
+        call: (mod, row) => mod.describeGroupDeleteBlock(row),
+      },
+      {
+        section: 'groupReparent',
+        call: (mod, row) => mod.describeGroupReparentBlock(dropUnknown(row, ['subtreeHasPostings'])),
+      },
+      {
+        section: 'ledgerMove',
+        call: (mod, row) => mod.describeLedgerMoveBlock(dropUnknown(row, ['hasPostings'])),
+      },
+      {
+        section: 'ledgerDelete',
+        call: (mod, row) => mod.describeLedgerDeleteBlock(dropUnknown(row, ['hasPostings'])),
+      },
+    ];
+
+    if (back && front) {
+      let compared = 0;
+      for (const rule of RULES) {
+        const cases = table[rule.section];
+        if (!Array.isArray(cases)) {
+          failures.push(`ledger-rules vectors: no '${rule.section}' cases in the table`);
+          continue;
+        }
+        for (const vector of cases) {
+          for (const row of expand(vector.given)) {
+            const expected = sentence(vector.expect, row);
+            const b = rule.call(back, row) ?? null;
+            const f = rule.call(front, row) ?? null;
+            compared++;
+
+            const shape = JSON.stringify(row);
+            // Three answers, so a failure says WHICH kind it is. Drift between
+            // the two sides and a rule both sides moved away from need
+            // different fixes, and conflating them is how a mirror check stops
+            // being actionable.
+            if (b !== f) {
+              failures.push(
+                `ledger-rules DRIFT · ${rule.section}/${vector.id} · ${shape}:\n` +
+                  `      client-back:  ${JSON.stringify(b)}\n` +
+                  `      client-front: ${JSON.stringify(f)}\n` +
+                  `      — ${vector.why}`,
+              );
+            } else if (b !== expected) {
+              failures.push(
+                `ledger-rules RULE CHANGED · ${rule.section}/${vector.id} · ${shape}:\n` +
+                  `      both sides say ${JSON.stringify(b)}\n` +
+                  `      the table says ${JSON.stringify(expected)}\n` +
+                  `      — ${vector.why}\n` +
+                  '      If the rule or the wording genuinely changed, update scripts/vectors/ in the same commit.',
+              );
+            }
+          }
+        }
+      }
+      notes.push(
+        `ledger-rules: ${compared} behavioural comparisons over ` +
+          `${RULES.reduce((n, r) => n + (table[r.section]?.length ?? 0), 0)} region cases, run against BOTH ` +
+          'implementations, comparing the message text (P3d‑2).',
+      );
+
+      // A refusal with no section in the table is a rule nobody compares — the
+      // same gap one level up. Named rather than failed, for check 6's reason.
+      const covered = new Set(RULES.map((r) => r.section === 'placement' ? 'describeLedgerPlacementBlock'
+        : r.section === 'groupDelete' ? 'describeGroupDeleteBlock'
+          : r.section === 'groupReparent' ? 'describeGroupReparentBlock'
+            : r.section === 'ledgerMove' ? 'describeLedgerMoveBlock' : 'describeLedgerDeleteBlock'));
+      const uncovered = parseExportedFunctions(frontLr)
+        .filter((n) => /^describe[A-Z].*Block$/.test(n))
+        .filter((n) => !covered.has(n));
+      if (uncovered.length) {
+        notes.push(
+          `⚠️  ledger-rules: ${uncovered.join(', ')} ${uncovered.length === 1 ? 'has' : 'have'} no vectors. ` +
+            'Add a section to scripts/vectors/ledger-rules.vectors.json — an uncompared rule is the gap this check is about.',
+        );
+      }
+    }
+  }
+}
+
 // ── Report ──────────────────────────────────────────────────────────────────
 for (const n of notes) console.log(`note: ${n}`);
 
