@@ -1286,8 +1286,10 @@ approve).
 `problems.ignore` takes **`/status of 429/` and nothing else**. Narrow on
 purpose: every other status still fails the test, and a rate limit that actually
 broke a screen still fails it through the assertions — where it shows up as an
-empty picker, not as a log line. The full suite is **83 passed / 2 failed** with
-those two 429s as the only failures, and green with the ignore in place.
+empty picker, not as a log line. The full suite was **83 passed / 2 failed** with
+those two 429s as the only failures; with the ignore in place and the `BIGINT`
+defect below fixed, `qa:money` + `qa:shell` is **107 / 107**, and
+`qa:coa-parity -- selfcheck` reports **PARITY HELD**.
 
 #### Three things established on the way
 
