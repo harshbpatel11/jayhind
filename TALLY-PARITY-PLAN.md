@@ -91,8 +91,22 @@ took the tree's id space, the Financial Dashboard's two panels stopped describin
 the flat chart, and `qa-artifacts/tests/reports/` was ported to the tree — which
 found that its party-facing oracles had been asking the legacy question all
 along, and took the suite from **25 failures to 8** against a measured baseline.
-No report renders `trx_groups` any more. **P3c‑2 — ledger creation — is next**,
-and it is unblocked for the first time.
+No report renders `trx_groups` any more.
+
+**And P3c‑2 is done: a ledger can be created.** `POST /acc-ledgers`, with
+`describeLedgerPlacementBlock` at the seam — which refuses exactly two
+placements, the two party control groups (a ledger with no party under Sundry
+Debtors is a balance no receivables report can attribute to anybody) and a group
+with no account nature. ⚠️ **"Unblocked" was true about the reports and false
+about posting**: `journal_lines.trxGroupId` is still `NOT NULL` behind a real FK
+until D9, and every voucher picker still lists `trx_groups`, so a ledger created
+in the new chart alone would have appeared on the Trial Balance at nil with **no
+way to post a rupee to it**. `create` writes the pair — the ledger and a legacy
+head, linked by `legacyTrxGroupId`, which is D5's own precedence rule — and the
+rename, restore and delete all carry the twin, because an orphaned head does not
+fail when posted to, it silently provisions a fresh ledger. The parity diff is
+**empty**. **P3d — the drill-down spine and `/transaction/ledgers` — is next**,
+and it is the last of §3.3.
 
 ⚠️ **The parity harness's question changed with it**, which is the phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
@@ -121,7 +135,7 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P3a | The Ledger report and the Group Summary | M | **done** — [§P3a record](#p3a-record--2026-08-29) |
 | P3b | The statements become the tree (Trial Balance, Balance Sheet, P&L) | M | **done** — [§P3b record](#p3b-record--2026-08-29) |
 | P3c‑1 | The presentation layer retires | M | **done** — [§P3c‑1 record](#p3c-1-record--2026-08-29) |
-| P3c‑2 | Ledger creation | M | not started |
+| P3c‑2 | Ledger creation | M | **done** — [§P3c‑2 record](#p3c-2-record--2026-08-29) |
 | P3d | The drill-down spine and `/transaction/ledgers` | M | not started |
 | P4 | Voucher entry | XL | not started |
 | P5 | Bill-wise details | L | not started |
@@ -1638,6 +1652,181 @@ throughout.
 
 ---
 
+### P3c‑2 record — 2026-08-29
+
+**Ledger creation exists.** `POST /acc-ledgers` → `AccLedgerService.create`,
+with `describeLedgerPlacementBlock` at the seam §3.3 asked for
+(`groupAcceptsLedgers` is that rule as a predicate, for the picker, derived
+rather than restated). `npm test` **1,896** across 126 suites; five guards,
+`lint:ci`, `build` and `check-mirrors` green; the five gate scripts
+`qa:p1-group-tree` **56**, `qa:p2-ledgers` **333**, `qa:p2c-import-tree`
+**227**, `qa:p3-ledger-report` **140** and `qa:p3b-statements` **323** all
+green; the parity diff over a real capture pair is **empty**, with no
+re-basings.
+
+#### ⚠️ "Unblocked" was true about the reports and false about POSTING
+
+P3c‑1's record ends *"nothing blocks ledger creation any more: no figure-bearing
+report resolves through a presentation rule, so a ledger created under any group
+appears on the Trial Balance under it."* That is correct, and it is only half
+the question. **Appearing on a statement and being postable are different
+things**, and building this measured the second:
+
+```
+journal_lines.trxGroupId  INT NOT NULL   FK → trx_groups.id
+```
+
+The shadow D5 kept and D9 drops (§3.1 R2) is still `NOT NULL` behind a real
+foreign key, and every voucher picker in the product still lists `trx_groups` —
+`app-ledger-picker` is P4. So a ledger created in the new chart alone would have
+rendered on the Trial Balance at nil, under the right group, and there would
+have been **no way to post a rupee to it**: not a wrong figure, a master nobody
+can use. Which is the worse failure of the two, because a wrong figure gets
+filed and a dead master gets worked around.
+
+So `create` writes **the pair** — an `acc_ledgers` row and a `trx_groups` head,
+in one transaction, linked by `legacyTrxGroupId`, which is D5's third precedence
+rule and therefore makes a line posted to that head resolve back to this ledger
+by the rule that already exists rather than by a new one.
+
+`AccLedgerService`'s own header had weighed the twin and rejected it — *"a row in
+the table this programme is retiring, which P1's own gate would then report as an
+unplaced flat head"* — and that argument was about **presentation**, which is
+what P3c‑1 deleted; P1's gate asks about `acc_ledgers` placement and has no
+flat-head property to fail. The reason to write the twin now is a different one
+the note never considered. ⚠️ **A rejected option is rejected for a reason, and
+when the reason retires the option has to be re-asked rather than left rejected.**
+
+Three things make the twin an established shape here rather than an invention:
+
+- `trx_accounts` has auto-created a backing `trx_groups` row per instrument since
+  long before this programme (F5, F16) — `TrxAccountService.createBackingGroup`
+  is what `createBackingHead` mirrors, including keeping the two names in sync.
+- `ImportCommitService` already creates the same pair from the other side, and
+  defaults a created head's `groupFor` to `Journal` exactly as this does.
+- D9 deletes the twin half of every pair with the column that needs it. It is
+  one release's scaffolding, not a second chart of accounts.
+
+The twin is `isSystem`, which is a **lock rather than a claim**:
+`TrxGroupService.update` and `.remove` both refuse a system row, so neither half
+of a pair can be renamed or deleted on its own and the ledger is the only door.
+It carries no `systemKey` — that is what `resolveStatutoryLedger` resolves the
+seeded heads by (§4.1 D1), and minting one here would let a hand-made head
+impersonate a tax head.
+
+#### The lifecycle is the pair's, not the ledger's
+
+Three writes had to follow it, and the third is the one that would have bitten:
+
+- **Rename** syncs the head's name. Two names for one fact is an operator
+  picking *"Printing & Stationery"* on a journal voucher and reading
+  *"Stationery"* on the Trial Balance.
+- **Restore** restores the head.
+- ⚠️ **Delete deletes it, through both stages.** An orphaned legacy head is
+  still listed by every voucher picker in the product, and posting to one whose
+  ledger is gone does **not** fail — `resolveOrCreateLedger` provisions a fresh
+  ledger for it, inside the posting transaction, by design. So a deleted account
+  head would have silently come back the first time somebody used it, under
+  whatever group the fallback chose, with the entry posting cleanly.
+
+All three go through one `carryTwin` seam and all three ask `origin === user`
+first: a D2 ledger's `legacyTrxGroupId` names a head somebody created in the
+legacy master, and erasing that because its ledger was deleted would destroy a
+row this service does not own.
+
+#### 🔒 Two placements are refused, and the first is a report question
+
+`describeLedgerPlacementBlock` answers §3.3's *"which groups accept a ledger"*,
+and the honest answer is *almost all of them* — Tally allows a ledger under any
+group, primaries included, and so does this. Two do not:
+
+- **The two party control groups.** In this ERP a debtor or creditor ledger *is*
+  a party (D3), and every report that answers *"who owes us what"* — both
+  Outstanding reports, the party statement, the ageing annexure and the Business
+  Dashboard's `partyPositions` — reads `journal_lines.partyUserId` with the
+  ledger's parentage as the side. A hand-made ledger under Sundry Debtors
+  carries no party, so its balance would sit on the Assets side of the Balance
+  Sheet and appear in **no receivables report at all**: money nobody is chasing,
+  with the sheet still balancing. That is the same class of defect this phase
+  exists to close, one report over.
+- **A group with no account nature.** Tally's two deliberately-ambiguous
+  primaries carry none and `ledgerNature` propagates the null rather than
+  guessing. `trx_natures.accountNature` is `NOT NULL` with exactly four values,
+  so the twin would have to be filed under an invented nature — which decides
+  which side of the Balance Sheet its money lands on. Refused. It is also the
+  same answer `qa-p2-ledgers` (4c) already gives from the other end: a ledger in
+  Suspense A/c with a nature of its own is a placement bug.
+
+⚠️ **The rule is told what is being placed, not only where.** The first cut asked
+only about the destination, and it broke `qa-p2-ledgers` (19b) — *a posted party
+ledger cannot be moved to the other control group* — by refusing the move with
+the create-time message. Both refusals are correct; only one describes the
+problem. A party ledger belongs under a control group, so the arm asks
+`ledger.isParty`, and moving a posted one across the two is refused where it
+always was, by `describeLedgerMoveBlock`, whose message names the actual reason:
+it re-signs figures already reported. **A refusal whose message does not describe
+the problem is BUG-0015's tell**, and the gate asserting refusals against their
+own messages is what caught it.
+
+⚠️⚠️ It is deliberately **not** folded into `describeLedgerMoveBlock`, which is
+the rule the **import** asks (`ImportCommitService.placeLedgerForHead`, P2b‑3c).
+The import files a ledger where the customer's own Tally filed it; refusing there
+would refuse an import for reproducing a chart that already exists in the
+customer's books. This is a rule about the door a **person** comes in through,
+and both by-hand doors — `create` and `move` — go through one helper.
+
+#### The gate had to read inside its own transaction
+
+§P3's gate for this phase is *a ledger created through the API appears on the
+Trial Balance, the Group Summary and the Balance Sheet*, and asking it honestly
+needed one thing the reports did not have. `qa-p2-ledgers` (20) creates a ledger,
+posts a **real balanced entry** to it through `postJournalLines`, and follows the
+rupees onto all three — then rolls everything back, which is (12)'s standing
+rule: a gate that leaves a journal entry behind changes the books it is checking,
+and the parity harness's next capture would see it. Reports read committed data,
+so `trialBalance`, `profitAndLoss`, `balanceSheet` and `groupSummary` now take an
+optional `Transaction`. Nothing there writes; every product caller omits it.
+
+Three things about the property that are the point:
+
+- ⚠️ **Money, not a name.** All three reports LEFT-join their aggregate from
+  `acc_ledgers`, so a created ledger appears on them at nil *whatever happens* —
+  a check that looked for the row would have passed on the very build where
+  nothing could be posted to it. That build existed; it is what the section
+  above measured.
+- ⚠️ **The Trial Balance half is a DELTA.** A group normally carries other
+  ledgers, so *"its closing equals the amount"* asserts something only on an
+  empty one, and stops asserting anything the day somebody points the probe at
+  Indirect Expenses. Baseline and after, read through the same transaction.
+- **The statement is chosen by the group's own nature**, not hoped for. A check
+  that looked only at the Balance Sheet would assert nothing at all whenever the
+  probe landed on an expense group.
+
+**Shown to fail, twice.** Dropping the twin (`legacyTrxGroupId: null`) fails (20)
+and then (20c) with the reason stated — *it has no legacy head, so
+`journal_lines.trxGroupId` has nothing to name* — which is the defect this phase
+found, reproduced. And re-instating the shape of the retired presentation join in
+`ledgerFigures` — a statement that only shows a ledger it can map back to a
+legacy head — fails (20c) and (20e) while **(20d) stays green**, because the
+Group Summary has its own query. That is why all three reports are asked
+separately rather than one standing in for the others.
+
+#### What P3d inherits
+
+`POST /acc-ledgers` is the last backend piece of §3.3. What is left there is
+frontend and belongs to P3d and P4: `/transaction/ledgers` (the tree-plus-grid
+Chart of Accounts replacing today's three Masters screens), the drill-down spine,
+and — P4's, because it is their only consumer — `app-ledger-picker` and `Alt+C`.
+
+⚠️ **`openingBalance` is still absent**, and P3d does not change that either. D2
+copied each legacy head's figure onto its ledger and the *entry* is still posted
+from `trx_groups` (`JournalSourceType.GroupOpening`); accepting one here would
+post it twice, once per chart, with the trial balance balancing throughout. It
+moves at **D9**, with the head that owns it — the same release that drops the
+twin.
+
+---
+
 ### Verification pass — 2026-08-28
 
 The plan was written from a reading of the source. It has since been checked
@@ -2139,15 +2328,15 @@ every target names a group that exists in the 28.
 
 ### 3.3 The Ledger module
 
-> **Status:** the **backend** landed in P2b‑3b
-> ([record](#p2b-3b-record--2026-08-28)) — as `AccLedgerController`/`Service` and
-> `AccGroupController`/`Service`. ⚠️ **Ledger *creation* is not in it**, and the
-> reason is a measured constraint rather than a scoping choice: while the reports
-> render the legacy chart, a ledger with neither a `legacyTrxGroupId` nor a party
-> has no presentation head and its figures would vanish from every statement. It
-> lands with **P3**. The **frontend** items below moved too — the
-> `/transaction/ledgers` screen to P3, `app-ledger-picker` and `Alt+C` to P4,
-> which is their only consumer.
+> **Status:** the **backend is complete.** `AccLedgerController`/`Service` and
+> `AccGroupController`/`Service` landed in P2b‑3b
+> ([record](#p2b-3b-record--2026-08-28)); **ledger creation** landed in P3c‑2
+> ([record](#p3c-2-record--2026-08-29)) — it waited for P3c‑1 because a ledger
+> with neither a `legacyTrxGroupId` nor a party had no presentation head and its
+> figures vanished from every statement, and ⚠️ it writes the **pair** because
+> `journal_lines.trxGroupId` is `NOT NULL` until D9. The **frontend** items below
+> are what is left: the `/transaction/ledgers` screen in P3d,
+> `app-ledger-picker` and `Alt+C` in P4, which is their only consumer.
 
 **Backend**
 - `modules/accounting/` gains `LedgerController`, `LedgerService`,
@@ -2745,14 +2934,26 @@ allowance: it says *this report is not the same report on both sides*, drops the
 paths under a named prefix from BOTH, prints how many it dropped, and fails a
 prefix that matches nothing.
 
-**P3c‑2 — ledger creation.** `AccLedgerService` gains the `create` §3.3 asked
-for, with `groupAcceptsLedgers` at the seam. Unblocked for the first time: no
-figure-bearing report resolves through a presentation rule any more, so a new
-leaf has somewhere to appear.
+**P3c‑2 — ledger creation. Done**
+([record](#p3c-2-record--2026-08-29)). `AccLedgerService.create` and
+`POST /acc-ledgers`, with `describeLedgerPlacementBlock` at the seam
+(`groupAcceptsLedgers` is the same rule as a predicate). ⚠️ It writes the
+**pair**: `journal_lines.trxGroupId` is `NOT NULL` until D9 and every voucher
+picker still lists `trx_groups`, so a ledger with no legacy head appears on
+every statement at nil and can never be posted to. Unblocking the reports was
+not the same as unblocking the write.
 
-**Gate (P3c‑2):** a ledger created through the API appears on the Trial Balance,
-the Group Summary and the Balance Sheet — the property whose absence is why
-creation was deferred twice.
+**Gate (P3c‑2, met):** `qa:p2-ledgers` (20) — a ledger created through the
+service, a **real balanced entry** posted to it, and the rupees followed onto
+the Trial Balance, the Group Summary and whichever of the Balance Sheet or the
+P&L its group's nature belongs to, all rolled back. **333/333**, and the parity
+diff across the change is empty. ⚠️ Money rather than a name: all three reports
+LEFT-join their aggregate from `acc_ledgers`, so a created ledger appears on
+them at nil whatever happens — the version of this check that looked for the row
+would have passed on the build where nothing could be posted to it. Shown to
+fail twice: dropping the twin, and re-instating the retired presentation join's
+shape in `ledgerFigures` (which leaves (20d) green, because the Group Summary
+has its own query).
 
 **P3d — the drill-down spine and the screens.** `/transaction/ledgers`, the
 shared `DrillTarget` union and resolver, and Tally's Esc-goes-back as a route
