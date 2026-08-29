@@ -141,8 +141,23 @@ layout leaving the grid's own toolbar at **719px** — one pixel under the 720 i
 container query fires at — so the widest screen the app supports was the one
 showing the compact search button.
 
-**P4 — voucher entry — is next**, and `app-ledger-picker` with `Alt+C` goes with
-it, because P4 is their only consumer.
+**And P4a is done: the voucher head is a LEDGER.** `app-ledger-picker` replaces
+the six `trx_groups` pickers the entry screens carried, `Alt+C` creates a master
+without leaving the field, and **`groupFor` stops deciding what is pickable** —
+which is **F4**, the finding this programme opened with as *the most likely
+source of "why can't I select my own ledger?"*. A Sales voucher's head went from
+**one** option to five, a Purchase from one to thirteen, a Payment head from two
+to thirty-nine; every context is a measured widening. ⚠️ The two **control
+heads** stop being offered, which is the reachable-by-a-person gap D6 named and
+could not close on its own. The picker binds the ledger's `legacyTrxGroupId`, so
+no DTO, no service and no report changed and **the parity diff is empty**.
+Building it found `app-select` swallowing **every keyboard chord** since it was
+written — `Ctrl+S` did nothing while a picker's search box had focus — and a
+saved head with no ledger about to render as a blank field, which is a
+data-loss bug rather than a cosmetic one.
+
+**P4b — the unified entry screen — is next**, and it owes the decision §3.5 asks
+for before any of it: **name the third mode** (F6).
 
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
@@ -174,7 +189,8 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P3c‑2 | Ledger creation | M | **done** — [§P3c‑2 record](#p3c-2-record--2026-08-29) |
 | P3d‑1 | The drill-down spine, Esc as a route stack, the Ledger report's screen | M | **done** — [§P3d‑1 record](#p3d-1-record--2026-08-29) |
 | P3d‑2 | `/transaction/ledgers` — the Chart of Accounts screen | M | **done** — [§P3d‑2 record](#p3d-2-record--2026-08-29) |
-| P4 | Voucher entry | XL | not started |
+| P4a | `app-ledger-picker`, `Alt+C`, and `groupFor` stops deciding (F4) | M | **done** — [§P4a record](#p4a-record--2026-08-29) |
+| P4b… | Voucher entry — the unified screen, its modes and the function keys | L | not started |
 | P5 | Bill-wise details | L | not started |
 | P6 | Trading Account and Gross Profit | M | not started |
 | P7 | Cost centres | L | not started |
@@ -2353,6 +2369,186 @@ Three things this phase deliberately did **not** do:
 
 ---
 
+### P4a record — 2026-08-29
+
+**`app-ledger-picker` exists, and the voucher head is a LEDGER.** One component
+replaces the six `trx_groups` pickers the entry screens carried — the
+sales/purchase document's head, an invoice's charge heads, the simple journal's
+Dr head, a general journal's rows, the Payment/Receipt head, and the invoice-scan
+review's own copy of the first. It lists the Tally chart (a ledger's name, under
+its group) and what it offers is decided by the group's **nature** rather than by
+`trx_groups.groupFor`, which is **F4**.
+
+Measured on the fourteen development companies, per company:
+
+| Field | `groupFor` offered | the picker offers |
+|---|---|---|
+| Sales voucher head | **1** | 5 (Income) |
+| Purchase voucher head | **1** | 13 (Expense) |
+| Credit note head | **1** | 5 |
+| Debit note head | **1** | 13 |
+| Charge head | 5 | 18 (Income + Expense) |
+| Simple journal's Dr head | **1** | 13 |
+| Payment / Receipt head | 2 | 39 (all four natures) |
+
+Every one of those is a strict **widening**: measured before it was written, no
+head's ledger sits under a nature its own `groupFor` contradicts, in any company.
+
+⚠️ **One thing stops being offered, and it is not a nature.** The two **control
+heads** are the only `trx_groups` rows in any company with no ledger behind them
+— D3 gave each one ledger per party and none of its own — so a ledger-fed picker
+cannot list them. The group-fed pickers offered both, on every voucher screen.
+That is the gap D6 named when it wrote `controlHeadNotPostable`: *"nothing in the
+installation ever posted to one without a party … but the voucher head pickers
+offer every group, so D6 is the step that makes it reachable by a person"*. P4a
+is the step that makes it unreachable.
+
+#### ⚠️⚠️ It binds a `trx_groups` id, and that is the whole bridge
+
+`journal_lines.trxGroupId` is `NOT NULL` behind a real foreign key until **D9**,
+and every voucher DTO states a *head* id. `ledgerId` is deliberately on **no**
+DTO and must not be put on one (D6): it is derived from the head in the one
+writer of each table, and declaring it would hand a caller a cross-company ledger
+id to aim at — §4.3 rule 7, whose own three columns are exactly these.
+
+So the picker shows the ledger and submits its `legacyTrxGroupId`. Nothing in the
+posting engine, the DTOs, the services or the reports changed, and **the parity
+diff is empty**. The round trip is exact rather than approximate: D5's third
+precedence rule resolves a line on head `G` to the ledger carrying
+`legacyTrxGroupId = G`, which is the row that was offered. Measured before it was
+built — **0** heads carry two ledgers, and all **815** ledgers with no head are
+parties.
+
+`voucher-head-option.const.ts` is where that decision and its expiry live, and
+the option's field is named `id` on purpose: `app-select` and
+`PaginatedSelectSource` both key an option by `id`, and a picker whose option id
+is not the value it binds is where a hydration silently stops matching. At D9 the
+projection becomes `id: ledger.id` and every consumer moves in one commit.
+
+#### `groupFor` survives as a DEFAULT, and finding that out was the point of the gate
+
+F4 is about the enum deciding **pickability**. It says nothing about the enum
+being a bad *suggestion* — and every company has exactly one head per document
+context (F16 measured all fourteen), which is precisely why the old pickers
+arrived pre-filled: `groupFor` left them holding a single row and
+`autoSelectSingle` took it. Widening the list to five would have silently removed
+that, one extra keystroke per voucher on the busiest screen in the product, with
+nothing saying it had changed.
+
+So the enum is read once more, by `defaultGroupForContext`, as a suggestion —
+and **only when the match is unique**. A company with two sales heads gets no
+suggestion rather than the lower id.
+
+⚠️ **`isSystem: false` on that lookup is load-bearing, and the gate found it, not
+the reasoning.** `AccLedgerService.createBackingHead` files **every** twin it
+writes under `groupFor: 'journal'` — it needs some value and none of them mean
+anything for a head nobody picks by category. So one ledger created through the
+Chart of Accounts screen made the simple journal's match ambiguous and the
+uniqueness rule answered `null`: the default disappearing from a screen because
+somebody added an unrelated ledger. Every seeded document head is `isSystem = 0`
+and every backing head is `1`; a system head is machinery, not a suggestion.
+
+#### 🐞 A saved head with no ledger would have rendered a BLANK field
+
+Two live rows on the development database name a head that has no ledger — both
+`trx_payment_receipts` headers on a **control head**, and the same two the D6
+note records as why that table's `ledgerId` is nullable while the column beside
+it is not. Under a ledger-fed picker they would have rendered as *"nothing
+chosen"*, the operator would have picked something, and the save would have
+written it over a value that was there all along.
+
+`legacyHeadOption` is the answer: a **hydration** renders the head itself when
+nothing stands behind it. It is reachable only for an id the caller already had,
+so it cannot put a head back into circulation that `controlHeadNotPostable`
+refuses. The general rule, which is the one to carry: **an offer-time rule
+applied to a hydration is a data-loss bug.** The feed's `trxGroupIds` path is
+scoped by none of the four filters the search path uses.
+
+#### 🐞 `app-select` swallowed every keyboard chord, and had since it was written
+
+`onSearchKeydown` ended with a bare `event.stopPropagation()` — *"stop all other
+keys from reaching mat-select's type-to-navigate handler"*. That handler only
+ever cares about printable characters with no modifier, so swallowing
+`Alt`/`Ctrl`/`Meta` combinations was collateral, and it cost two real behaviours:
+the voucher screens' **`Ctrl+S`** (accept, which a Tally operator presses from
+anywhere) did nothing while a picker's search box had focus, and `Alt+C` did
+nothing at exactly the moment it is most wanted — the list is open and the ledger
+is not in it. Both are document-level listeners, and that line is what they never
+reached.
+
+⚠️ `Alt+C` therefore takes **two** listeners, and the reason generalises: the
+dropdown's panel is a `.cdk-overlay-pane` on `<body>`, a different DOM tree, so a
+host listener cannot see a key pressed in it. Same trap as the voucher options
+bar's click-away rule (§9), same answer — ask about the overlay, not about the
+host. Measured: the host listener alone opened **zero** dialogs.
+
+#### The gate, and the four injections
+
+`qa-artifacts/tests/ui/money/ledger-picker.ui.spec.ts` + `ledger-picker-rules.ts`
+(restated, never imported). Six properties, in a browser, because **P4a moves no
+figure**: it changes what a screen offers and what it starts on, so the parity
+diff is empty by construction and says nothing about any of it — P3d's argument
+exactly.
+
+1. every head field is the one picker, on all seven voucher screens, **and no
+   group-fed head select survives** (the half a partial migration would pass);
+2. it offers what the nature allows, with the widening compared against a live
+   `groupFor` count rather than a number written down;
+3. a control head is offered in no context, and no party ledger is either;
+4. the default survived the widening, field by field;
+5. a saved voucher renders its own head, including one outside the field's scope;
+6. `Alt+C` from **inside the open dropdown** creates a ledger, selects it, and
+   the created ledger carries the head the form binds.
+
+Shown to fail, four ways: every context widened to all natures (2 fails), the
+chord swallowed again (6 fails), `[preselectDefault]` dropped at a call site
+(4 fails), the search path allowed to emit legacy heads (3 fails).
+
+⚠️ **A fifth injection PASSED, and the property was the problem** — P3d‑1's
+lesson, second time. Scoping the hydration by nature left (5) green, because
+`legacyHeadOption` quietly answered instead: the value still rendered, under the
+head's name, with no ledger behind it. The assertion now demands the row come
+back with its `ledgerId` and the chart's own name. **A fallback that covers a bug
+is how a rule stops being measurable.**
+
+⚠️⚠️ The **invoice-scan review** screen is the seventh site and is deliberately
+not in the gate: it needs a `scanned_invoices` row and the QA world builds none.
+Verified by hand against a real row — thirteen expense ledgers, arriving on
+*Purchase* — and recorded in `ledger-picker-rules.ts` as measured-not-gated
+rather than left to read as coverage.
+
+#### One pre-existing failure, proved not to be this phase
+
+`qa:transactions` has **one** red test — `lifecycle-matrix.spec.ts`'s
+`matrix · purchase`, a `500` from `POST /trx/:id/approve` on the voucher it
+creates. It reproduces serially, and it reproduces with **P4a stashed**, so it is
+not this phase's; approving an existing draft purchase through the same route
+answers `200`. Recorded here rather than absorbed: 193 pass beside it.
+
+#### What P4b inherits
+
+§3.3's frontend is **finished**. What is left of P4 is §3.5 — the unified entry
+surface — and the first thing it owes is the decision the plan asks for before
+any of it: **name the third mode.** Six of `trx-add-edit`'s ten document types
+post no GL at all, and a grid whose invariant is *"Dr must equal Cr"* has nothing
+to say about them (F6).
+
+Three things this phase deliberately did **not** do:
+
+- **No party ledger in the picker.** A party has no legacy head to bind and is
+  not what these fields name — the party is its own column on the voucher. A
+  party ledger becomes pickable as a **row** in the Dr/Cr grid, which is P4c's.
+- **`groupFor` is not deleted.** It stopped deciding pickability and it still
+  seeds every field's default, and `TrxGroupService` still writes it. It goes
+  with `trx_groups` at D9.
+- **The `charge` context reaches both natures and nothing narrows it per
+  document.** Freight paid on a purchase and freight recovered on a sale share
+  one picker; splitting it by the parent voucher's direction is a rule nobody has
+  asked for, and inventing one would be a narrowing on the phase that exists to
+  widen.
+
+---
+
 ### Verification pass — 2026-08-28
 
 The plan was written from a reading of the source. It has since been checked
@@ -2448,6 +2644,10 @@ anywhere in the product.
 *`posting.const.ts` · `closing-stock.const.ts`*
 
 **F4 — `groupFor` welds the chart of accounts to the voucher UI.** `[high]`
+> ✅ **Closed in P4a** ([record](#p4a-record--2026-08-29)). `app-ledger-picker`
+> offers what the group's **nature** allows; the enum survives only as each
+> field's default, and only when its match is unique.
+
 A head is pickable only in the voucher context its enum names — `purchase`,
 `sales`, `payment`, `receipt`, `journal`, `charge`, `account`. A user who creates
 "Electricity Expenses" as a journal head will not find it on a Payment voucher.
@@ -2864,8 +3064,13 @@ every target names a group that exists in the 28.
 > screen landed in P3d‑2** ([record](#p3d-2-record--2026-08-29)), with the five
 > refusals mirrored into `client-front/src/utils/ledger-rules.util.ts` and
 > compared **by message text** across the repos (`check-mirrors.js` check 10).
-> What is left of this section is `app-ledger-picker` and `Alt+C`, in **P4**,
-> which is their only consumer.
+> **`app-ledger-picker` and `Alt+C` landed in P4a**
+> ([record](#p4a-record--2026-08-29)), which finishes this section: one component
+> now serves every voucher head field, `POST /acc-ledgers/picker` is its feed,
+> and `groupFor` has stopped deciding what is pickable (F4). ⚠️ It binds the
+> ledger's `legacyTrxGroupId`, not its own id, because every voucher DTO states
+> a head and `ledgerId` is on none of them (D6) — `voucher-head-option.const.ts`
+> carries that and its expiry at D9.
 > ⚠️ **`POST /acc-ledgers/list` — the feed named below — answered every call
 > with a 500** from the day it was built until P3d‑1 called it: it included a
 > `deletedByUser` alias `AccLedger` never declares (these two tables carry
@@ -2898,10 +3103,14 @@ every target names a group that exists in the 28.
 - Ledger create/alter with Tally's field order: Name → Under → opening balance with
   Dr/Cr → bill-wise → cost centres → GST/statutory detail.
 - `app-ledger-picker`, a paginated searchable select used by **every** voucher
-  screen. Replaces the six different group pickers that exist today.
+  screen. Replaces the six different group pickers that existed. **Done (P4a.)**
+  It owns its own `mat-form-field`, so a call site is one tag rather than a
+  form-field/select/error block.
 - `Alt+C` on the picker opens ledger-create inline and returns the new id to the
-  field — Tally's create-on-the-fly. The repo already has `AddDialogService` for
-  this shape.
+  field — Tally's create-on-the-fly. **Done (P4a.)** ⚠️ It needs **two**
+  listeners: the dropdown's panel is a `.cdk-overlay-pane` on `<body>`, so a host
+  listener never sees a key pressed in it — and `app-select` was stopping every
+  chord besides.
 
 > 🔒 **Security — easy to get wrong.** The ledger list needs `@SharedRead()`
 > because every module's voucher screen picks from it. It must be declared
@@ -2950,7 +3159,7 @@ It is the whole of the "full Tally replacement" decision.
 | **Mode** | `Ctrl+H` toggles **Accounting Invoice** ↔ **Item Invoice**. Contra, Payment, Receipt and Journal are accounting-only. Sales, Purchase and both notes default to Item Invoice and remember per voucher type. ⚠️ **A third mode is needed** — see below. |
 | **Accounting mode grid** | Dr/Cr rows: side · ledger · amount · (bill-wise popup if the ledger is bill-wise) · (cost-centre popup if applicable). Running Dr and Cr totals with the difference shown live; save is refused while it is non-zero, **in the voucher's own words** rather than a form error. |
 | **Item mode grid** | **The existing form, re-hosted.** `trx-add-edit`'s item grid, its pricing engine, its GST classification, its charges and its attachments move in as a child component. `applyCatalogueSnapshots`, `TrxWriteService`, the e-invoice and e-way bill paths, HSN/UQC and price capture are **untouched**. |
-| **`Alt+C`** | Create ledger / stock item / cost centre inline from the field that needed it. |
+| **`Alt+C`** | Create ledger / stock item / cost centre inline from the field that needed it. **The ledger half is done (P4a)**, on every head field. |
 | **`Ctrl+A`** | Accept and save from anywhere. `Ctrl+S` kept as an alias — several screens already bind it. |
 | **`F12`** | Per-voucher-type configuration, replacing `/transaction-config/:trxType` as a modal rather than a route. |
 | **Narration** | Always last, always full width, always present. It is the field Tally operators use most and it is currently folded behind a chip. |
@@ -3558,6 +3767,19 @@ The unified entry screen, its modes, the function keys, `Alt+C`, `Ctrl+A`,
 `Ctrl+H`, `F12`. `groupFor` stops being consulted (F4) and the picker offers what
 the group nature allows. The old routes redirect — **fourteen of them, not six**
 (F6).
+
+> **P4a is done** ([record](#p4a-record--2026-08-29)): `app-ledger-picker`,
+> `Alt+C`, and F4 closed. It went first, and into the **current** screens rather
+> than waiting for the new one, because a component with no caller is an
+> endpoint nobody has run (BUG-0068's lesson) — the six pickers it replaces are
+> where it gets measured.
+>
+> ⚠️ One correction to the sentence above, learned by building it: `groupFor`
+> stops deciding **pickability**, which is all F4 is about, and survives as each
+> field's **default** — every company has exactly one head per document context
+> (F16), which is why the old pickers arrived pre-filled at all. Deleting it
+> outright would have cost a keystroke per voucher on the busiest screen in the
+> product, silently.
 
 > ⚠️ **§3.5 names two modes and the code needs three** (F6). Six of the ten
 > document types `trx-add-edit` serves — purchase requisition, purchase order,
