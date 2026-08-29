@@ -690,6 +690,97 @@ if (hubFeatureColumns && hubFeaturesDto && consoleFeatures) {
   }
 }
 
+// ── 11. voucher entry: which surface a voucher type is typed into (P4b) ─────
+//
+// `voucher-entry.const.ts` decides the mode and the Dr/Cr row shape;
+// `voucher-entry.util.ts` is what the entry screen renders from. The pair is
+// unusual and worth reading before changing either side:
+//
+// ⚠️ The backend does not *state* the row plans — it **derives** them from
+// `buildLegs`, the posting engine's own leg builder, so the grid and the general
+// ledger cannot come to different answers about what a Payment is. The frontend
+// has no `buildLegs` and restates the answer. So this check is the only thing
+// tying the screen to the engine: change a cash voucher's legs and it fails
+// here, naming the voucher, rather than the grid quietly drawing a shape that
+// stopped being true.
+//
+// ⚠️⚠️ Data, not text: both sides are loaded and CALLED, and the mode map is an
+// exact comparison. F6's decision — that the six upstream documents are a third
+// mode — is asserted on the backend against `buildLegs` returning no legs at
+// all (`voucher-entry.const.spec.ts`), which is the half a cross-repo check
+// cannot see.
+{
+  const BACK_VE = 'jayhind-client-back/src/const/voucher-entry.const.ts';
+  const FRONT_VE = 'jayhindi-client-front/src/utils/voucher-entry.util.ts';
+
+  let back = null;
+  let front = null;
+  try {
+    back = loadTsModule(...splitRepoPath(BACK_VE));
+    front = loadTsModule(...splitRepoPath(FRONT_VE));
+  } catch (err) {
+    failures.push(`voucher-entry: ${err.message}`);
+  }
+
+  if (back && front) {
+    // 11a. Every type, and the same mode for each. A type present on one side
+    // only is a screen with no mode or a mode with no screen.
+    diffMaps('ENTRY_MODE_BY_TYPE', back.ENTRY_MODE_BY_TYPE, front.ENTRY_MODE_BY_TYPE, 'client-back', 'client-front');
+
+    // 11b. The mode NAMES themselves, so the third mode cannot be called one
+    // thing in the engine and another on the screen.
+    diffMaps('VoucherEntryMode', back.VoucherEntryMode, front.VoucherEntryMode, 'client-back', 'client-front');
+    diffMaps('VoucherRowRef', back.VoucherRowRef, front.VoucherRowRef, 'client-back', 'client-front');
+
+    // 11c. The row plans, per accounting voucher — the derivation against the
+    // restatement.
+    const types = Object.keys(back.ENTRY_MODE_BY_TYPE);
+    let compared = 0;
+    for (const type of types) {
+      const isAccounting = back.ENTRY_MODE_BY_TYPE[type] === back.VoucherEntryMode.Accounting;
+      const call = (mod) => {
+        try {
+          return { plan: mod.accountingRowPlan(type) };
+        } catch (err) {
+          return { threw: String(err.message) };
+        }
+      };
+      const b = call(back);
+      const f = call(front);
+      compared++;
+
+      // A non-accounting type must be refused by BOTH — a grid that rendered
+      // rows for a Sales Order is the invariant-weakening F6 warned about.
+      if (!isAccounting) {
+        if (!b.threw || !f.threw) {
+          failures.push(
+            `voucher-entry: accountingRowPlan('${type}') should be refused on both sides ` +
+              `(client-back ${b.threw ? 'refused' : 'answered'}, client-front ${f.threw ? 'refused' : 'answered'})`,
+          );
+        }
+        continue;
+      }
+
+      // `role` is the backend's LegRole value and the frontend carries it as a
+      // plain string, so JSON is the comparison — same keys, same order.
+      const bj = JSON.stringify(b.plan ?? b.threw);
+      const fj = JSON.stringify(f.plan ?? f.threw);
+      if (bj !== fj) {
+        failures.push(
+          `voucher-entry DRIFT · accountingRowPlan('${type}'):\n` +
+            `      client-back:  ${bj}\n` +
+            `      client-front: ${fj}\n` +
+            '      — the backend derives this from buildLegs; if the legs changed, restate the frontend table in the same commit.',
+        );
+      }
+    }
+    notes.push(
+      `voucher-entry: ${Object.keys(back.ENTRY_MODE_BY_TYPE).length} types compared as data and ` +
+        `${compared} row plans run on both sides (P4b).`,
+    );
+  }
+}
+
 // ── Report ──────────────────────────────────────────────────────────────────
 for (const n of notes) console.log(`note: ${n}`);
 

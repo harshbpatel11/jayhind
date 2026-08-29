@@ -156,8 +156,18 @@ written — `Ctrl+S` did nothing while a picker's search box had focus — and a
 saved head with no ledger about to render as a blank field, which is a
 data-loss bug rather than a cosmetic one.
 
-**P4b — the unified entry screen — is next**, and it owes the decision §3.5 asks
-for before any of it: **name the third mode** (F6).
+**And P4b is done: Contra, Payment, Receipt and Journal are ONE screen.**
+`/transaction/voucher/<type>` is the unified entry surface; the three components
+it replaces are deleted, their routes redirect, and the Dr/Cr grid is **derived
+from `buildLegs`** — the rows a voucher draws are the legs it will post. §3.5's
+missing decision is taken with it: the third mode is the **Workflow Document**,
+whose invariant is the conversion chain rather than a balance and which is
+deliberately not a `Ctrl+H` destination (F6). ⚠️ Deriving the grid immediately
+contradicted the screen it replaces, and the screen was wrong: the old Payment
+drew its **head** as the debit row with the amount beside it, and that head is a
+leg of **0 of 974 posted payments and 0 of 1,888 receipts** (against 204 of 204
+for journals) — the ledger actually debited, the party, was in a side panel with
+no Dr against it. **P4c — Item mode, `trx-add-edit` re-hosted — is next.**
 
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
@@ -190,7 +200,9 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P3d‑1 | The drill-down spine, Esc as a route stack, the Ledger report's screen | M | **done** — [§P3d‑1 record](#p3d-1-record--2026-08-29) |
 | P3d‑2 | `/transaction/ledgers` — the Chart of Accounts screen | M | **done** — [§P3d‑2 record](#p3d-2-record--2026-08-29) |
 | P4a | `app-ledger-picker`, `Alt+C`, and `groupFor` stops deciding (F4) | M | **done** — [§P4a record](#p4a-record--2026-08-29) |
-| P4b… | Voucher entry — the unified screen, its modes and the function keys | L | not started |
+| P4b | The unified entry screen + the accounting (Dr/Cr) mode; the third mode named (F6) | M | **done** — [§P4b record](#p4b-record--2026-08-29) |
+| P4c | Item mode — `trx-add-edit` re-hosted, `Ctrl+H` | L | not started |
+| P4d | Workflow Document mode, and the remaining route redirects | M | not started |
 | P5 | Bill-wise details | L | not started |
 | P6 | Trading Account and Gross Profit | M | not started |
 | P7 | Cost centres | L | not started |
@@ -1227,6 +1239,21 @@ who states nothing gets the months the ledger has actually seen.
 silently missing its later months is worse than one that says the period is too
 long; property (14) asserts the refusal *against its own message*, so a 404 on a
 mistyped id cannot satisfy it.
+
+#### ⚠️ Two of the eight properties trip the ERP's own rate limiter
+
+Measured: the file is green run after run on its own, and inside a full
+`qa:money` — 85 tests, serial, 7½ minutes — properties (1) and (3) fail with
+**sixteen `429 Too Many Requests`** in the fixture's console channel. The ERP
+throttles 100 requests per minute per IP and the whole suite shares one bucket;
+these two are simply the request-heaviest (eight page loads, and a post plus an
+approve).
+
+`problems.ignore` takes **`/status of 429/` and nothing else**. Narrow on
+purpose: every other status still fails the test, and a rate limit that actually
+broke a screen still fails it through the assertions — where it shows up as an
+empty picker, not as a log line. The full suite is **83 passed / 2 failed** with
+those two 429s as the only failures, and green with the ignore in place.
 
 #### Three things established on the way
 
@@ -2549,6 +2576,202 @@ Three things this phase deliberately did **not** do:
 
 ---
 
+### P4b record — 2026-08-29
+
+**Contra, Payment, Receipt and Journal are one screen.**
+`/transaction/voucher/<type>/new` is `VoucherEntryComponent`, and the three
+entry components it replaces — `trx-contra-add-edit`,
+`trx-payment-receipt-add-edit`, `trx-journal-add-edit`, 1,149 lines of
+TypeScript and 645 of template — are **deleted**, not wrapped. Their routes
+redirect, `VoucherFormDialogService`'s three methods became one, and the same
+component serves the routed page and the dialog every voucher list opens.
+
+**And §3.5's missing decision is taken: the third mode is the Workflow
+Document** (F6, decided with the phase). Two halves, both load-bearing:
+
+- **Its invariant is the conversion chain, not the balance.** The six upstream
+  documents post no legs and move no stock; what makes one correct is that it
+  converts forward into the financial document it promises
+  (`DOCUMENT_FLOW_NEXT`), and its quantities are answerable there.
+- **It is not a `Ctrl+H` destination.** A non-financial type is always in it and
+  cannot leave; a financial one can never enter it. That is what keeps the
+  accounting grid's *"Dr must equal Cr"* an invariant — retrofitting a
+  no-posting case into it is exactly how §3.5 said that rule would get weakened.
+
+#### ⚠️ The grid is DERIVED from the posting engine, and that contradicted the screen it replaces
+
+`accountingRowPlan(kind)` calls `buildLegs(kind, { amount: 1 })` and maps each
+leg role to a row — so the rows a voucher screen draws **are** the legs it will
+post, and the two cannot come to different answers about what a Payment is. A
+leg role with no row kind mapped throws at the first render rather than a
+voucher quietly losing a leg from its own screen.
+
+Writing it that way immediately disagreed with the Payment screen, and the
+screen was wrong:
+
+| | old screen's Dr row | what `buildLegs` posts |
+|---|---|---|
+| Payment | the **head** (`trxGroupId`), amount beside it | `Dr party`, `Cr cash` |
+| Receipt | the **head**, on the Cr side | `Dr cash`, `Cr party` |
+
+`postPaymentReceipt` reads `trxGroupId` **only for a Journal**. Measured on the
+development database: of **974 posted payments and 1,888 posted receipts**, the
+head appears in a journal line of its own voucher **0 times** — against **204 of
+204** for journals, which is the control that makes the query mean something. So
+for six years the entry screen has stated a double entry the books do not
+contain, while the ledger that *is* debited — the party — sat in a side panel,
+outside the grid, with no Dr or Cr against it.
+
+The head is not deleted: it is a **classification**, read by the payment/receipt
+register's `groupName`, and it keeps a field of its own beside the party under
+that name. What it no longer is, is a row of the grid with an amount on it.
+
+**`check-mirrors.js` check 11** is what stops the derivation and the screen
+drifting: it loads both modules, compares `ENTRY_MODE_BY_TYPE` as data over all
+fourteen types, and **runs** `accountingRowPlan` on both sides for each. Both
+failure modes were reproduced — a mode moved on one side, and a row plan
+restated wrongly. ⚠️ It is also the only thing tying the screen to the engine
+across the repo boundary: change a cash voucher's legs and it fails here, naming
+the voucher.
+
+#### The keys are one table, read by two components
+
+`VOUCHER_SHORTCUTS` (§2.2's map) is read by the entry screen **and** by
+`TransactionLayoutComponent`, whose bare F4–F9 have navigated to voucher lists
+since Phase N. One table, so the module-level jump and the in-place switch
+cannot disagree about which key is which voucher.
+
+⚠️ **F4 changes meaning inside a voucher, and that is the point.** All three
+screens this replaces bound bare F4 to *"focus the first picker"* — ours, not
+Tally's, and the opposite of what F4 did one level up in the same module. §3.5's
+map wins: F4 is Contra everywhere now.
+
+⚠️⚠️ **Switching type is a NAVIGATION, including between two types this screen
+hosts.** Each accounting type is its own route config — so it can carry its own
+permission key — which means the router rebuilds the component across the switch
+whatever the component does first; the first cut mutated the form in place and
+then navigated anyway, doing the work twice and discarding it. Two things fall
+out and both are better than the bespoke version: `pendingChangesGuard` is what
+asks about a dirty voucher, rather than a `window.confirm` written into the
+screen, and a switch genuinely clears the form, which is right — a contra's
+fields are not a journal's. A type this screen does not host yet lands on its
+existing route: a seam for P4c/P4d, not a shim.
+
+#### F12 gave the configuration editor a second host, rather than a second editor
+
+`TransactionConfigEditComponent` now takes `MAT_DIALOG_DATA`/`MatDialogRef`
+`{ optional: true }` and consults the route only when there is no dialog — the
+shape every voucher form in this product already uses. §3.5 asks for F12 to be
+*"a modal rather than a route"*; building a second editor for the modal would
+have been a second definition of one screen, which is the thing this phase
+deletes three of one folder over.
+
+#### The gate, and five injections
+
+`qa-artifacts/tests/ui/money/voucher-entry.ui.spec.ts` +
+`voucher-entry-rules.ts` (restated, never imported). **Eight properties, in a
+browser**, because P4b moves **no figure**: every one of the four still posts
+through the API it always did, no DTO changed, and the backend diff is two new
+files — a pure const and its spec — so the parity diff is empty by construction
+and says nothing about any of it.
+
+1. one screen serves all four, and the **old entry paths land on it**;
+2. the rows on screen are the voucher's legs, role for role, read from
+   `data-role` in the DOM;
+3. a voucher posted **through the screen** posts the legs the screen drew —
+   approved, and its `journal_lines` compared back;
+3b. and so does a **Payment**, which the contra cannot stand in for: it carries a
+   party, an allocation and an over-payment cap, and its debit row is the
+   *derived* one — so this is the only place the grid's party row is checked
+   against the leg it claims to be;
+4. a keyboard-only operator switches type and accepts, `Ctrl+A` from inside an
+   open dropdown;
+5. an unbalanced split journal is refused **in the voucher's own words** with
+   **no request leaving the page** (counted, because a 400 caught and toasted
+   looks identical on screen);
+6. a Payment's head is on no grid row, and is a leg of none of the company's
+   posted payments;
+7. every type has a mode, and only the four are on this screen.
+
+Shown to fail: the payment's Dr row put back to the head (2 fail), the legacy
+redirects removed (1 fails), the unbalanced journal allowed to leave the page (1
+fails), and P4a's chord swallow re-added to `app-select` (1 fails).
+
+⚠️ **A fifth injection PASSED, and the property was the problem** — P3d‑1's
+lesson and P4a's, a third time. Swapping the contra's two grid cells so the Dr
+row wrote `fromAccountId` left property (3) green, because it read the saved
+voucher's own `toAccountId`/`fromAccountId` and compared them with the legs —
+and the posting engine *derives* the debit from `toAccountId`. The assertion was
+tying the engine to itself and said nothing about which row the operator typed
+into. It now captures the **account names chosen on screen** and requires the Dr
+row's name to be the debited leg's account; the same injection then fails,
+naming both accounts.
+
+⚠️⚠️ **One rule is not observable through this screen, and the spec says so.**
+Whether the accept chord is bound at `document` or at the host cannot be told
+apart here: measured, the select's overlay pane renders **inside**
+`app-voucher-entry`'s own subtree, so a host-scoped listener answers it too and
+downgrading it passes every property. The binding stays `document:` because that
+is what `app-ledger-picker`'s own `Alt+C` needs one level down, where the panel
+*is* outside the picker's host. Recorded in the spec rather than left to read as
+coverage — §9's voucher-options-bar case, in a new place.
+
+#### Three things established on the way
+
+- **The amount is ONE control, rendered on the side the row is on.** A two-leg
+  voucher has one figure, not two that must be kept equal, and a second input
+  the operator can disagree with is a way to produce an unbalanced voucher out
+  of a shape that cannot be unbalanced. Only a **split** journal has per-row
+  amounts, and its rule is `validateJournalLines` — already mirrored, already
+  enforced server-side, and deliberately not restated a third time.
+- **The type is route DATA, not a `:type` parameter**, and that was a real
+  defect for an hour: each accounting type has its own path so it can carry its
+  own permission key (`trx-contra` for a contra, `trx-payment-receipts` for the
+  other three, both read out of `APP_NAVIGATION` by `permissionKeyForUrl` rather
+  than restated), which makes the segment a literal — and `paramMap` answered
+  `null`, so **every type rendered a Payment's rows**. Caught by the first
+  browser run, which is what a screen-shaped gate is for.
+- **A cleanup that cannot fail changes the books it is measuring.** The suite's
+  `afterAll` cancels what it approved — *a voucher that ever posted is never
+  erased* — and the first cut sent `statusRemarks` where `VoucherTransitionDto`
+  declares **`reason`**, so `forbidNonWhitelisted` answered 400, the
+  `.catch(() => undefined)` swallowed it, and eleven approved `QA·P4b` contras
+  sat in a QA tenant's ledger with nothing saying so. It reports what it could
+  not undo now, by name — which then had to be taught three more facts about
+  this API before it was quiet: a **cancelled** voucher is the end state and not
+  a step towards one (rule 2 again), a delete's success envelope carries no
+  `data` key, and the *erase* call answers 404 on the row it has just archived.
+  Every one of those was a real refusal reported honestly rather than a bug.
+- **`.vch-shell` declares `container-type: inline-size`.** Every voucher screen
+  renders both routed and inside `vch-dialog`, so its width comes from a dialog
+  or from the content column and never from the window — §9's rule. The type bar
+  hides below **720px of the shell's own width**; it had no container to query
+  against until this phase gave it one, and a container query with no container
+  never fires.
+
+#### What P4c inherits
+
+Item mode: `trx-add-edit`'s 2,250 lines re-hosted into the same shell as
+`Ctrl+H`'s other half, for Purchase, Sales and both notes. The header strip, the
+options bar, `revealInvalidPanel`, `applyCatalogueSnapshots`, the e-invoice and
+e-way bill paths, HSN/UQC and price capture are **untouched** — re-hosted, never
+rewritten, which is the whole of §3.5's risk note.
+
+Three things this phase deliberately did **not** do:
+
+- **No party ledger as a free Dr/Cr row.** The party row is derived from the
+  voucher's own party field, which is where §3.6 hangs bill-wise details — so
+  making it a picked row is P5's question, not a widening to do first.
+- **The payment's classification head was not removed.** It posts nothing, and
+  it is read: the payment/receipt register prints it as `groupName`. Deleting a
+  field an operator has been filling in for years because it turns out not to be
+  a leg is a product decision, and this phase's job was to stop *drawing it as
+  one*.
+- **`Ctrl+H` does not exist yet.** There is one mode on this screen and nothing
+  to toggle to until P4c; a toggle with one destination is a button that lies.
+
+---
+
 ### Verification pass — 2026-08-28
 
 The plan was written from a reading of the source. It has since been checked
@@ -3156,13 +3379,13 @@ It is the whole of the "full Tally replacement" decision.
 | Element | Behaviour |
 |---|---|
 | **Voucher type** | `F4` Contra · `F5` Payment · `F6` Receipt · `F7` Journal · `F8` Sales · `F9` Purchase · `Alt+F5` Debit Note · `Alt+F6` Credit Note, plus `Ctrl+F8/F9` for orders. Switching type on an unsaved blank voucher is free; on a dirty one it asks. |
-| **Mode** | `Ctrl+H` toggles **Accounting Invoice** ↔ **Item Invoice**. Contra, Payment, Receipt and Journal are accounting-only. Sales, Purchase and both notes default to Item Invoice and remember per voucher type. ⚠️ **A third mode is needed** — see below. |
-| **Accounting mode grid** | Dr/Cr rows: side · ledger · amount · (bill-wise popup if the ledger is bill-wise) · (cost-centre popup if applicable). Running Dr and Cr totals with the difference shown live; save is refused while it is non-zero, **in the voucher's own words** rather than a form error. |
+| **Mode** | `Ctrl+H` toggles **Accounting Invoice** ↔ **Item Invoice**. Contra, Payment, Receipt and Journal are accounting-only. Sales, Purchase and both notes default to Item Invoice and remember per voucher type. The third mode is the **Workflow Document** (F6, decided 2026-08-29) and is deliberately **not** a `Ctrl+H` destination — see below. |
+| **Accounting mode grid** | **Done (P4b.)** Dr/Cr rows: side · ledger · amount · (bill-wise popup if the ledger is bill-wise — P5) · (cost-centre popup if applicable — P7). Running Dr and Cr totals with the difference shown live; save is refused while it is non-zero, **in the voucher's own words** rather than a form error. ⚠️ The rows are **derived from `buildLegs`**, so what the screen draws is what the voucher posts — which is how P4b found the old Payment screen drawing its *head* as the debit row, a head that is a leg of none of the 2,862 posted payments and receipts. |
 | **Item mode grid** | **The existing form, re-hosted.** `trx-add-edit`'s item grid, its pricing engine, its GST classification, its charges and its attachments move in as a child component. `applyCatalogueSnapshots`, `TrxWriteService`, the e-invoice and e-way bill paths, HSN/UQC and price capture are **untouched**. |
 | **`Alt+C`** | Create ledger / stock item / cost centre inline from the field that needed it. **The ledger half is done (P4a)**, on every head field. |
-| **`Ctrl+A`** | Accept and save from anywhere. `Ctrl+S` kept as an alias — several screens already bind it. |
-| **`F12`** | Per-voucher-type configuration, replacing `/transaction-config/:trxType` as a modal rather than a route. |
-| **Narration** | Always last, always full width, always present. It is the field Tally operators use most and it is currently folded behind a chip. |
+| **`Ctrl+A`** | Accept and save from anywhere. `Ctrl+S` kept as an alias — several screens already bind it. **Done (P4b)** on the accounting types. |
+| **`F12`** | Per-voucher-type configuration, replacing `/transaction-config/:trxType` as a modal rather than a route. **Done (P4b)** — the same editor component, given a second host rather than a second implementation. |
+| **Narration** | Always last, always full width, always present. It is the field Tally operators use most and it is currently folded behind a chip. **Done (P4b)** on the accounting types. |
 
 > ⚠️ **Two modes was one short** (F6, 2026-08-28). `trx-add-edit` already serves
 > **ten** document types, and six of them — purchase requisition, purchase order,
@@ -3175,6 +3398,15 @@ It is the whole of the "full Tally replacement" decision.
 > for delivery and receipt notes (§2.2). **Name the third mode before building
 > the toggle**; retrofitting a "no posting" case into a grid whose invariant is
 > "Dr must equal Cr" is how that invariant gets weakened.
+>
+> ✅ **Decided 2026-08-29, with P4b: the third mode is the WORKFLOW DOCUMENT.**
+> Its invariant is the forward conversion chain (`DOCUMENT_FLOW_NEXT`), never a
+> balance, and it is **not reachable by `Ctrl+H`** — a non-financial type is
+> always in it and a financial one can never enter it, which is what keeps the
+> accounting grid's invariant an invariant rather than a case with an exception.
+> `voucher-entry.const.ts` is the rule and its spec asserts the set against
+> `buildLegs` returning no legs at all, so the mode cannot drift from the
+> posting behaviour that defines it.
 
 > ⚠️ **What must not be lost.** The voucher options bar, `revealInvalidPanel`, the
 > maker–checker lifecycle and `voucher-lifecycle.const.ts`'s rules all stay exactly
@@ -3794,6 +4026,19 @@ the group nature allows. The old routes redirect — **fourteen of them, not six
 **Gate:** `check-mirrors.js` reports no lifecycle drift across all 487 vectors;
 `qa:money`, `qa:print` and `qa:shell` green; a keyboard-only operator can post one
 of each voucher type without a mouse.
+
+> **P4b is done** ([record](#p4b-record--2026-08-29)): the unified screen exists
+> and hosts the **accounting** mode — Contra, Payment, Receipt and Journal, one
+> component, three deleted. The keyboard half of the gate is met for those four
+> (property 4 of `voucher-entry.ui.spec.ts` posts one without a mouse); the
+> other ten types meet it when P4c and P4d re-host them, and their keys navigate
+> until then rather than pretending.
+>
+> ⚠️ The row shapes are **derived from `buildLegs`** rather than written down,
+> and `check-mirrors.js` **check 11** compares that derivation against the
+> screen's own table — 14 types as data, 14 row plans run on both sides. It is
+> the only thing tying the entry screen to the posting engine across the repo
+> boundary, and both of its failure modes were reproduced.
 
 ### P5 · Bill-wise details `[L]`
 
