@@ -105,10 +105,26 @@ way to post a rupee to it**. `create` writes the pair — the ledger and a legac
 head, linked by `legacyTrxGroupId`, which is D5's own precedence rule — and the
 rename, restore and delete all carry the twin, because an orphaned head does not
 fail when posted to, it silently provisions a fresh ledger. The parity diff is
-**empty**. **P3d — the drill-down spine and `/transaction/ledgers` — is next**,
-and it is the last of §3.3.
+**empty**.
 
-⚠️ **The parity harness's question changed with it**, which is the phase in one
+**And P3d‑1 is done: the drill spine exists, and the Ledger report has a
+screen.** A report row emits a **`DrillTarget`** (`group` | `ledger` |
+`voucher`) and one resolver turns it into a URL; Tally's Esc-goes-back is a
+**route stack** rather than browser history, and a navigation nobody drilled
+empties it; a report's period lives in its **own URL**, which is what makes Esc
+restore the sheet a reader came from on the date they left it — and makes every
+statement a link somebody can paste. P3a's Ledger report, which had an API and no
+screen, is the middle of the journey. The gate is
+four properties in a browser, **shown to fail four times** — and one of those
+injections passed first time, because the busiest ledger's last posting is
+*today* and today is also the screen's own default: the fixture, not the
+assertion, was what could not fail. Building it found `POST /acc-ledgers/list`
+answering **every call with a 500** since P2b‑3b — an include naming an alias
+`AccLedger` never declared — which nothing had noticed because nothing had
+called it. **P3d‑2 — `/transaction/ledgers`, the tree-plus-grid Chart of
+Accounts — is next**, and it is the last of §3.3.
+
+⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
 report whose shape is fixed?"*, and there is no longer a second derivation to
 hold the tree against. That question is finished. `diff --rebased` is how a pair
@@ -136,7 +152,8 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P3b | The statements become the tree (Trial Balance, Balance Sheet, P&L) | M | **done** — [§P3b record](#p3b-record--2026-08-29) |
 | P3c‑1 | The presentation layer retires | M | **done** — [§P3c‑1 record](#p3c-1-record--2026-08-29) |
 | P3c‑2 | Ledger creation | M | **done** — [§P3c‑2 record](#p3c-2-record--2026-08-29) |
-| P3d | The drill-down spine and `/transaction/ledgers` | M | not started |
+| P3d‑1 | The drill-down spine, Esc as a route stack, the Ledger report's screen | M | **done** — [§P3d‑1 record](#p3d-1-record--2026-08-29) |
+| P3d‑2 | `/transaction/ledgers` — the Chart of Accounts screen | M | not started |
 | P4 | Voucher entry | XL | not started |
 | P5 | Bill-wise details | L | not started |
 | P6 | Trading Account and Gross Profit | M | not started |
@@ -1827,6 +1844,207 @@ twin.
 
 ---
 
+### P3d‑1 record — 2026-08-29
+
+**The drill spine exists, and the Ledger report has a screen.** A report row now
+emits a **`DrillTarget`** — `group` | `ledger` | `voucher` — and one resolver
+turns it into a URL; Tally's Esc-goes-back is a **route stack**; and P3a's
+Ledger report, which had an API and no screen, is the middle of the journey:
+Balance Sheet → group → ledger → voucher, and back out with each screen on its
+own period.
+
+| | |
+|---|---|
+| Parity diff across the change | **empty** (`p3d-before` / `p3d-after`, captured either side of the one backend line this phase touches) — no allowances, no re-basings |
+| `qa:money` (new: `drill-spine.ui.spec.ts`, four properties) | **72 passed** — the four new ones green, and shown to fail four times |
+| `npm test` (client-back) | 1,896 in 126 suites — unchanged, this phase adds no rule to `src/const/` |
+| `qa:p1-group-tree` · `qa:p2-ledgers` · `qa:p3-ledger-report` · `qa:p3b-statements` · `qa:p2c-import-tree` | 56 · 333 · 140 · 323 · 227 |
+| five guards · `check-mirrors` · `lint:ci` · `build` (both repos) | green |
+| Migrations | **none** |
+
+| Artefact | What it is |
+|---|---|
+| `client-front/src/utils/drill-target.ts` | The union and the **one** resolver. Where a `group`, a `ledger` and a `voucher` each live, and which postings have no screen at all. |
+| `client-front/src/services/drill.service.ts` | The route stack: `drill()`, `back()`, `backOr()`, and the rule that a navigation nobody drilled empties it. |
+| `client-front/src/directives/drill-back.directive.ts` | Esc, applied **once** to the reports layout. |
+| `client-front/src/utils/report-period-url.ts` | A report's period in its own URL — `readPeriodParams`, `writePeriodParams`, and `periodDebounce`. |
+| `components/admin/transaction/reports/ledger/` | The Ledger report screen: a row per month, expanding to its vouchers, each opening the voucher. |
+| `qa-artifacts/tests/ui/money/drill-spine.ui.spec.ts` + `drill-rules.ts` | The gate, and the rule restated beside it. |
+
+#### P3d split in two, and the half with a gate landed first
+
+Same argument as the five splits before it. **P3d‑1** is the spine — the part
+§P3's gate is written about (*"Balance Sheet → group → ledger → voucher …
+back out with Esc preserving the period"*) — and it is measurable end to end
+today. **P3d‑2** is `/transaction/ledgers`, the tree-plus-grid Chart of Accounts
+that replaces the Masters screens: a master screen with no figure on it, whose
+gate is a different question.
+
+#### ⚠️ The parity harness cannot gate this phase, and neither can the backend
+
+P3d‑1 changes **no query and adds no report**, so the parity diff is empty *by
+construction* — it would be empty if the whole phase had been deleted. That is
+§6.4's rule in a new place (*a mirror rule that cannot fail reads as coverage*),
+and the same reason P3a needed a gate of its own.
+
+What can fail here is a **journey**, and a journey is only observable by taking
+one. So the gate is four properties in a browser, and each is a question about
+what a reader can reach:
+
+1. **Four screens, one click each.** Every click counted, from a Balance Sheet
+   as-of a stated date down to the voucher. Reaching the leaf costs one click
+   per group level — asserted to be *exactly* that, because the chart's own
+   depth is not the spine's to add to — and from a leaf the voucher is three:
+   the ledger's name, its month, the voucher number. The ledger screen must be
+   **already loaded** on arrival, which is the half of "one click each" a URL
+   cannot show. And the gate says *"from every leaf"*, so the count of drillable
+   ledger rows is asserted against the count of ledger rows, and the same for
+   the groups' own control — one journey is a journey, and the claim is about
+   all of them.
+2. **Esc walks back out, each screen on its own period** — from the URL *and*
+   from the rendered date field, because a screen that ignored the parameter
+   satisfies the first and not the second.
+3. **A posting with no document is not offered as a link** — and not by
+   counting: the same month is read from the API and every line put to
+   `drill-rules.ts`'s own `voucherPath`, so the set of voucher numbers the
+   screen offers has to equal the set the **restated** rule says has a
+   document.
+4. **A navigation nobody drilled clears the stack.**
+
+**Shown to fail, four times**: deleting the stack-clearing rule (property 4),
+making every voucher row a link (3), dropping the period from the drill (1, 2),
+and making Esc a no-op on the reports layout (2).
+
+#### ⚠️⚠️ One of those injections passed, and the property was the problem
+
+Dropping the period from the drill left the gate **green** the first time it was
+injected. The reason is worth carrying: the property asserted that the ledger
+arrived with `?to=` equal to the sheet's as-of date, the busiest ledger's last
+posting is **today**, and *today* is also what the ledger screen's own default
+period (`this month`) puts in `to`. The assertion was true either way.
+
+The fix is not a stronger assertion but a **date no default can produce**: the
+leaf is now chosen from the busiest ledger's busiest month **strictly before
+this one**. Re-injected, it fails on both properties.
+
+This is the same shape §13 keeps recording — *a check that cannot fail reads as
+coverage* — arriving through the **fixture** rather than through the assertion,
+which is the harder half to see. A test whose data makes two different answers
+identical is measuring nothing, and nothing about the assertion says so.
+
+#### 🐞 The ledger list answered every call with a 500, and had no caller to notice
+*(filed as [BUG-0068](qa-artifacts/docs/bugs/BUG-0068.md))*
+
+`POST /acc-ledgers/list` — the feed §3.3 named by name, and P2b‑3b's own
+*"the paginated master list, and the feed `app-ledger-picker` will read"* —
+**500'd on every request** from the day it was built until this phase called it:
+
+```
+SequelizeEagerLoadingError: User is associated to AccLedger using an alias.
+You've included an alias (deletedByUser), but it does not match the alias(es)
+defined in your association (partyUser).
+```
+
+`acc_ledgers` and `acc_groups` are soft-deletable and carry **`deletedAt`
+alone** — no `deletedBy` column, and so no `deletedByUser` association — while
+`findAll` asked for both. Sequelize refuses an include whose alias the model
+never declared, which is a 500 rather than a missing column.
+
+Three things about it:
+
+- **It is the shape §13 still-open #1 is about, in its purest form.** Nothing
+  called the route between P2b‑3b and P3d, and `npm test`, five guards,
+  `lint:ci`, `build` and every gate script were green throughout, because none
+  of them issues an HTTP request. **An endpoint nothing calls is an endpoint
+  nobody has run** — and a `@SharedRead()` feed is exactly the shape that
+  acquires its callers all at once, so the first consumer finds it for
+  everybody.
+- **The fix is to stop asking for a column the table does not have**, not to add
+  one. Who deleted a ledger is the audit trail's answer (`@Audit('acc-ledgers')`
+  is already on the controller); the column would be a migration **plus** an
+  edge in `company-hard-delete-order.const.ts`, because a `users.deletedBy`
+  foreign key is `RESTRICT` and a missing edge refuses every hard delete
+  (§4.1 D5's own lesson).
+- It is the whole of this phase's backend diff, which is why the parity diff is
+  empty over it: no captured report reads that route.
+
+#### The period moved into the URL, and that is what makes Esc honest
+
+The gate says *"back out with Esc preserving the period"*, and there were two
+ways to hold a period: a stack frame remembering a component's signal, or the
+URL. The second is one copy rather than two, and it falls out of what the drill
+does anyway — so every report that can be a drill origin now reads its range
+from the query string on arrival and writes it back on every change
+(`replaceUrl`, and only when something changed).
+
+Two things fall out, both wanted independently: **every statement is a link
+somebody can paste**, and `back()` is a plain navigation to a stored URL rather
+than a restore protocol.
+
+⚠️ **And one bug fell out of it, which is worth naming because it is a shape
+rather than a slip.** Every report debounces the period selector by 250 ms (a
+custom range emits `from` and `to` as two events). Since this phase that
+debounce *navigates* — and a timer that outlives its component navigates from a
+screen the reader has already left: clicking another report's tab within the
+window put them **back** on the ledger, because `relativeTo` a route that is no
+longer active still resolves to it. `periodDebounce(destroyRef, …)` is the one
+place that clears it, rather than the line four screens would each have had.
+
+The same window produced the other defect the gate found: the Ledger report
+loaded **twice** on arrival — once in `ngOnInit`, once from the selector's
+`emitOnInit` — and the second load reset the expansion state, so a month opened
+inside those 250 ms closed by itself. The first load is now the selector's, as
+it already was on every other report here.
+
+#### Esc is listened for in exactly two places, and that is the design
+
+A single global listener in the service was the obvious shape and is wrong: the
+last hop of the spine is a **voucher screen**, which already owns Esc for
+closing the form, and two handlers for one key navigate twice.
+
+So: `DrillBackDirective` on the reports layout — one application, covering every
+report and any report added later — and the voucher screens' own `close()`
+through `DrillService.backOr`. The second is better than intercepting Esc there
+would have been, because it fixes the **Close button** in the same stroke: a
+voucher reached by drilling now returns to the ledger it was opened from, and
+one reached from its list still returns to the list. It also keeps
+`pendingChangesGuard` in the path, so a dirty voucher is still asked about.
+
+⚠️ A `.cdk-overlay-pane` on screen owns the key — a datepicker, a select panel,
+a dialog — which is the rule the voucher entry screen already states for its own
+listener (CLAUDE.md §9).
+
+#### What P3d‑2 inherits
+
+`/transaction/ledgers` — the tree-plus-grid Chart of Accounts replacing today's
+Masters ▸ Nature and ▸ Group screens — is what is left of §3.3's frontend. Its
+backend has been complete since P3c‑2, and its list feed works now.
+
+Three things this phase deliberately did **not** do:
+
+- **The Group Book's lines do not drill.** `groupStatement` returns each line's
+  entry id but not the `sourceType`/`sourceId` pair a voucher is opened by, so
+  the voucher leg of the spine runs through the Ledger report, which carries
+  both. Adding them is a payload change **the parity harness captures**, so it
+  is declared work rather than a quiet extra field.
+- **The Day Book opens a ledger, not a voucher**, for the same reason and on the
+  same payload — §3.10's row for that report asks for both, and the ledger half
+  is free because P3b already put `ledgerId` on every line.
+- **The Cash and Bank Books are still their own reports.** §3.10 says they
+  *"become instances of the Ledger report"*, and that is neither P3d‑1's spine
+  nor P3d‑2's master screen — it is a third thing: two screens a customer reads
+  today, whose payloads the parity harness **captures**, replaced by a report
+  that renders differently. It wants the treatment P3b had (land alone, declare
+  what moves), and D-54's `bookForAccountType` derivation has to survive the
+  swap so no account falls out of both books the way UPI once did. Recorded
+  here rather than folded into P3d‑2 quietly.
+- **The instrument master stays.** §3.3 describes `/transaction/ledgers` as
+  replacing three Masters screens, and the third — Chart of Accounts, i.e.
+  `trx_accounts` — is the **instrument** master: account numbers, IFSC, type,
+  facts a ledger row does not model. It is re-homed with D9, not before.
+
+---
+
 ### Verification pass — 2026-08-28
 
 The plan was written from a reading of the source. It has since been checked
@@ -2335,8 +2553,13 @@ every target names a group that exists in the 28.
 > with neither a `legacyTrxGroupId` nor a party had no presentation head and its
 > figures vanished from every statement, and ⚠️ it writes the **pair** because
 > `journal_lines.trxGroupId` is `NOT NULL` until D9. The **frontend** items below
-> are what is left: the `/transaction/ledgers` screen in P3d,
+> are what is left: the `/transaction/ledgers` screen in **P3d‑2**,
 > `app-ledger-picker` and `Alt+C` in P4, which is their only consumer.
+> ⚠️ **`POST /acc-ledgers/list` — the feed named below — answered every call
+> with a 500** from the day it was built until P3d‑1 called it: it included a
+> `deletedByUser` alias `AccLedger` never declares (these two tables carry
+> `deletedAt` and no `deletedBy`). Nothing had noticed because nothing had
+> called it; see the [P3d‑1 record](#p3d-1-record--2026-08-29).
 
 **Backend**
 - `modules/accounting/` gains `LedgerController`, `LedgerService`,
@@ -2351,7 +2574,9 @@ every target names a group that exists in the 28.
 
 **Frontend**
 - `/transaction/ledgers` — a tree-plus-grid Chart of Accounts replacing today's
-  three separate Masters screens (Nature, Group, Account).
+  three separate Masters screens (Nature, Group, Account). ⚠️ The third of those
+  is the **instrument** master (`trx_accounts`: account numbers, IFSC, type),
+  which a ledger row does not model — it is re-homed with D9, not by P3d‑2.
 - Ledger create/alter with Tally's field order: Name → Under → opening balance with
   Dr/Cr → bill-wise → cost centres → GST/statutory detail.
 - `app-ledger-picker`, a paginated searchable select used by **every** voucher
@@ -2539,11 +2764,11 @@ caches deliberately not consulted — and gains a hierarchy and a spine.
 | **Trial Balance** | ✅ **Landed in P3b.** Rows are **groups**, collapsed by default, expanding to sub-groups then ledgers — Tally's own default; `?view=ledger` is the "Ledger-wise" toggle. Closing-only vs opening/movement/closing columns are still a shape rather than a config. |
 | **Balance Sheet** | ✅ **Landed in P3b.** Liabilities \| Assets in Tally's section order (from `acc_groups.sortOrder`, not a second list), Profit & Loss A/c as two lines — brought forward and this period. ⚠️ A **loss** appears under Assets, which is Tally's placement and a visible change from the flat sheet. |
 | **Profit & Loss** | ✅ Grouped in **P3b**. The Trading Account and the Gross Profit line are §3.8 and land in **P6** — half a Trading Account would print a gross profit with no direct/indirect split behind it. |
-| **Ledger** *(new)* | ✅ **Landed in P3a.** One ledger, monthly summary rows, each expanding to its vouchers, each opening the voucher — `GET /reports/ledger/:ledgerId` and `…/vouchers`. This is what a Tally user means by "open the ledger". Reads `acc_ledgers` directly; the Particulars column is the contra **ledger's** name, or `(as per details)`. |
+| **Ledger** *(new)* | ✅ **Landed in P3a**, and its **screen in P3d‑1**. One ledger, monthly summary rows, each expanding to its vouchers, each opening the voucher — `GET /reports/ledger/:ledgerId` and `…/vouchers`. This is what a Tally user means by "open the ledger". Reads `acc_ledgers` directly; the Particulars column is the contra **ledger's** name, or `(as per details)`. ⚠️ A voucher number is a link only where there is a screen behind it — seven of the ten `sourceType` values have none. |
 | **Group Summary** *(new)* | ✅ **Landed in P3a.** A group's children with closing balances — sub-groups carrying their whole subtree, ledgers carrying their own — `GET /reports/group-summary/:groupId`. The intermediate step of every drill-down, and the report whose totals property (8) of the gate ties to its own breakdown. |
 | **Bills Receivable / Payable** *(new)* | Derived from `bill_references`, with ageing. Supersedes the two Outstanding screens, which keep redirecting. |
 | **Cash / Bank Book** | Become instances of the Ledger report. `CASH_BOOK_ACCOUNT_TYPES`'s derivation (D-54) is preserved as the group assignment during migration, so no account can fall out of every book the way UPI did. |
-| **Day Book** | Gains voucher-type filter chips and drill into the voucher. Otherwise unchanged. |
+| **Day Book** | Its lines drill into the **ledger** since P3d‑1 (P3b put `ledgerId` on every one). The voucher-type chips and the drill into the *voucher* are still to come — `dayBook` returns each entry's id but not the `sourceType`/`sourceId` pair a document is opened by, and adding them is a payload change the parity harness captures. |
 | **Cost Centre reports** *(new)* | Four, per §3.7. |
 
 **The drill-down is one shared mechanism**, not per-report links: a `DrillTarget`
@@ -2551,6 +2776,15 @@ union (`group` \| `ledger` \| `voucher`) with a single resolver, so a new report
 gets drill-down by emitting the right target. Tally's Esc-goes-back is a **route
 stack**, not browser history — a report opened from a Balance Sheet returns to that
 Balance Sheet with its date intact.
+
+✅ **Landed in P3d‑1.** `client-front/src/utils/drill-target.ts` is the resolver,
+`services/drill.service.ts` the stack, and a report's period lives in its **own
+URL** — which is what makes "with its date intact" a property of the URL rather
+than of a component's memory, and every statement a link somebody can paste. Esc
+is listened for in exactly two places (`DrillBackDirective` on the reports
+layout, and the voucher screens' own `close()` via `backOr`), because the last
+hop is a voucher screen that already owns the key. ⚠️ A navigation nobody
+drilled **clears** the stack, by path.
 
 ### 3.11 The flexibility layer
 
@@ -2955,12 +3189,36 @@ fail twice: dropping the twin, and re-instating the retired presentation join's
 shape in `ledgerFigures` (which leaves (20d) green, because the Group Summary
 has its own query).
 
-**P3d — the drill-down spine and the screens.** `/transaction/ledgers`, the
-shared `DrillTarget` union and resolver, and Tally's Esc-goes-back as a route
-stack rather than browser history.
+**P3d split in two (2026-08-29)**, on the same argument as the five splits
+before it: the half §P3's gate is written about is measurable end to end today,
+and the Chart of Accounts screen is a master with no figure on it.
 
-**Gate (P3d):** Balance Sheet → group → ledger → voucher reachable in four clicks from
-every leaf, and back out with Esc preserving the period.
+**P3d‑1 — the drill spine, Esc as a route stack, the Ledger report's screen.
+Done** ([record](#p3d-1-record--2026-08-29)). One `DrillTarget` union and one
+resolver; a report's period in its own URL; Esc listened for in exactly two
+places, because the last hop is a voucher screen that already owns the key.
+
+**Gate (P3d‑1, met):** four properties in a browser
+(`qa-artifacts/tests/ui/money/drill-spine.ui.spec.ts`, run by `npm run
+qa:money`) — Balance Sheet → group → ledger → voucher with **every click
+counted**, Esc back out with each screen on its own period, a posting with no
+document rendering as visibly-not-a-link, and a navigation nobody drilled
+clearing the stack. ⚠️ The parity diff is **empty by construction** and gates
+nothing here: this phase changes no query and adds no report, so the diff would
+be empty if the whole phase had been deleted (§6.4's rule again). Shown to fail
+four times — and ⚠️⚠️ **one of those injections passed first**, because the
+busiest ledger's last posting is *today* and today is what the screen's own
+default period puts in `to`: the **fixture** was what could not fail, not the
+assertion.
+
+**P3d‑2 — `/transaction/ledgers`, the Chart of Accounts screen.** The
+tree-plus-grid master replacing Masters ▸ Nature and ▸ Group, over the
+`acc_groups`/`acc_ledgers` API that has been complete since P3c‑2.
+
+**Gate (P3d‑2):** every rule the API refuses is refused on the screen too — a
+ledger under a control group, a cross-nature move of a posted ledger, a delete
+of a posted or system row — each with the message that names the actual problem
+rather than a dead button.
 
 ### P4 · Voucher entry `[XL]`
 
