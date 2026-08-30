@@ -984,11 +984,48 @@ if (hubFeatureColumns && hubFeaturesDto && consoleFeatures) {
       if (backSet && !/export function planSettlement\(/.test(backSet)) {
         failures.push('bill-settlement: `planSettlement` is gone from client-back — the settlement engine\'s own entry point');
       }
-      if (typeof front.billIsSelectable !== 'function') {
+      // ⚠️ **What a ticked bill is NAMED BY on the wire** (P5c‑3). Until then a
+      // document-less bill could not be named at all and this compared
+      // `billIsSelectable`, which refused to offer one; the allocation column is
+      // nullable now and `allocationTargetFor` says which of the two ids to
+      // send. It is RUN, and the field names it produces are compared against
+      // the fields the server's own DTO declares — `ValidationPipe` runs with
+      // `forbidNonWhitelisted: true`, so a client posting a key the DTO does not
+      // declare is a 400 reciting the field name and nothing local to either
+      // repo could catch it. That is BUG-0066's shape exactly, which is how
+      // check 7 came to be written the same way.
+      if (typeof front.allocationTargetFor !== 'function') {
         failures.push(
-          'bill-settlement: `billIsSelectable` is missing on client-front — it is what stops the grid offering ' +
-            'a document-less bill the wire cannot carry (P5c‑3), and a grid that forgets it offers an action the server drops.',
+          'bill-settlement: `allocationTargetFor` is missing on client-front — it is what names a ticked bill ' +
+            'on the wire, and the two kinds of bill are named by different ids (P5c‑3).',
         );
+      } else {
+        const backDto = read(path.join(ROOT, 'jayhind-client-back/src/dto/trx-payment-receipt.dto.ts'));
+        const dtoBody = backDto
+          ? (backDto.match(/export class CreateUpdateTrxPaymentReceiptTrxDto \{[\s\S]*?\n\}/) || [''])[0]
+          : '';
+        const cases = [
+          { bill: { id: 7, voucherId: 42 }, want: { trxId: 42 }, why: 'a bill a document made is named by that document' },
+          { bill: { id: 7, voucherId: null }, want: { billRefId: 7 }, why: 'a bill the register raised on its own is named by its own id (D-55)' },
+        ];
+        for (const c of cases) {
+          const got = front.allocationTargetFor(c.bill);
+          compared += 1;
+          if (JSON.stringify(got) !== JSON.stringify(c.want)) {
+            failures.push(
+              `bill-settlement: allocationTargetFor(${JSON.stringify(c.bill)}) is ${JSON.stringify(got)}, ` +
+                `expected ${JSON.stringify(c.want)} — ${c.why}`,
+            );
+            continue;
+          }
+          const field = Object.keys(got)[0];
+          if (dtoBody && !new RegExp(`\\b${field}\\??:`).test(dtoBody)) {
+            failures.push(
+              `bill-settlement: client-front posts \`${field}\` and ` +
+                'CreateUpdateTrxPaymentReceiptTrxDto does not declare it — `forbidNonWhitelisted` answers 400 (P5c‑3).',
+            );
+          }
+        }
       }
 
       notes.push(

@@ -306,6 +306,23 @@ anything about a bill no document made — so the general form is
 `planBillSettlement`, stated about bills, with the old entry point as its
 adapter. It had to move file, too: `settlement.const.ts` imports a Sequelize
 entity and **could not be bundled** by the mirror check at all.
+
+**And P5c‑3 is done, which closes P5c: the opening balance can be ticked.**
+`trx_payment_receipt_trxs.trxId` was a `NOT NULL` foreign key to `trx`, so a bill
+the register raised on its own had nowhere to go on the wire — which is why
+P5c‑2 could **show** those 53 parties their only open item and not let them
+settle it. The column is nullable now, `billRefId` sits beside it, and
+`chk_trxprt_one_target` makes the database insist on exactly one of the two.
+⚠️ The two halves are planned **together**, by one call to `planBillSettlement`,
+because the screen already plans the whole selection at once with that same
+mirrored rule — two plans would give the column an operator reads and the
+allocation the server writes two derivations of one cash figure. ⚠️⚠️ And the
+**mixed** case has no instance in the world: not one party here holds both an
+opening balance and an open document, so the gate builds it, exactly as P5b built
+`advance`. Gate **18/18**, four injections; the browser property that asserted a
+disabled checkbox **inverted** and now follows the tick all the way to the
+`against` reference it writes.
+
 ⚠️⚠️ **Building it found [BUG-0070](../qa-artifacts/docs/bugs/BUG-0070.md)**, and
 that is the phase's real find: approving any payment or receipt offset by a
 credit note threw *"Bill references do not balance"* and rolled the approval
@@ -355,7 +372,7 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P5b | The posting engine writes refs; Advance / On Account | M | **done** — [§P5b record](#p5b-record--2026-08-30) |
 | P5c‑1 | A voucher may name no bill; `unappliedRefType`; the open-bills read | M | **done** — [§P5c‑1 record](#p5c-1-record--2026-08-30) |
 | P5c‑2 | The entry screen's reference grid | M | **done** — [§P5c‑2 record](#p5c-2-record--2026-08-30) |
-| P5c‑3 | A voucher may name a document-less bill (`billRefId` on the allocation) | M | not started |
+| P5c‑3 | A voucher may name a document-less bill (`billRefId` on the allocation) | M | **done** — [§P5c‑3 record](#p5c-3-record--2026-08-31) |
 | P5d | Bills Receivable/Payable; the annexure moves onto refs | M | not started |
 | P6 | Trading Account and Gross Profit | M | not started |
 | P7 | Cost centres | L | not started |
@@ -3922,6 +3939,10 @@ Two things fell out of it, both worth carrying:
 
 #### 🔒 A bill no document made is offered, and cannot be ticked
 
+> ⚠️ **Closed by [P5c‑3](#p5c-3-record--2026-08-31) on 2026-08-31** — the column
+> is nullable now, `billRefId` sits beside it, and the row ticks. What follows is
+> what was true at P5c‑2.
+
 The wire is unchanged: `against` is still `[{ trxId }]`, and
 `trx_payment_receipt_trxs.trxId` is `NOT NULL` behind a foreign key. So an
 opening balance **cannot be named** by a voucher yet — that is **P5c‑3**.
@@ -4108,6 +4129,255 @@ That is P4d's inert-selector finding read forwards rather than backwards: **a
 shape shared for a styling reason is not a shape shared for a meaning**, and the
 gates read meaning. P4b's own property (3b) did have to move onto the grid — the
 multi-select it drove is gone — and it passes unchanged otherwise.
+
+### P5c‑3 record — 2026-08-31
+
+**A voucher may name a bill no document made.** The allocation table's `trxId`
+is nullable and `billRefId` sits beside it, the database insists on exactly one
+of the two, and the reference grid's opening-balance row — offered and disabled
+since P5c‑2 — can now be ticked, settled and posted. Gate **18/18**, shown to
+fail four ways; the browser property that asserted the disabled checkbox
+**inverted**, and was shown to fail two ways.
+
+#### What was actually in the way, measured
+
+| | |
+|---|---|
+| Open bills no document made | **53**, ₹2,65,000 |
+| …belonging to a party with **no** open document at all | **53 of 53** |
+| Existing allocation rows | **3,208**, every one naming a document |
+| Rows this migration backfills | **0** |
+
+`trx_payment_receipt_trxs.trxId` was `int NOT NULL` behind a foreign key to
+`trx`, and a party's opening balance (D-55) is posted straight to the control
+head with no `trx` row at all. So the wire had nowhere to put one — which is why
+P5c‑2 could show the row and not tick it, and why what those 53 parties were
+shown was every bill they had, greyed out.
+
+⚠️ **The second row of that table is the one that shaped the phase.** Not one
+party on the development books holds both an opening balance and an open
+document, so the **mixed** selection — one voucher settling a document and a
+document-less bill together — has no instance in the world. It is P5b's
+`advance` arm again: the gate builds the case rather than reporting green over
+an arm nothing exercises.
+
+#### The database says "exactly one", and it is asked whether it means it
+
+`billRefId` is nullable, `trxId` became nullable, and
+`chk_trxprt_one_target CHECK ((trxId IS NULL) <> (billRefId IS NULL))` is what
+makes those two facts one rule. Not *"at least one"*: a row naming both would be
+two answers to *what does this row settle*, and they can disagree — a document's
+`new` bill is found through `voucherId`, so a `billRefId` pointing elsewhere
+would settle one bill in the register and another one's `paidAmount`.
+
+⚠️ MySQL below 8.0.16 parses a `CHECK` and ignores it, so the gate does not read
+the constraint's existence — property (1b)/(1c) **insert the two forbidden
+shapes** and require the refusal to name the constraint. The service refuses the
+same shape first, in a sentence, because the person meeting it is an operator
+and `chk_trxprt_one_target` is not a sentence.
+
+#### One plan over both kinds of target, and the mirror is what decided it
+
+`buildAllocation` used to call `planSettlement` over documents. It now builds one
+`BillToSettle[]` spanning both kinds and calls **`planBillSettlement`** once.
+
+That was not a preference: **the screen already plans the whole selection at
+once with that rule** (P5c‑2's mirror, `check-mirrors.js` check 12), so planning
+the two halves separately here would give the column an operator reads and the
+allocation the server writes two different derivations of one cash figure.
+
+Three things fell out of it, and the last is a small correction to something
+that was never right:
+
+- `planBillSettlement` treats `billId` as an **opaque key**, so the plan is keyed
+  by position in the caller's own list and mapped back afterwards. There is no
+  need to invent a shared id space for two tables.
+- **`ImportVoucherCommitService` is deliberately untouched** and still calls
+  `planSettlement` over documents. A bulk import replays documents the source
+  system already accepted; it has no bill the register raised on its own to
+  name, and giving it one would be inventing a settlement nobody recorded.
+- ⚠️ **The fill order is now the payload's**, which is the grid's order, which is
+  the order the "This voucher" column was computed in. What it replaced was
+  `findByIdsForSettlement`'s `Op.in`, whose order MySQL never promised — so a
+  short-cash selection could be split one way on screen and another in the
+  register, and nothing said which. The rule has always consumed bills
+  oldest-first *in the order it is given*; until now nobody gave it one.
+
+#### ⚠️ A divergence this phase did not close, and the four documents it is about
+
+A document's `open` is `grandTotal − paidAmount`; a register bill's is
+`amount − Σ settled`. For an ordinary document they are the same figure. For a
+**reverse-charge purchase** they are not — the party leg is `net + charges`
+(BUG-0069) — so the screen, reading the register, is **stricter** than the API
+by exactly the RCM tax:
+
+| voucher | document says | register says |
+|---|---|---|
+| 20746 | 944.00 | 800.00 |
+| 20748 | 590.00 | 500.00 |
+| 20871 | 944.00 | 800.00 |
+| 20873 | 590.00 | 500.00 |
+
+**₹468 across four live purchases**, and nothing is mis-written today: the
+narrower cap wins, because it is the one the operator meets. Moving the document
+half onto the register would cap `paidAmount` below `grandTotal` and leave such
+an invoice permanently part-paid — a document-side change that belongs to
+**P5d**, where the annexure moves onto references.
+
+#### 🔒 §4.3 rule 7, for the id this phase adds
+
+`billRefId` arrives off the body, so `BillReferenceService.findOpenBillsByIds` is
+the check, at the **seam** the save path funnels through. It is a **filter**
+rather than a lookup — a bill that is not this company's, not on **this party's**
+ledger, not a live `new` row or no longer open simply does not come back, and the
+count refuses the difference. That is the shape `findByIdsForSettlement` already
+gives the document half.
+
+⚠️ It is deliberately **not** `openBills` with a filter applied afterwards. That
+read is bounded to the oldest `MAX_OPEN_BILLS_SHOWN`, so a bill outside the
+window would be refused as *"not available"* while being perfectly settleable.
+**A bound is a property of a picker, never of a validation.**
+
+#### ⚠️ Two lines were written, measured, and then unwritten
+
+Both are worth recording, because the version that survives review is not always
+the version that is true.
+
+**`resolvePaymentReceiptDirection` grew an arm and lost it.** A voucher naming
+only bills reads nothing from the document loop, so the obvious move is to derive
+the party's control side from the bill's own posting. That code was written —
+and then deleted, because it can never run: a receipt settles **debit**-side
+bills and a debit-side party bill is money they owe us, which is
+`PARTY_DIRECTION_BY_KIND[Receipt]`; a payment settles **credit**-side bills,
+which is `[Payment]`; and `planBillSettlement` refuses a selection whose bills
+all *offset* the voucher, so a bill-only voucher of the other shape is never
+written at all. The fallback is exactly right. What is left is a comment saying
+so — and gate property **(6)**, which asserts the leg's side against the bill's,
+because the guarantee is two rules meeting rather than one statement.
+
+**And the skip in `applyReceiptSettlement` is not what makes it safe.**
+`if (map.trxId == null) continue;` reads like the guard; `Trx.findByPk(null)`
+answers `null` (measured), so the `!trx` below it would have skipped the row
+anyway. The line stays — it states the case and spares a query — but its comment
+now says plainly that it is not load-bearing, because *a comment claiming a line
+is load-bearing when it is not is how the line below it gets deleted by somebody
+tidying up*.
+
+#### The gate, and four injections
+
+`client-back/scripts/qa-p5c3-bill-settlement.ts` — nine properties, 18 checks,
+every write rolled back except the save path's, which goes through the
+controller's own transaction and is deleted after. Shown to fail:
+
+| injection | what went red |
+|---|---|
+| `settlementRows` ignores `billRefId` | (4)(4b)(7)(7b) — the reference degrades to `on-account 2500 → null` and the bill never closes |
+| the exactly-one refusal removed | (2b)(2c)(2d) — a row naming neither is **accepted**, and the scratch voucher survives |
+| the ownership filter drops its party predicate | (3) — another party's bill resolves |
+| the bill half never reaches the plan | (2) — *"Select at least one document to settle."* |
+
+⚠️ The second injection is the one worth reading: with the refusal gone, a row
+naming **neither** id is not an error — it is silently dropped, the voucher saves
+with no allocation, and the money quietly becomes `on-account`. That is why the
+refusal is a sentence in the service and not only a constraint in the schema.
+
+#### The browser property inverted, and it found a selector collision on the way
+
+`bill-reference-grid.ui.spec.ts` (2) asserted a **disabled** checkbox and a row
+explaining why. It now ticks the opening balance, saves, approves, and reads the
+`against` reference back out of `bill_references` — the operator's end of the
+whole phase, through a DTO, an ownership filter, the settlement rule and the
+posting engine. It settles **part** of the bill deliberately, so the case
+survives for the next run. Shown to fail by re-disabling the checkbox and by
+dropping document-less bills from the payload.
+
+⚠️ **P5c‑2's own selector-collision note arrived back from the other side.** The
+new row tag — *"no document"* — was first given the same `.vch-bill__tag` class
+as the *"offsets"* tag, which is what `gridRows` reads to decide whether a bill
+offsets the voucher. Every opening balance would have reported as an offset, in a
+suite that was still green. Each tag carries `data-tag` now, and the gate reads
+that. **A shape shared for a styling reason is not a shape shared for a
+meaning** — written down at P5c‑2 as a thing avoided, and reintroduced one
+release later by the author of the note.
+
+#### 🐞 And the collision had a second half, in a file this phase never opened
+
+`voucher-entry.ui.spec.ts` (3b) — P4b's *"a payment posts the party leg the grid
+says it will"* — picks a bill to settle with
+`tr[data-selectable="true"]` filtered by `hasNot: .vch-bill__tag`. **Both** of
+those moved in this phase: the first attribute no longer exists, and the second
+class is no longer only the *"offsets"* tag.
+
+It went red in the full lane and nowhere else, because it lives in a different
+file from the grid it reads. Two things worth carrying:
+
+- **A `data-` attribute on a shared component is an interface**, and its readers
+  are not in the file that renders it. `grep -rn 'data-selectable\|vch-bill__tag'
+  tests/` is the check, and it takes a second.
+- ⚠️ Neither failure would have been an *error*. `[data-selectable="true"]`
+  matching nothing is a timeout; `hasNot: .vch-bill__tag` excluding one row too
+  many silently picks a different bill. The first is loud and the second is the
+  kind that would have been read as flakiness for a week.
+
+#### 🐞 A pause replaced by an assertion is an honest failure, not an absent one
+
+Two properties in other suites failed in the full lane and passed alone —
+`ledger-picker` (6) and this phase's own (2) — and both were the **same race,
+one that P5c‑2 had already been round once**.
+
+That record says (6) *"typed a search term, slept 800 ms and pressed `Alt+C`"*,
+and that the pause was replaced by an assertion that the term had arrived. The
+assertion is what timed out this time. ⚠️ **The wait was never the problem.**
+`page.keyboard.type` types into whatever has focus, and the `app-select` overlay
+is still animating when its search box first becomes *visible* — so the first
+characters go nowhere at all, and no amount of waiting afterwards puts them
+back. The list then comes back unfiltered, which reads as *"the picker never
+offered this party"*.
+
+`locator.pressSequentially` focuses the element it is called on and still sends
+real key events, which both properties need. Applied at all three sites in the
+lane; the assertions stay, as the proof rather than as the fix.
+
+⚠️⚠️ The general form: **replacing a pause with an assertion converts a silent
+wrong answer into a visible failure — it does not make the underlying race go
+away.** Reading the new failure as "the assertion needs longer" is how the same
+race survives two phases.
+
+#### The measurements
+
+- `qa:p5c3-bill-settlement` **18/18**; `qa:p5-bill-register` **157/157**,
+  `qa:p5b-register-maintenance` **9/9**, `qa:p5c-unapplied` **9/9** — the three
+  earlier gates unchanged by a phase that writes to the same register.
+- `npm test` **1971/1971**, all five guards clean, `check-mirrors` green with
+  **23** behavioural comparisons on check 12 (up from 21).
+- `qa:money` **112/112** — the lane is the same size as P5c‑2 left it, since this
+  phase inverted a property rather than adding one, and it is green throughout
+  rather than green-with-tolerated-429s: `RATE_LIMIT_IP_PER_MIN` is what P5c‑2
+  moved out of a literal for exactly this.
+  ⚠️ **Two earlier runs of it were void and are not the measurement**: a
+  stylesheet edit hot-reloads the app under a live lane and a service edit
+  restarts the backend under it, and both produced failures — `ERR_CONNECTION_
+  REFUSED`, 36 `HttpErrorResponse` — that look nothing like the change being
+  tested. **Freeze the tree before a serial browser lane**, or read its failures
+  as your own editor.
+- The **parity diff is empty by construction**: no report, no posting rule and no
+  figure derivation changed. What changed is what the allocation table can hold.
+  The one join that moved — `settlementRows`' — is provably identical on every
+  existing row, because `billRefId` is NULL on all 3,208 of them.
+
+#### What P5d inherits
+
+- `pendingBills` still derives the annexure from `trx`, which is what BUG-0069
+  was filed about and what the RCM divergence above is a second instance of.
+  Moving it onto `bill_references` is P5d's whole job, and both halves of the
+  divergence disappear when it lands.
+- **Bills Receivable / Payable** — the two reports §3.6 names and neither P5a nor
+  P5c built.
+- ⚠️ The document `open` and the register `open` should become one figure at
+  P5d, and the cost of doing it is on the **document** side: `trx.paidAmount`
+  and `isPaid` are computed against `grandTotal`, so an RCM purchase settled to
+  its register bill reads part-paid for ever unless `isPaid` learns the same
+  rule.
 
 ### Verification pass — 2026-08-28
 
@@ -5532,7 +5802,7 @@ sub-phases, agreed 2026-08-30:
 |---|---|---|
 | **P5a** | `bill_references` — table, entity, scope registry, hard-delete edge, and the **full-history backfill**. Read by nothing yet | the gate lands here: Σ open refs per party == ledger balance, 381/381 |
 | **P5b** | the posting engine writes them — `new` on approval, `against` from `applyReceiptSettlement`, and **Advance / On Account** for the unallocated remainder | forward maintenance keeps the gate green |
-| **P5c** | the entry screen's reference grid — the party's open bills, oldest-first, with what this voucher applies to each. ⚠️ Split three ways in the event: **P5c‑1** the backend (a voucher may name no bill), **P5c‑2** the grid, **P5c‑3** naming a bill no document made. ⚠️⚠️ It does **not** pop on save — decided 2026-08-30: it is inline, where the multi-select was, because a blocking dialog between `Ctrl+S` and a saved voucher on the busiest cash screens costs more than the Tally muscle memory buys, and `revealInvalidPanel` (P4e) already owns *"Save reveals the blocker"* | `qa:money` — seven properties in a browser |
+| **P5c** | the entry screen's reference grid — the party's open bills, oldest-first, with what this voucher applies to each. ⚠️ Split three ways in the event, all three done: **P5c‑1** the backend (a voucher may name no bill), **P5c‑2** the grid, **P5c‑3** naming a bill no document made (`billRefId` on the allocation, and the database insisting on exactly one target). ⚠️⚠️ It does **not** pop on save — decided 2026-08-30: it is inline, where the multi-select was, because a blocking dialog between `Ctrl+S` and a saved voucher on the busiest cash screens costs more than the Tally muscle memory buys, and `revealInvalidPanel` (P4e) already owns *"Save reveals the blocker"* | `qa:money` — seven properties in a browser |
 | **P5d** | Bills Receivable/Payable, and the annexure moves onto refs | `pendingBills` stops deriving and starts reading |
 
 **Backfill depth: full history** — every approved current party document becomes
