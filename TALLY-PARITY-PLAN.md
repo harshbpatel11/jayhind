@@ -3480,6 +3480,31 @@ Shown to fail five ways, each on its own property: the Charges chip left up
 rows — the pre-P4e‑2 state (**5**), the discard made silent (**6**), and a saved
 accounting invoice reopening on the item grid (**4**).
 
+#### The measurements
+
+| | |
+|---|---|
+| Financial item vouchers that can switch | **4** of 14 (Sales, Purchase, both notes) |
+| Types offering the mode control | **4** — the other ten offer none, and the chord is a no-op there |
+| Service-only vouchers that are **credit notes** | **43** — the population the first cut would have excluded |
+| Print templates touched | **6**, all through one shared rule on `PrintService` |
+| Backend files changed | **0** |
+
+`qa:money` **105/105**, `qa:print` **30/30**, `qa:screens` **50/50**, `qa:shell`
+**30/30**, `check-mirrors.js` green, 129 suites / 1,937 unit tests, all five
+guards. Backend diff empty, so the parity diff is empty by construction.
+
+> ⚠️ **A day of repeated suite runs will produce failures that are not defects,
+> and it cost an hour to work out.** `qa:money` degraded from 105/105 to 58/47
+> across the afternoon, every failure a `429` on a page load — the ERP throttles
+> 100 requests per minute per IP, the store is **in-process**, and the dev
+> server's SQL log had reached **107 MB** with `DB_LOGGING=true`. Restarting
+> `client-back` and truncating the log restored 105/105 with no code change at
+> all. Two things follow: **never run two UI suites concurrently** against one
+> stack (they share the bucket, and `print-preview` mutates the print
+> configuration a neighbour reads), and read a broad, uniform failure across
+> unrelated screens as an environment before reading it as a regression.
+
 #### What is deliberately not here
 
 - **The approved posting.** `resolveLegs`' expansion of an allocation onto its own
