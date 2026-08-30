@@ -243,6 +243,20 @@ exclusion the author had talked himself into — the two notes, kept out on an
 argument that did not survive `trxAgainstIds` being an optional *header* field
 and **43** of this database's service-only vouchers being credit notes.
 
+**P5's gate was then measured before P5 started, and it very nearly held: 380 of
+381 parties reconcile.** D-55's opening-balance term had been doing nearly all
+the work BUG-0040 asked for — take it out and 54 parties break by ₹2,65,468. The
+381st was a real defect, **BUG-0069**, fixed in its own commit: under D-52 a
+reverse-charge purchase owes its supplier `net + charges`, and the bill-wise
+annexure was billing them the tax as well — ₹944 against a ledger saying ₹800,
+while `vendorOutstanding` read `journal_lines` and agreed with the ledger. ⚠️ The
+fix that derives the share from the `reverseCharge` **flag** is wrong and was
+measured to be: D-52 is forward-only, so 15 of the 19 flagged purchases carry the
+full grand total on their party leg and restating them turned a ₹468 gap into
+₹2,160. The annexure reads what was **posted** — which is what §3.6 already had
+P5 doing by hanging `bill_references` off `journalLineId`. The gate now reads
+**381 / 0 / ₹0.00**, so P5 starts green.
+
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
 report whose shape is fixed?"*, and there is no longer a second derivation to
@@ -279,7 +293,10 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P4d | Workflow Document mode, and the remaining route redirects | M | **done** — [§P4d record](#p4d-record--2026-08-30) |
 | P4e‑1 | What an Accounting Invoice IS — the mechanism, and GST-021 | M | **done** — [§P4e‑1 record](#p4e-1-record--2026-08-30) |
 | P4e‑2 | `Ctrl+H` — the mode on screen, and the six print templates | M | **done** — [§P4e‑2 record](#p4e-2-record--2026-08-30) |
-| P5 | Bill-wise details | L | not started |
+| P5a | `bill_references` + the full-history backfill (the gate lands here) | M | not started |
+| P5b | The posting engine writes refs; Advance / On Account | M | not started |
+| P5c | The entry screen's reference grid | M | not started |
+| P5d | Bills Receivable/Payable; the annexure moves onto refs | M | not started |
 | P6 | Trading Account and Gross Profit | M | not started |
 | P7 | Cost centres | L | not started |
 | P8 | Posting rules, budgets, interest, multi-currency, scenarios | L | not started |
@@ -4898,6 +4915,65 @@ reconciliation that closes BUG-0040's two-sided problem for good.
 
 **Gate:** for every party in every QA company, the ledger-side balance equals Σ of
 its open bill references. That equality is a **test**, not a report.
+
+#### The gate, measured before the phase starts — 2026-08-30
+
+The same discipline P2b‑3c and P4e‑1 used: measure the ground first, because the
+conclusion the plan reasons to is not always the one the data supports.
+
+| | |
+|---|---|
+| Parties with a ledger (14 companies) | **381** |
+| Reconciled — ledger side == document side | **380** |
+| Did not | **1**, by ₹468.00 |
+
+BUG-0040's two-sided problem is far closer to closed than this plan assumes:
+**D-55's opening-balance term was doing nearly all of the work.** Take it out and
+54 parties break by ₹2,65,468, which is the figure that made the gate look
+distant.
+
+The 381st was **[BUG-0069](../qa-artifacts/docs/bugs/BUG-0069.md)** — a real
+defect, fixed in its own commit before P5a starts (below). Two things it settles
+for the phase:
+
+- ⚠️ **A bill's amount is not `trx.grandTotal`.** Under D-52 a reverse-charge
+  purchase owes its supplier `net + charges`; the annexure was billing them the
+  tax as well, while `vendorOutstanding` — reading `journal_lines` — disagreed on
+  the same supplier by exactly that tax.
+- ⚠️⚠️ **And it cannot be re-derived from the flags either.** D-52 is
+  forward-only, so the books hold both eras under one `reverseCharge` flag: 15
+  purchases carry the full grand total on the party leg and 4 carry `net +
+  charges`. A share restated from the flag turned the ₹468 gap into ₹2,160.
+  **Where a figure has been posted, read the posting** — which is what §3.6
+  already had P5 doing, by hanging `bill_references` off `journalLineId`. The
+  measurement is that design's first independent confirmation.
+
+With the fix, the gate reads **381 parties, 0 unreconciled, ₹0.00** — so P5
+starts from a green gate and its job is to keep it green while the register
+becomes the thing that answers it.
+
+#### The split
+
+`[L]`, and every `[L]`/`[XL]` phase in this programme has been split. Four
+sub-phases, agreed 2026-08-30:
+
+| | | |
+|---|---|---|
+| **P5a** | `bill_references` — table, entity, scope registry, hard-delete edge, and the **full-history backfill**. Read by nothing yet | the gate lands here: Σ open refs per party == ledger balance, 381/381 |
+| **P5b** | the posting engine writes them — `new` on approval, `against` from `applyReceiptSettlement`, and **Advance / On Account** for the unallocated remainder | forward maintenance keeps the gate green |
+| **P5c** | the entry screen's reference grid — pops on save for a `billwise` ledger, pre-filled New Ref / Agst Ref oldest-first | |
+| **P5d** | Bills Receivable/Payable, and the annexure moves onto refs | `pendingBills` stops deriving and starts reading |
+
+**Backfill depth: full history** — every approved current party document becomes
+a `new` ref, every approved allocation an `against` ref, and D-55's synthesised
+opening balance an ordinary `new` ref with no voucher behind it. §3.6's *"the two
+sides stop being two sides"* is only true at that depth, and it is the only depth
+at which the gate means anything.
+
+⚠️ `acc_ledgers.billwise` **already exists** from D1 and party ledgers are seeded
+`true` — *"written by the seed, read by nothing yet"*, as the migration says. So
+does `costCentresApplicable` (P7) and the reserved `registrationId` (X1). P5a
+adds a table, not a column to `acc_ledgers`.
 
 ### P6 · Trading Account and Gross Profit `[M]`
 

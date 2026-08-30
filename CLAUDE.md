@@ -1395,7 +1395,8 @@ side, while the invoice it offset read as closed, is what made a party's total c
 out overstated by the note's full value and pointing the wrong way.
 
 > ⚠️ **A party's position exists TWICE, and reconciling them needs every term
-> accounted for** (BUG-0040, closed by D-55). The ledger side is `journal_lines.partyUserId` on
+> accounted for** (BUG-0040 — the opening-balance term closed by D-55, the
+> reverse-charge term by BUG-0069). The ledger side is `journal_lines.partyUserId` on
 > the two control heads (`SUNDRY_DEBTORS_CONTROL` / `SUNDRY_CREDITORS_CONTROL`) —
 > what the party statement, the summary's `receivable`/`payable` and the
 > Vendor/Customer Outstanding reports all read. The document side is `trx` and its
@@ -1414,6 +1415,31 @@ out overstated by the note's full value and pointing the wrong way.
 > `liveEntrySql`, which the stored column would not — re-editing a party re-posts
 > the opening entry as a reversal plus a replacement. The row carries `source:
 > 'party-opening'` and `id: 0`, because there is no document to open.
+>
+> ⚠️⚠️ **The SECOND missing term was reverse charge, and it is the one that says
+> how to find the third** (BUG-0069, fixed 2026-08-30). Under D-52 an RCM
+> purchase credits the supplier `net + charges` and the government the tax — so a
+> ₹944 document owes its supplier ₹800. `pendingBills` built every bill, ageing
+> bucket and annexure total from `trx.grandTotal`, so it said ₹944 while
+> `vendorOutstanding`, reading `journal_lines`, said ₹800: two screens in one
+> product disagreeing about one supplier by exactly the RCM tax, and the tax
+> billed to the supplier a second time when `RCM_PAYABLE` already carries it.
+>
+> ⚠️ **Deriving the share from the FLAG is the fix that looks right and is not.**
+> D-52 is forward-only, so the books hold both eras under one flag: on the
+> development database 15 purchases dated 2026-08-23 carry the **full** grand
+> total on the party leg and 4 dated 2026-08-30 carry `net + charges`. Restating
+> from `reverseCharge` turned a ₹468 gap into a ₹2,160 one — fifteen vouchers
+> rewritten, against books already filed, to fix four.
+> `PartyStatementService.postedPartyShare` reads what the voucher actually
+> **posted**; `partyOwedOn` in `outstanding.const.ts` is the pure rule for a
+> voucher that has not posted yet, scoped to a purchase exactly as `buildLegs`
+> scopes it. **Where a figure has been posted, read the posting.**
+>
+> The annexure's **RCM Tax** column exists for the reason `credited`'s does: the
+> reader is matching the row against a paper invoice that says ₹944, and
+> `944 · paid 0 · outstanding 800` with nothing naming the ₹144 reads as a
+> part-payment that never happened.
 >
 > When you write a report about what a party owes, say which of the two sides you
 > are reading and what the other one would answer.
@@ -3140,6 +3166,7 @@ is one nobody reads.
 | When may it post? | `src/const/financial-year.const.ts`, `src/services/financial-year.service.ts` `assertPostingAllowed` |
 | What does a document still owe — and owe back? | `src/const/outstanding.const.ts` (D-18) |
 | What does a PARTY owe, and which of the two answers am I reading? | `src/services/party-statement.service.ts` — the ledger side is the two control heads, the document side is `trx` (BUG-0040) |
+| What is a party owed on ONE document — is it the grand total? | not always: `outstanding.const.ts` `partyOwedOn` is the rule (a reverse-charge purchase owes `net + charges`, D-52), but `PartyStatementService.postedPartyShare` is what the annexure reads, because D-52 is forward-only and the books hold both answers under one flag (BUG-0069) |
 | Why does the funds summary disagree with the trial balance? | the caches, not the ledger — §4.9, `POST /trx-accounts/rebuild-balances` (BUG-0042) |
 | What does "today" mean on this server? | `src/const/local-day.const.ts` `todayIso` — the LOCAL day, not `new Date().toISOString().slice(0,10)`, which names yesterday between 00:00 and 05:30 IST (API-033). **Raw SQL binds it as `:today`**; `ci-guard-raw-sql` refuses both a `CURDATE()` and a `:today` nobody bound (BUG-0050, §4.8) |
 | May this record be erased, or must it archive? | `src/const/posting-source-lifecycle.const.ts` — §4.9 rule 2 generalised past vouchers, with `POSTING_SOURCE_OWNERS` naming every other owner of a posting record (BUG-0059) |
