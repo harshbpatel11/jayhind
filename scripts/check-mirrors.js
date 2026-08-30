@@ -821,6 +821,185 @@ if (hubFeatureColumns && hubFeaturesDto && consoleFeatures) {
   }
 }
 
+// ── 12. the bill register: how a settlement is split, and the sentence why ──
+//
+// `settlement.const.ts`'s `planBillSettlement` decides how much of each selected
+// bill a payment or receipt closes; `bill-reference.util.ts` says the same thing
+// in the reference grid (P5c‑2), which is the whole of what a grid adds over the
+// multi-select it replaces — a per-bill figure, before the voucher is saved.
+//
+// ⚠️ Compared on the **mappings and the message text**, for check 10's reason:
+// every refusal here is a sentence an operator reads, and one of them
+// (`Amount exceeds due. Max allowed: …`) carries a number the screen prints.
+//
+// ⚠️⚠️ `billSettlementSign` is the smaller rule beneath it and is compared too,
+// because it is the one that lets the grid offer a bill NO DOCUMENT MADE. The
+// backend has a second, older statement of the same fact — `settlementRole`,
+// which switches on `TrxType` — and the two are held together by a unit spec
+// (`bill-reference.const.spec.ts`) rather than by this check, since only one of
+// them exists on the client.
+{
+  // ⚠️ The rule is loaded from `bill-reference.const.ts`, not `settlement.const.ts`
+  // — that file imports `TrxType` off a Sequelize entity and cannot be bundled
+  // standalone, which is why the bill-shaped half lives in the dependency-free
+  // one and is re-exported from the other. `src/const` is documented as pure for
+  // exactly this reason; a rule that has to be RUN is where the rule proves it.
+  const BACK_BR = 'jayhind-client-back/src/const/bill-reference.const.ts';
+  const FRONT_BR = 'jayhindi-client-front/src/utils/bill-reference.util.ts';
+  const vectorFile = path.join(__dirname, 'vectors/bill-settlement.vectors.json');
+
+  let table;
+  try {
+    table = JSON.parse(fs.readFileSync(vectorFile, 'utf8'));
+  } catch (err) {
+    failures.push(`bill-settlement vectors: could not read ${path.relative(ROOT, vectorFile)} — ${err.message}`);
+  }
+
+  if (table) {
+    let backBr, front;
+    try {
+      backBr = loadTsModule(...splitRepoPath(BACK_BR));
+      front = loadTsModule(...splitRepoPath(FRONT_BR));
+    } catch (err) {
+      failures.push(`bill-settlement vectors: ${err.message}`);
+    }
+
+    const expand = (given) => {
+      let rows = [{}];
+      for (const k of Object.keys(given)) {
+        // ⚠️ `bills` is an array VALUE, not a set of alternatives to expand over.
+        // Expanding it would silently turn one case into N single-bill cases —
+        // the opposite of what every multi-bill vector is about.
+        const values = Array.isArray(given[k]) && k !== 'bills' ? given[k] : [given[k]];
+        rows = rows.flatMap((row) => values.map((v) => ({ ...row, [k]: v })));
+      }
+      return rows;
+    };
+
+    const opposite = (v) => (v === 'payment' ? 'receipt' : 'payment');
+
+    if (backBr && front) {
+      let compared = 0;
+
+      // -- billSettlementSign: the four rows ARE the fact space ---------------
+      for (const vector of table.sign ?? []) {
+        for (const row of expand(vector.given)) {
+          const b = backBr.billSettlementSign(row.voucher, row.side);
+          const f = front.billSettlementSign(row.voucher, row.side);
+          compared++;
+          if (b !== f) {
+            failures.push(
+              `bill-settlement DRIFT · sign/${vector.id} · ${JSON.stringify(row)}:\n` +
+                `      client-back:  ${b}\n      client-front: ${f}\n      — ${vector.why}`,
+            );
+          } else if (b !== vector.expect) {
+            failures.push(
+              `bill-settlement RULE CHANGED · sign/${vector.id} · ${JSON.stringify(row)}:\n` +
+                `      both sides say ${b}, the table says ${vector.expect}\n      — ${vector.why}`,
+            );
+          }
+        }
+      }
+
+      // -- planBillSettlement: verdict, mappings, and the sentence ------------
+      // Both sides are called the same way and the outcome normalised to one
+      // shape, so a throw and a plan are comparable without the checker having
+      // an opinion about which is right.
+      const outcome = (fn, row) => {
+        try {
+          const plan = fn(row.voucher, row.bills, row.cash);
+          return { ok: true, direction: plan.direction ?? null, mappings: plan.mappings, netCash: plan.netCash };
+        } catch (err) {
+          return { ok: false, message: err.message };
+        }
+      };
+
+      for (const vector of table.plan ?? []) {
+        for (const row of expand(vector.given)) {
+          const b = outcome(backBr.planBillSettlement, row);
+          const f = outcome(front.planBillSettlement, row);
+          compared++;
+
+          const shape = JSON.stringify(row);
+          if (JSON.stringify(b) !== JSON.stringify(f)) {
+            failures.push(
+              `bill-settlement DRIFT · plan/${vector.id} · ${shape}:\n` +
+                `      client-back:  ${JSON.stringify(b)}\n` +
+                `      client-front: ${JSON.stringify(f)}\n      — ${vector.why}`,
+            );
+            continue;
+          }
+
+          // The table's own answer — the third opinion check 6 exists for: a
+          // rule BOTH sides moved away from together passes a parity check and
+          // fails this.
+          let expected;
+          if (vector.expect.error) {
+            const template = table.messages[vector.expect.error];
+            expected = template === undefined
+              ? `«no message called '${vector.expect.error}' in the table»`
+              : template
+                .replace('${opposite}', opposite(row.voucher))
+                .replace('${max}', String(vector.expect.max));
+            if (b.ok || b.message !== expected) {
+              failures.push(
+                `bill-settlement RULE CHANGED · plan/${vector.id} · ${shape}:\n` +
+                  `      both sides say ${JSON.stringify(b.ok ? b : b.message)}\n` +
+                  `      the table says a refusal: ${JSON.stringify(expected)}\n      — ${vector.why}\n` +
+                  '      If the rule or the wording genuinely changed, update scripts/vectors/ in the same commit.',
+              );
+            }
+          } else {
+            const want = { ok: true, direction: vector.expect.direction ?? null, mappings: vector.expect.mappings, netCash: row.cash };
+            if (JSON.stringify(b) !== JSON.stringify(want)) {
+              failures.push(
+                `bill-settlement RULE CHANGED · plan/${vector.id} · ${shape}:\n` +
+                  `      both sides say ${JSON.stringify(b)}\n` +
+                  `      the table says ${JSON.stringify(want)}\n      — ${vector.why}\n` +
+                  '      If the rule genuinely changed, update scripts/vectors/ in the same commit.',
+              );
+            }
+          }
+        }
+      }
+
+      // The document-shaped entry point must still agree with the bill-shaped
+      // one it delegates to. Named rather than compared over vectors: it is one
+      // repo's own internal consistency, and its unit spec is where 43 existing
+      // cases already hold it.
+      // The window the grid is handed, compared as data. It is stated twice —
+      // the read bounds itself, the screen says *"the 200 oldest of 2,589"* —
+      // and a drift makes that sentence a lie rather than an error.
+      if (backBr.MAX_OPEN_BILLS_SHOWN !== front.MAX_OPEN_BILLS_SHOWN) {
+        failures.push(
+          `bill-settlement: MAX_OPEN_BILLS_SHOWN is ${backBr.MAX_OPEN_BILLS_SHOWN} in client-back and ` +
+            `${front.MAX_OPEN_BILLS_SHOWN} in client-front — the grid would misstate how much it is hiding`,
+        );
+      }
+
+      // The document-shaped entry point is checked by NAME rather than run: it
+      // is the adapter that turns a `trx` into a bill before asking the rule
+      // above, and its 43 existing unit cases are what hold the two together.
+      const backSet = read(path.join(ROOT, 'jayhind-client-back/src/const/settlement.const.ts'));
+      if (backSet && !/export function planSettlement\(/.test(backSet)) {
+        failures.push('bill-settlement: `planSettlement` is gone from client-back — the settlement engine\'s own entry point');
+      }
+      if (typeof front.billIsSelectable !== 'function') {
+        failures.push(
+          'bill-settlement: `billIsSelectable` is missing on client-front — it is what stops the grid offering ' +
+            'a document-less bill the wire cannot carry (P5c‑3), and a grid that forgets it offers an action the server drops.',
+        );
+      }
+
+      notes.push(
+        `bill-settlement: ${compared} behavioural comparisons over ` +
+          `${(table.sign?.length ?? 0) + (table.plan?.length ?? 0)} region cases, run against BOTH ` +
+          'implementations, comparing the mappings and the message text (P5c‑2).',
+      );
+    }
+  }
+}
+
 // ── Report ──────────────────────────────────────────────────────────────────
 for (const n of notes) console.log(`note: ${n}`);
 

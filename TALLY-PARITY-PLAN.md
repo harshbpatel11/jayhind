@@ -291,6 +291,30 @@ so relaxing either alone would have changed nothing; §13's standing shape, foun
 only by going looking after relaxing the first. `advance` vs `on-account` is a
 **column**, because there is no arithmetic that separates intent.
 
+**And P5c‑2 is done: the reference grid exists.** A payment or receipt is
+entered against the party's open **bills** — read from the register, so an
+opening balance is on the list — with a per-bill column saying what this voucher
+applies to each. That column is the whole reason a grid replaces a multi-select,
+and it is `planBillSettlement` mirrored: `check-mirrors.js` **check 12** runs
+both implementations over a shared vector table and compares the **mappings and
+the message text**, so the figure on screen is the allocation the server writes
+and a refusal arrives in the server's own sentence. The screen it replaces
+restated three arms of that rule by hand and said nothing about the other three.
+⚠️ Making the rule mirrorable meant splitting it: `planSettlement` speaks in
+documents and `settlementRole` switches on `TrxType`, neither of which can say
+anything about a bill no document made — so the general form is
+`planBillSettlement`, stated about bills, with the old entry point as its
+adapter. It had to move file, too: `settlement.const.ts` imports a Sequelize
+entity and **could not be bundled** by the mirror check at all.
+⚠️⚠️ **Building it found [BUG-0070](../qa-artifacts/docs/bugs/BUG-0070.md)**, and
+that is the phase's real find: approving any payment or receipt offset by a
+credit note threw *"Bill references do not balance"* and rolled the approval
+back — **44 draft vouchers were un-approvable** — because an allocation row
+records document settlement while a reference partitions a journal line, and the
+two coincide only until a note enters. Neither existing gate could see it: one
+reads history, which contains no approved voucher of the shape, and the other
+builds only the cases somebody named.
+
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
 report whose shape is fixed?"*, and there is no longer a second derivation to
@@ -330,7 +354,8 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P5a | `bill_references` + the full-history backfill (the gate lands here) | M | **done** — [§P5a record](#p5a-record--2026-08-30) |
 | P5b | The posting engine writes refs; Advance / On Account | M | **done** — [§P5b record](#p5b-record--2026-08-30) |
 | P5c‑1 | A voucher may name no bill; `unappliedRefType`; the open-bills read | M | **done** — [§P5c‑1 record](#p5c-1-record--2026-08-30) |
-| P5c‑2 | The entry screen's reference grid | M | not started |
+| P5c‑2 | The entry screen's reference grid | M | **done** — [§P5c‑2 record](#p5c-2-record--2026-08-30) |
+| P5c‑3 | A voucher may name a document-less bill (`billRefId` on the allocation) | M | not started |
 | P5d | Bills Receivable/Payable; the annexure moves onto refs | M | not started |
 | P6 | Trading Account and Gross Profit | M | not started |
 | P7 | Cost centres | L | not started |
@@ -3792,6 +3817,411 @@ is a claim about the property**, and the difference is one `grep` of the file
 under test. Worth writing down, because a green injection reads as reassurance
 and is the one result nobody re-checks.
 
+### P5c‑2 record — 2026-08-30
+
+**The reference grid exists.** A payment or receipt is entered against the
+party's open **bills**, read from the register rather than from `trx`, with a
+per-bill figure saying what this voucher applies to each. Gate **7/7**, shown to
+fail four times.
+
+#### The multi-select is gone, and what replaced it is not a prettier one
+
+`app-select[formcontrolname="against"]` — a dropdown of labels reading
+*"INV-123 • Due 5,000"* — is deleted. In its place is a table: **Bill · Date ·
+Due · Open · This voucher**, one row per open bill, oldest first, with a tick.
+
+⚠️ **The column that justifies the change is "This voucher".** A multi-select can
+say *which* bills; only a grid can say *how much of each*, before the voucher is
+saved. That figure is `planBillSettlement` — mirrored in
+`bill-reference.util.ts` and compared behaviourally by `check-mirrors.js`
+**check 12** over `scripts/vectors/bill-settlement.vectors.json`, on the
+**mappings and the message text** — so the column and the allocation the server
+writes cannot come apart, and a refusal arrives in the server's own sentence
+instead of as a toast on a button that looked live.
+
+The screen it replaces restated **three** arms of that rule by hand
+(`mixedSides`, `isRefundSelection`, `amountExceedsDue`) and said nothing about
+the other three. There is one refusal now, and it is the server's.
+
+#### The rule had to move house before it could be mirrored
+
+`planSettlement` speaks in **documents** — `{ trxId, trxType, open }` — and
+`settlementRole` switches on `TrxType`. Neither has anything to say about a bill
+no document made, which is the whole point of the register.
+
+So `planSettlement` was split. The general rule is **`planBillSettlement`**,
+stated about bills (`{ billId, sign, controlSide, open }`), and `planSettlement`
+is now the adapter that turns documents into bills before asking it. The
+arithmetic is untouched — its 43 existing unit cases pass unchanged, which is how
+that is known.
+
+⚠️ It lives in `bill-reference.const.ts`, not in `settlement.const.ts`, and that
+was forced by the mirror rather than chosen: `settlement.const.ts` imports
+`TrxType` off a Sequelize entity, so `check-mirrors.js` **could not bundle it**
+(`Could not resolve "pg-hstore"`). `src/const` is documented as pure; a rule that
+has to be *run* by another repo is where that stops being a convention and starts
+being load-bearing. The names it needed are re-exported, so no importer moved.
+
+#### `billSettlementSign` — the register answers what `settlementRole` cannot
+
+The second, smaller rule: `+1` if this voucher **settles** a bill posted on that
+side, `−1` if the bill **offsets** it. A receipt credits the party, so it settles
+what debits them and is offset by what credits them.
+
+It is `settlementRole(...).sign` derived from the **posting** instead of from the
+document — BUG-0069's discipline — and the point is that every bill has a side
+while only some have a `TrxType`. A party's opening balance (D-55) is signed
+correctly by it and is invisible to the older rule.
+
+⚠️ The two agree on **all eight** `settlementRole` combinations, and
+`bill-reference.const.spec.ts` asserts that rather than assuming it. That
+agreement is the only thing that makes it safe to use where the older rule
+already applies.
+
+#### 🐞 Building it found BUG-0070, and that is the phase's real find
+
+Designing the grid meant asking what the register records when a receipt clears
+an invoice partly offset by a **credit note**. The answer was: nothing — the
+approval **threw**.
+
+`settlementRows` wrote one reference per allocation row, and an allocation
+records *document settlement* while a reference partitions a *journal line*.
+`planSettlement` consumes the note in full and then clears the invoice with
+`cash + noteTotal`; the line is the cash alone. A ₹1,000 receipt clearing a
+₹2,000 invoice with a ₹1,000 note therefore carried ₹3,000 of allocations against
+a line of ₹1,000, and the write-time invariant refused the whole approval.
+
+**44 draft vouchers on the development database were un-approvable**, and so
+would every voucher of that shape entered since P5b.
+
+⚠️ **Neither existing gate could see it**, and the reason generalises. P5a reads
+the finished state of history, which contains no *approved* voucher of the
+shape — the only three that name a note allocate nothing else. P5b builds the
+cases the world does not contain, but only the ones somebody had named. *A gate
+over existing rows cannot see a case the rows do not contain, and a gate that
+constructs cases only constructs the ones somebody thought of.* Fixed in its own
+commit before this phase, with two new P5b properties that build the case.
+
+#### ⚠️ The read is bounded, and it says so
+
+One party here has **2,589** open bills. Rendering all of them with a Material
+checkbox on each takes **3.5 seconds**, measured. The grid takes the oldest
+**200**, prints *"Showing the 200 oldest of 2,589 open bills — search to reach
+the rest"*, and `search` narrows server-side. §10's `MAX_PAGE_SIZE` doctrine:
+clamp, never refuse, and say what was done.
+
+Two things fell out of it, both worth carrying:
+
+- **A bound makes reachability a property.** Property (6) picks the *newest*
+  open bill, asserts it is **not** on screen, and then finds it by searching. A
+  bound with no way past it has quietly removed those bills from the product.
+- ⚠️ **The party field's "Total Due" hint had to go.** It was the truth while
+  the feed was unbounded and became the sum of the first 200 of 2,589 the moment
+  it was not. The grid's head states *"Open on this page"* instead. A money
+  figure whose label overstates its scope is worse than no figure.
+
+#### 🔒 A bill no document made is offered, and cannot be ticked
+
+The wire is unchanged: `against` is still `[{ trxId }]`, and
+`trx_payment_receipt_trxs.trxId` is `NOT NULL` behind a foreign key. So an
+opening balance **cannot be named** by a voucher yet — that is **P5c‑3**.
+
+It is still shown, and the row says why. Hiding it is what made those 53 parties
+look unsettleable in the first place; the money reaches the ledger either way and
+the register calls it `advance` or `on-account`. ⚠️ The sentence is on the **row**
+rather than in a tooltip, because a disabled control renders no tooltip at all
+(§9, UI-010's sibling).
+
+⚠️⚠️ One more consequence, recorded rather than fixed: **a part-allocation with a
+remainder is not reachable from this screen.** `planSettlement` caps the cash at
+the selection's net (BUG-0029's create-time courtesy), so a ₹1,000 receipt
+against a ₹400 bill is refused rather than split into `against 400` +
+`on-account 600` the way Tally would. Either the selection is fully applied or
+nothing is selected. P5b's register can express it — its gate constructs
+one — and only the settlement engine's cap stands in the way.
+
+#### The gate, and four injections
+
+`qa-artifacts/tests/ui/money/bill-reference-grid.ui.spec.ts` +
+`bill-reference-rules.ts` (**restated**, never imported — both implementations
+already agree by construction, so importing either would make the gate a third
+copy of one derivation). Seven properties: the grid is fed by the register in its
+own order **and each row is labelled by what it does to this voucher**, judged
+against its document's own type read from the database; a document-less bill is
+offered and un-tickable; the column is the allocation; a refusal is the server's
+sentence with **no request leaving the page**; the bound says so, search reaches
+past it and a bill ticked before a search survives it; and an **advance survives
+to `bill_references`** through a DTO, a column default and the posting engine;
+and **editing shows the bills the voucher settled, still ticked**.
+
+A browser is the only instrument that can see this phase: the wire is unchanged,
+so the parity diff is **empty by construction** and `qa:p5c-unapplied` measures
+the API rather than the screen.
+
+Shown to fail six ways — hiding the document-less bill, restoring the
+*"at least one invoice"* validator the server dropped at P5c‑1, silently showing
+a slice, dropping the ticked-bill merge, and dropping the edit-path ordering.
+
+⚠️ **The fourth injection PASSED, and the property was the problem.** Making
+"This voucher" echo `open` for any ticked bill left the gate green: with the
+prefilled amount every selected bill is applied in full, so the two figures are
+*equal* and the column could not be distinguished from the thing it is not. The
+property now **under-pays** the selection, which splits the cash oldest-first and
+only the real rule produces.
+
+⚠️⚠️ And it passed **twice** before that was understood, because the edit that
+was supposed to fix the property had not applied — a `cd` into a directory that
+was already the working directory failed, and `&&` short-circuited the `python3`
+after it. That is P5c‑1's own note, verbatim: *a passing injection is a claim
+about the edit before it is a claim about the property*, and the difference is
+one `grep` of the file under test. Written down a second time because knowing it
+did not prevent it.
+
+#### 🐞 Two defects in what P5c‑2 itself wrote, both found by writing its properties
+
+**The first cut of the grid dropped a ticked bill.** The read is bounded and
+`search` **re-fetches**, and `selectedBills` — the payload's own source — read
+from `openBills`; so a bill ticked before searching for another one was no longer
+in the page, and saving lost it silently. `pinned` is the fix: the ticked rows
+are kept across fetches and merged back into the page in their own date order,
+because `planBillSettlement` fills in the order it is given and appending would
+let a newer bill be settled before an older one.
+
+**And editing a voucher lost the allocation it already had.** `excludeVoucherId`
+frees back a voucher's own contribution so its targets read as open again — which
+is necessary and was not sufficient: the read is **bounded**, and a receipt that
+settled one of the newest of a party's 2,589 bills opened its own edit screen
+with that bill outside the window, un-ticked, and would have dropped it on save.
+The query now sorts a voucher's own bills to the **front**; freeing the
+contribution back is only half of *"the bill has to be on the page"*.
+
+Both were found by writing the property, not by review, and both are in the gate:
+a bill ticked before a search is still ticked after it, and a real approved
+receipt reopened shows exactly its own allocations. Each shown to fail by
+removing the fix.
+
+#### 🐞 And a defect in P5a's own gate, which only a cancellation could reveal
+
+P5a's gate read `bill_references` **without ever asking whether a row was
+retired** — nine queries, none with `deletedAt IS NULL`. A retired reference by
+design hangs off a **dead** line, so the moment this phase's browser suite
+cancelled its first QA voucher, property (2) called 13 correct rows orphans and
+property (3) counted their amounts into a ledger's balance. The register was
+exactly right; the gate was measuring something else.
+
+Nothing had been cancelled between the backfill and today. **P5b's gate proves
+retirement and rolls it back**; P5a's reads history, and history had none.
+
+Filtering was half the fix. The other half is new property **(11)**: *a reference
+is retired exactly when its entry left the live population*, asked in **both**
+directions over every company — so a retirement that fails to happen is as
+visible as one that happens wrongly. 144 → **157**, and shown to fail by
+un-retiring one row (which reproduces (2) and (3)'s original symptom beside it,
+now with a property naming the cause).
+
+#### 🐞 `qa:money` outgrew its own throttle — and the opt-out only covered half a 429
+
+The lane runs **serially against the ERP's 100 req/min per-IP limit**
+(`app.module.ts`: `{ ttl: 60_000, limit: 100 }`). At 105 tests it was green; the
+seven this phase added took it to 112 and **eight tests failed** — none of them
+this phase's, and **not one of them an assertion**. Every failure was the
+`problems` fixture reporting `page error: HttpErrorResponse`, clustered in the
+three alphabetically-last suites, where the bucket is most exhausted.
+
+⚠️ **The tolerance those suites already declared did not cover it.** Five of them
+push `/status of 429/` into `problems.ignore` — which matches the **console**
+line Chromium logs (*"…responded with a status of 429"*) and **not** the
+`pageerror` Angular raises for the same response, whose message is the bare
+string `HttpErrorResponse` with no status in it to match on. So the opt-out
+silenced one half of one event and the other half went on failing the test. It
+had been that way since the line was first written; the lane simply had not been
+loaded enough to show it.
+
+The fix is in the fixture and is narrow on three counts, because a tolerance is
+the one change that can quietly stop a suite measuring anything:
+
+- **opt-in** — only a suite that already asked to tolerate 429s is affected, and
+  that is asked by putting a real 429 console line to the suite's own patterns
+  rather than by adding a second flag nobody would set;
+- **bounded** — at most as many `HttpErrorResponse` page errors are forgiven as
+  there were **429 responses actually observed**;
+- **reported** — the count is attached to the test as an annotation.
+
+A 5xx is recorded separately and still fails regardless. All three bounds were
+**measured**, not reasoned: a synthetic non-`HttpErrorResponse` page error still
+fails in an opted-in suite; an `HttpErrorResponse` still fails in a suite that
+did not opt in; and an `HttpErrorResponse` still fails in an opted-in suite that
+saw no 429.
+
+`voucher-options-bar.ui.spec.ts` took the opt-in line its five siblings already
+had. Two of this phase's own properties were folded into one, and the one added
+afterwards for the edit path was written to be cheap — one page load, no party
+pick, no save.
+
+That was necessary and **not sufficient**, and finding that out is the other half
+of this. With the fixture fixed the next full run failed **ten**, in a completely
+different set of suites; splitting the lane in half left the half containing the
+51-route sweep still over budget. The damage moves because the lane is simply
+over the limit throughout — patching tolerances suite by suite is chasing it.
+
+So the limit itself moved out of a literal: **`RATE_LIMIT_IP_PER_MIN`**, in
+`rate-limit.const.ts` beside the company dimension that was already env-tunable
+and whose own comment says *"tunable via env pending real measurement"*. The
+measurement arrived from an unexpected direction — a harness that cannot
+complete — and the default is **unchanged at 100**, asserted by a spec, so
+nothing about a deployment that does not set it is different. ⚠️ It is not a
+licence to raise it in production: the only environment with any business setting
+it is one whose traffic is known to come from a single machine on purpose.
+
+With the limit raised for the harness the lane went **102 → 110 of 112**, and the
+two that were left were assertions rather than noise — which is what made them
+worth reading. Neither was this phase's (one runs on a **journal**, where the
+reference grid does not render at all; the other sweeps `/audit-logs`), and both
+were the same latent shape: **a pause standing in for a wait.**
+
+- `ledger-picker` (6) typed a search term, slept 800 ms and pressed `Alt+C`. Under
+  load the chord fired against a box that had not received the term, and the
+  assertion read `""` — **indistinguishable from the real defect that property
+  exists to catch** (P4c's `markAsUntouched` emptying the box). The pause is now
+  an assertion that the term arrived.
+- `checklist.ts` counted a grid's rows the moment its toolbar appeared, so a
+  large list rendered its chrome first and the check read zero on a working
+  screen. Polled now, in **both** of its halves — the voucher-list half was the
+  other six failures of an earlier run.
+
+⚠️⚠️ The general point outlives all of it: **a serial browser lane has a request
+budget, and a new suite spends it.** The next phase to add one should measure the
+lane, not only its own file — and should check that whatever it tolerates covers
+every event the tolerated thing produces. ⚠️ The corollary this run produced:
+**raising the ceiling made the remaining failures legible.** Three runs of
+rotating 429 damage hid two ordinary races; the moment the noise stopped, both
+named themselves in one run.
+
+#### 🔒 A bill no document made is offered, and cannot be ticked
+
+The wire is unchanged: `against` is still `[{ trxId }]`, and
+`trx_payment_receipt_trxs.trxId` is `NOT NULL` behind a foreign key. So an
+opening balance **cannot be named** by a voucher yet — that is **P5c‑3**.
+
+It is still shown, and the row says why. Hiding it is what made those 53 parties
+look unsettleable in the first place; the money reaches the ledger either way and
+the register calls it `advance` or `on-account`. ⚠️ The sentence is on the **row**
+rather than in a tooltip, because a disabled control renders no tooltip at all
+(§9, UI-010's sibling).
+
+⚠️⚠️ One more consequence, recorded rather than fixed: **a part-allocation with a
+remainder is not reachable from this screen.** `planSettlement` caps the cash at
+the selection's net (BUG-0029's create-time courtesy), so a ₹1,000 receipt
+against a ₹400 bill is refused rather than split into `against 400` +
+`on-account 600` the way Tally would. Either the selection is fully applied or
+nothing is selected. P5b's register can express it — its gate constructs
+one — and only the settlement engine's cap stands in the way.
+
+#### The gate, and four injections
+
+`qa-artifacts/tests/ui/money/bill-reference-grid.ui.spec.ts` +
+`bill-reference-rules.ts` (**restated**, never imported — both implementations
+already agree by construction, so importing either would make the gate a third
+copy of one derivation). Seven properties: the grid is fed by the register in its
+own order **and each row is labelled by what it does to this voucher**, judged
+against its document's own type read from the database; a document-less bill is
+offered and un-tickable; the column is the allocation; a refusal is the server's
+sentence with **no request leaving the page**; the bound says so, search reaches
+past it and a bill ticked before a search survives it; and an **advance survives
+to `bill_references`** through a DTO, a column default and the posting engine;
+and **editing shows the bills the voucher settled, still ticked**.
+
+A browser is the only instrument that can see this phase: the wire is unchanged,
+so the parity diff is **empty by construction** and `qa:p5c-unapplied` measures
+the API rather than the screen.
+
+Shown to fail six ways — hiding the document-less bill, restoring the
+*"at least one invoice"* validator the server dropped at P5c‑1, silently showing
+a slice, dropping the ticked-bill merge, and dropping the edit-path ordering.
+
+⚠️ **The fourth injection PASSED, and the property was the problem.** Making
+"This voucher" echo `open` for any ticked bill left the gate green: with the
+prefilled amount every selected bill is applied in full, so the two figures are
+*equal* and the column could not be distinguished from the thing it is not. The
+property now **under-pays** the selection, which splits the cash oldest-first and
+only the real rule produces.
+
+⚠️⚠️ And it passed **twice** before that was understood, because the edit that
+was supposed to fix the property had not applied — a `cd` into a directory that
+was already the working directory failed, and `&&` short-circuited the `python3`
+after it. That is P5c‑1's own note, verbatim: *a passing injection is a claim
+about the edit before it is a claim about the property*, and the difference is
+one `grep` of the file under test. Written down a second time because knowing it
+did not prevent it.
+
+#### 🐞 Two defects in what P5c‑2 itself wrote, both found by writing its properties
+
+**The first cut of the grid dropped a ticked bill.** The read is bounded and
+`search` **re-fetches**, and `selectedBills` — the payload's own source — read
+from `openBills`; so a bill ticked before searching for another one was no longer
+in the page, and saving lost it silently. `pinned` is the fix: the ticked rows
+are kept across fetches and merged back into the page in their own date order,
+because `planBillSettlement` fills in the order it is given and appending would
+let a newer bill be settled before an older one.
+
+**And editing a voucher lost the allocation it already had.** `excludeVoucherId`
+frees back a voucher's own contribution so its targets read as open again — which
+is necessary and was not sufficient: the read is **bounded**, and a receipt that
+settled one of the newest of a party's 2,589 bills opened its own edit screen
+with that bill outside the window, un-ticked, and would have dropped it on save.
+The query now sorts a voucher's own bills to the **front**; freeing the
+contribution back is only half of *"the bill has to be on the page"*.
+
+Both were found by writing the property, not by review, and both are in the gate:
+a bill ticked before a search is still ticked after it, and a real approved
+receipt reopened shows exactly its own allocations. Each shown to fail by
+removing the fix.
+
+#### 🐞 And a defect in P5a's own gate, which only a cancellation could reveal
+
+P5a's gate read `bill_references` **without ever asking whether a row was
+retired** — nine queries, none with `deletedAt IS NULL`. A retired reference by
+design hangs off a **dead** line, so the moment this phase's browser suite
+cancelled its first QA voucher, property (2) called 13 correct rows orphans and
+property (3) counted their amounts into a ledger's balance. The register was
+exactly right; the gate was measuring something else.
+
+Nothing had been cancelled between the backfill and today. **P5b's gate proves
+retirement and rolls it back**; P5a's reads history, and history had none.
+
+Filtering was half the fix. The other half is new property **(11)**: *a reference
+is retired exactly when its entry left the live population*, asked in **both**
+directions over every company — so a retirement that fails to happen is as
+visible as one that happens wrongly. 144 → **157**, and shown to fail by
+un-retiring one row (which reproduces (2) and (3)'s original symptom beside it,
+now with a property naming the cause).
+
+#### ⚠️ `qa:money` outgrew its own throttle, and the number is worth recording
+
+The lane runs **serially against the ERP's 100 req/min per-IP limit**. At 105
+tests (P4e‑2) it was green; the seven this phase added took it to 112 and **five
+unrelated properties failed** — an empty list, a picker that never populated, 169
+`HttpErrorResponse`s. Every one passes alone; it is saturation, not a regression.
+
+Two properties were folded into one (they are two readings of the same rendered
+grid, and a separate test costs a whole page load), and the one added afterwards
+for the edit path was written to be cheap — one page load, no party pick, no
+save. The general point is worth keeping: **a serial browser lane has a request
+budget, and a new suite spends it.** The next phase to add one should measure the
+lane, not only its own file.
+
+#### One selector collision, avoided rather than discovered
+
+The bills table was first given `class="vch-grid vch-bills"` — it is visually the
+same table. `rowsOnScreen` in P4b's gate reads `.vch-grid tbody tr` to compare
+the Dr/Cr rows against the legs the voucher posts, so six bill rows would have
+joined them. It has its own class and shares the base rule instead.
+
+That is P4d's inert-selector finding read forwards rather than backwards: **a
+shape shared for a styling reason is not a shape shared for a meaning**, and the
+gates read meaning. P4b's own property (3b) did have to move onto the grid — the
+multi-select it drove is gone — and it passes unchanged otherwise.
+
 ### Verification pass — 2026-08-28
 
 The plan was written from a reading of the source. It has since been checked
@@ -5215,7 +5645,7 @@ sub-phases, agreed 2026-08-30:
 |---|---|---|
 | **P5a** | `bill_references` — table, entity, scope registry, hard-delete edge, and the **full-history backfill**. Read by nothing yet | the gate lands here: Σ open refs per party == ledger balance, 381/381 |
 | **P5b** | the posting engine writes them — `new` on approval, `against` from `applyReceiptSettlement`, and **Advance / On Account** for the unallocated remainder | forward maintenance keeps the gate green |
-| **P5c** | the entry screen's reference grid — pops on save for a `billwise` ledger, pre-filled New Ref / Agst Ref oldest-first | |
+| **P5c** | the entry screen's reference grid — the party's open bills, oldest-first, with what this voucher applies to each. ⚠️ Split three ways in the event: **P5c‑1** the backend (a voucher may name no bill), **P5c‑2** the grid, **P5c‑3** naming a bill no document made. ⚠️⚠️ It does **not** pop on save — decided 2026-08-30: it is inline, where the multi-select was, because a blocking dialog between `Ctrl+S` and a saved voucher on the busiest cash screens costs more than the Tally muscle memory buys, and `revealInvalidPanel` (P4e) already owns *"Save reveals the blocker"* | `qa:money` — seven properties in a browser |
 | **P5d** | Bills Receivable/Payable, and the annexure moves onto refs | `pendingBills` stops deriving and starts reading |
 
 **Backfill depth: full history** — every approved current party document becomes
