@@ -257,6 +257,17 @@ full grand total on their party leg and restating them turned a ₹468 gap into
 P5 doing by hanging `bill_references` off `journalLineId`. The gate now reads
 **381 / 0 / ₹0.00**, so P5 starts green.
 
+**And P5a is done: the bill register exists and is backfilled over the whole of
+history**, 11,080 references covering all 11,051 party lines on 834 ledgers, gate
+**144/144**. It is not a second derivation of a party's balance — it is a
+**partition of the journal lines that already make it up**, which is what stops
+BUG-0040 being a recurring class rather than fixed once more: a partition cannot
+omit a term, because the term is a row. Nothing reads it yet; the annexure moves
+onto it at P5d. ⚠️ Its fourth backfill step wrote **zero** rows — every one of
+the 2,759 approved payment/receipt vouchers is fully allocated — so `advance` and
+`on-account` have no instance and this gate asserts nothing about them. That arm
+is **P5b's**, and saying so beats a green line implying otherwise.
+
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
 report whose shape is fixed?"*, and there is no longer a second derivation to
@@ -293,7 +304,7 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P4d | Workflow Document mode, and the remaining route redirects | M | **done** — [§P4d record](#p4d-record--2026-08-30) |
 | P4e‑1 | What an Accounting Invoice IS — the mechanism, and GST-021 | M | **done** — [§P4e‑1 record](#p4e-1-record--2026-08-30) |
 | P4e‑2 | `Ctrl+H` — the mode on screen, and the six print templates | M | **done** — [§P4e‑2 record](#p4e-2-record--2026-08-30) |
-| P5a | `bill_references` + the full-history backfill (the gate lands here) | M | not started |
+| P5a | `bill_references` + the full-history backfill (the gate lands here) | M | **done** — [§P5a record](#p5a-record--2026-08-30) |
 | P5b | The posting engine writes refs; Advance / On Account | M | not started |
 | P5c | The entry screen's reference grid | M | not started |
 | P5d | Bills Receivable/Payable; the annexure moves onto refs | M | not started |
@@ -3537,6 +3548,89 @@ guards. Backend diff empty, so the parity diff is empty by construction.
   buys nothing a doc comment does not — §6.4's `hubFileId` ruling, again.
 
 ---
+
+### P5a record — 2026-08-30
+
+**`bill_references` exists, is backfilled over the whole of history, and its
+gate holds at 144/144.** Nothing reads it yet — the annexure still derives, and
+moves onto the register at P5d.
+
+#### What it is, and the sentence that shaped it
+
+The register is **not a second derivation of a party's balance. It is a
+partition of the `journal_lines` rows that already make it up**, and every
+design decision below follows from that one sentence:
+
+```
+for every party journal line:   Σ |ref.amount| = |line.debit − line.credit|
+therefore, for every ledger:    Σ signed refs  = its balance
+```
+
+The second falls out of the first. That is why `journalLineId` is `NOT NULL`,
+why `amount` is a magnitude with the line carrying the direction, and why the
+gate's load-bearing property is per **line** rather than per party — a company
+total passes on a register that lost one line and gained an offsetting error
+somewhere else.
+
+It is also why BUG-0040 stops being a recurring class rather than being fixed
+once more. Its two known missing terms — the opening balance (D-55) and reverse
+charge (BUG-0069) — were both cases of the document side computing a figure the
+ledger already knew. A partition cannot omit a term, because the term is a row.
+
+#### What the backfill wrote
+
+| Step | Rows | |
+|---|---|---|
+| 1 · `new` from a document's own party line | **8,239** | ⚠️ amount from the **line**, never `trx.grandTotal` — BUG-0069 |
+| 2 · `new` from an opening balance, no voucher | **53** | D-55's synthesised annexure row becomes an ordinary entry |
+| 3 · `against` from an approved allocation | **2,788** | the existing machinery, renamed rather than replaced (§3.6) |
+| 4 · `on-account` from an unapplied remainder | **0** | see below |
+| | **11,080** | covering **11,051** party lines on **834** ledgers |
+
+The totals tie independently: `against` comes to ₹7,94,42,472.66, which is
+exactly the gross of every party payment and receipt; `new` comes to the trx
+gross plus the ₹2,65,000 of opening balances.
+
+⚠️ **Step 4 wrote nothing, and that was measured before the migration was
+written rather than discovered after.** All 2,759 approved payment/receipt
+vouchers on the development books are fully allocated. So the honest position is
+that `advance` and `on-account` have **no instance**, this gate asserts nothing
+about them, and the arm belongs to **P5b** — which is where the code that writes
+one lives. An arm with no instance is untested coverage; §13's standing shape,
+declared rather than papered over.
+
+#### The gate, and the three ways it was shown to fail
+
+`npm run qa:p5-bill-register` — twelve properties over all fourteen companies,
+**144/144**. Property (12) is the gate testing itself: an uncovered party line
+inserted in a rolled-back transaction, because every other property leans on (1)
+and (1) is a query over rows that all happen to be correct. Then two real
+injections:
+
+- a **corrupted bill amount** fails (1) and (3), naming the line, the ledger and
+  both figures;
+- a **settlement repointed at another ledger's bill** fails (6) and (7) — and
+  deliberately **not** (1), because the line's coverage is unchanged. That is
+  the class the invariant cannot see, and the reason both properties exist.
+
+#### Three things worth carrying
+
+- **`billwise` was already there.** D1 put it on `acc_ledgers` *"written by the
+  seed, read by nothing yet"*, and it selects exactly the 834 `origin = 'party'`
+  ledgers. P5a added a table, not a column — the reservation paid off.
+- **Two denormalised columns, both checked rather than trusted.** `ledgerId` and
+  `voucherId` are stored copies of derivable facts, which is BUG-0034 and
+  BUG-0042's shape; properties (4) and (5) compare each against its source. And
+  there is deliberately **no `voucherType`** beside `voucherId`: that half is one
+  join away, and copying it too would give two columns able to disagree with each
+  other as well as with the entry.
+- **The hard-delete graph needed three lines, and its own spec would not have
+  said so.** `bill_references` points at `acc_ledgers` and `journal_lines`
+  (both RESTRICT, both edges) and at itself through `againstRefId` (a
+  `SELF_REFERENCING_NULL_OUT` entry — without it a settled bill is transitively
+  its own ancestor and no topological order places the table). D5 and D6 each hit
+  this; `company-hard-delete-order.const.spec.ts` verifies the graph is
+  *consistent*, not that it is *complete*.
 
 ### Verification pass — 2026-08-28
 
