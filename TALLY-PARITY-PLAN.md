@@ -262,7 +262,7 @@ history**, 11,080 references covering all 11,051 party lines on 834 ledgers, gat
 **144/144**. It is not a second derivation of a party's balance — it is a
 **partition of the journal lines that already make it up**, which is what stops
 BUG-0040 being a recurring class rather than fixed once more: a partition cannot
-omit a term, because the term is a row. Nothing reads it yet; the annexure moves
+omit a term, because the term is a row. Nothing read it yet; the annexure moved
 onto it at P5d. ⚠️ Its fourth backfill step wrote **zero** rows — every one of
 the 2,759 approved payment/receipt vouchers is fully allocated — so `advance` and
 `on-account` have no instance and this gate asserts nothing about them. That arm
@@ -323,6 +323,24 @@ opening balance and an open document, so the gate builds it, exactly as P5b buil
 disabled checkbox **inverted** and now follows the tick all the way to the
 `against` reference it writes.
 
+**And P5d is done, which closes P5: the annexure reads the register, and Bills
+Receivable / Payable exist.** Three hand-written terms came out of `pendingBills`
+— D-18's note netting, BUG-0069's posted party share, D-55's synthesised opening
+balance — each one a term that had gone missing once and been put back by hand.
+A partition cannot lose a term, because the term is a row. Measured before the
+phase: **381 party ledgers, and the signed sum of their open bills already
+equalled every one of their balances, gap ₹0.00.** Gate **16/16**, three
+injections; the parity diff is **empty over every other report**, with the
+annexure declared `--rebased` because it is not the same report on both sides.
+⚠️ One thing moved and it was ruled: **a return note is a bill of its own on the
+opposite side** rather than folded into the document it names — 180 of 802
+parties' totals — because the entry screen's own grid has drawn it that way since
+P5c‑2, and a collections sheet and a settlement screen disagreeing about what is
+open is the defect this programme keeps closing. ⚠️⚠️ Building it found the
+phase's own **two id spaces in one column** (`bill_references.voucherId` is a
+`trx` id on a document bill and a `trx_payment_receipts` id on an advance),
+caught by the gate's constructed-advance property.
+
 ⚠️⚠️ **Building it found [BUG-0070](../qa-artifacts/docs/bugs/BUG-0070.md)**, and
 that is the phase's real find: approving any payment or receipt offset by a
 credit note threw *"Bill references do not balance"* and rolled the approval
@@ -373,7 +391,7 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P5c‑1 | A voucher may name no bill; `unappliedRefType`; the open-bills read | M | **done** — [§P5c‑1 record](#p5c-1-record--2026-08-30) |
 | P5c‑2 | The entry screen's reference grid | M | **done** — [§P5c‑2 record](#p5c-2-record--2026-08-30) |
 | P5c‑3 | A voucher may name a document-less bill (`billRefId` on the allocation) | M | **done** — [§P5c‑3 record](#p5c-3-record--2026-08-31) |
-| P5d | Bills Receivable/Payable; the annexure moves onto refs | M | not started |
+| P5d | Bills Receivable/Payable; the annexure moves onto refs | M | **done** — [§P5d record](#p5d-record--2026-08-31) |
 | P6 | Trading Account and Gross Profit | M | not started |
 | P7 | Cost centres | L | not started |
 | P8 | Posting rules, budgets, interest, multi-currency, scenarios | L | not started |
@@ -4379,6 +4397,205 @@ race survives two phases.
   its register bill reads part-paid for ever unless `isPaid` learns the same
   rule.
 
+### P5d record — 2026-08-31
+
+**The annexure stopped deriving and started reading, and the two reports §3.10
+names exist.** P5a built the register, P5b made the posting engine maintain it,
+P5c put it on the entry screen — and nothing *reported* from it. The bill-wise
+annexure still derived from `trx` plus its allocation rows, which is the
+derivation BUG-0040 is about and BUG-0069 was filed against.
+
+| Artefact | What it is |
+|---|---|
+| `BillReferenceService.outstandingBills` | **One read**, and the phase in one method: every live open bill of a party or of a control side. The annexure and both new reports go through it, so they differ in how they *group* and never in what a bill is. |
+| `bill-reference.const.ts` `splitBillOpen` · `NORMAL_SIDE_BY_PARTY_SIDE` · `heldBackOnBill` · `sourceOfBill` · `documentIdOfBill` · `labelForBillWithNoDocument` | The rules, pure and specced. `splitBillOpen` is the one that does the work: a bill on the party's own side is outstanding, one on the other side is owed back. |
+| `PartyStatementService.pendingBills` | Three hand-written terms deleted — D-18's note netting, BUG-0069's `postedPartyShare`, D-55's synthesised `openingBalanceBill` — and one query in their place. |
+| `ReportsService.billsOutstanding` + `GET /reports/bills-receivable` · `/bills-payable` | Party rows carrying their total, expanding to their own bills, with ageing across the report. |
+| `client-front` `reports/bills-outstanding/` | One component, two routes. The Outstanding tabs now render it; `VendorOutstandingComponent` and `CustomerOutstandingComponent` are **deleted** and every old path still resolves. |
+| `outstanding.const.ts` `paidStatusFor` + `BillReferenceService.postedBillAmounts` | The denominator, moved off `grandTotal` onto what the voucher **posted** — at all four document-side sites, which had two copies of the paid-status rule between them. |
+| `scripts/qa-p5d-annexure.ts` · `npm run qa:p5d-annexure` | The gate. **16/16**, shown to fail three ways. |
+
+**The ground was measured before the phase started**, as P2b‑3c and P4e‑1 did.
+Over 14 companies: **381 party ledgers, and Σ(open bills, signed) already equalled
+every one of their ledger balances — gap ₹0.00.** So the identity P5d turns the
+annexure into was verified in SQL before a line of it was written, which is why
+its gate can be read as a statement about the code rather than about the data.
+
+#### The one thing that moved, and why it is the right way round
+
+**A return note is a bill of its own now**, on the opposite side, instead of
+being folded into the document it names. Measured across the change: **180 of
+802 parties' annexure totals moved**, 622 unchanged, 172 row counts changed. It
+was ruled deliberately, and D-18 / [BUG-0013](../qa-artifacts/docs/bugs/BUG-0013.md)
+are **not** reversed by it.
+
+The defect BUG-0013 records is a note listed as an open item on the **positive**
+side while the invoice it offset read as closed — the party's total overstated by
+the note's full value and pointing the wrong way. Here the note is signed by the
+side it was **posted** on, so it reduces the party's position by exactly its
+value and the invoice stands at what is still open on it. The net is identical;
+what changed is that the two facts are two rows.
+
+⚠️ **What decided it is that the same party's open items were already being drawn
+twice, differently, in one session.** The entry screen's reference grid has
+listed the note as its own offsetting row since P5c‑2, because that is what the
+register says and what the operator ticks. A collections sheet and a settlement
+screen disagreeing about what is open is the class of defect this programme keeps
+closing, and one of the two had to give. The register won, because it is the side
+that reconciles with the ledger — measured: on company 15's party 137, a supplier
+we also sell to, the old annexure reported **₹55,907.10 owed** where the ledger
+said ₹36,654.36 Cr, because it carried a sales invoice and two purchases as
+positives together. The new one reports ₹55,239.45 owed and ₹18,585.09 owed back,
+and the difference **is** the ledger balance.
+
+Three consequences worth knowing before reading the payload:
+
+- **`credited` is gone** — nothing is credited to a document any more.
+  `paidAmount` became **`settled`**, Σ of the `against` references standing on
+  the bill.
+- **An `advance` or an `on-account` amount appears on a party's sheet for the
+  first time.** Before P5c it could not be recorded at all; before this it was a
+  party balance with nothing on any report naming it (§3.6).
+- **`refundDue` is labelled *Owed Back***, because on a party who both buys and
+  sells it is a receivable sitting inside a payable ledger rather than a refund.
+  The direction is what is true in both readings.
+
+#### The denominator — §P5c‑3's inherited warning, closed
+
+`trx.paidAmount` was capped at, and `isPaid` decided by, `grandTotal`. The bill
+half of the same settlement used what the voucher **posted**, so the two halves
+of one operation had different denominators and differed by exactly the RCM tax
+(D-52). P5c‑3 recorded this as the one thing it could not move on its own:
+capping `paidAmount` below `grandTotal` leaves such a document part-paid for ever
+unless `isPaid` learns the same rule. Both halves landed together —
+`postedBillAmounts` is the figure, `paidStatusFor` is the rule, and the four
+sites that needed it are the approve boundary, the restore replay,
+`buildAllocation`'s create-time cap and `getDueInvoice`.
+
+⚠️ **Read, never derived from the flag.** D-52 is forward-only: 15 of this
+database's 19 flagged purchases carry the whole grand total on the party leg.
+BUG-0069's sentence for the third time — *where a figure has been posted, read
+the posting.*
+
+⚠️⚠️ The change has **zero instances today** — no reverse-charge purchase has
+been settled — so it is forward-only and the gate has to construct the case,
+which it does through the save path (a draft, deleted) rather than through an
+approval, because `ApprovalService.transition` commits its own transaction. The
+gate says so rather than implying coverage it does not have.
+
+#### What the gate measures, and how it was shown to fail
+
+**16 properties, 16 passing.** The identity over every party ledger of every
+company; the annexure holding exactly the register's open bills; **the annexure
+and the entry grid naming the same bills**, asked from both sides — the
+divergence this phase was ruled to close; the two reports partitioning the
+parties and agreeing with the per-party sheets; the ageing buckets totalling the
+ordinary side alone; no bill on both sides at once; the denominator on real
+reverse-charge purchases and at two of its four sites; and the two arms this
+database has no instance of — an **advance** reaching both surfaces, and a
+cancellation taking its bill off the sheet — constructed in a transaction that is
+always rolled back, exactly as P5b constructed `advance` and P5c‑3 the mixed
+voucher.
+
+Shown to fail three ways: ignoring the posting side (property 1, naming four
+parties and both figures); dropping the unapplied arm from the read (11, 11b);
+and putting the `grandTotal` denominator back (10 — which also **left a scratch
+voucher behind**, caught by 10c, and the cleanup now sweeps by remark rather than
+by the id only the accepted branch holds).
+
+⚠️ **It found a real defect in this phase's own code rather than confirming it.**
+`bill_references.voucherId` holds a `trx` id for a document bill and a
+**`trx_payment_receipts`** id for an advance — two id spaces in one column — and
+the annexure was passing it straight through as the row's `id`, which the SPA
+opens as a voucher. `documentIdOfBill` is the fix, and it answers 0 for anything
+a `trx` route cannot open, exactly as D-55's synthesised row already did.
+
+#### Parity
+
+**The diff is empty everywhere except the report that changed shape.**
+`diff p5d-before p5d-after --rebased pendingBills` drops **237,252 paths** and
+reports `PARITY HELD` — so the Trial Balance, the Balance Sheet, the P&L, the Day
+Book, both registers, the books, every group statement, both Outstanding reads,
+every party statement and summary, and the two cache censuses are **identical
+across the change**. Re-basing is a statement about the tape measure and not an
+allowance (§11): the annexure is not the same report on both sides, and the
+movement it made is the 180 parties measured above rather than a list of paths.
+
+#### Numbers
+
+- `npm test` **1985/1985**, all five guards clean.
+- `qa:p5d-annexure` **16/16**; `qa:p5-bill-register` **157/157**,
+  `qa:p5b-register-maintenance` **9/9**, `qa:p5c-unapplied` **9/9**,
+  `qa:p5c3-bill-settlement` **18/18** — every earlier gate unchanged by a phase
+  that rewrites what reads the register.
+- `qa:p1-group-tree` **56/56**, `qa:p3-ledger-report` **140/140**,
+  `qa:p3b-statements` **323/323**, `qa:p2c-import-tree` **227/227**.
+- `qa-artifacts` `tests/transactions/settlement.spec.ts` **21/21, from 9 failing
+  on `main`** — and two of those nine were **stale P5c‑1 debt**: they asserted
+  that a receipt naming no document is refused and that *"the app has no advance
+  shape"*, both of which P5c‑1 deliberately made untrue and neither of which was
+  updated with it.
+- `npm run qa:reports` **207 passed / 4 failed**, from **202 / 9**. The three
+  suites P5d touched are green: `party-statement.spec.ts` 16/16,
+  `party-inventory-deltas.spec.ts` 7/7, `outstanding.spec.ts` 14/14. ⚠️ Four of
+  the five recovered failures were **not** P5d's to begin with — they are the
+  D3-fixture family the P3c‑1 record names, *"fixtures written before a party
+  had one ledger on one side"*, and they came green because making a delta
+  assertion sign-aware fixes both halves at once. The four that remain are the
+  same family on the two dashboards (which read `partyPositions` and
+  `customer-outstanding`, neither touched here) plus `main-dashboard`'s
+  host-metrics property.
+- `qa:money` — `bill-reference-grid.ui.spec.ts` + `voucher-entry.ui.spec.ts`
+  **16/16**, and the per-screen sweep passes on both new routes and on the Party
+  Statement. ⚠️ The two Outstanding screens were **UI-002 offenders** (money
+  through `app-data-table`'s `type: 'number'`, which formats nothing); the
+  reports that replaced them render `| number:'1.2-2'`, so that finding closes
+  on those two routes as a side-effect rather than as a fix.
+
+⚠️ **`qa:p2-ledgers` fails its property (2) at 332/1 — on `main`, before this
+phase, with identical figures** (449 parties in the population, 422 planned and
+applied). Verified by stashing. Not P5d's, and recorded here rather than fixed
+because re-running `plan-party-ledgers` writes decisions this phase has no
+business taking.
+
+#### Three oracles moved, and one retired
+
+`qa-artifacts` restates rules rather than importing them, so a change of
+mechanism is a change of restatement:
+
+- **`party-rules.ts` `partyBills`** now restates the **register** instead of
+  D-18's document allocation — and it **checks itself against `journal_lines`
+  before returning**, throwing in its own voice if the two disagree. A
+  restatement built over the same table the report reads can agree with a defect
+  in that table; §13's P2b‑3c variant, and the reason the check is inside the
+  oracle rather than in a caller's diff.
+- **R6 (`outstanding.spec.ts`) changed what answers it.** It held the ledger
+  against the party's own DOCUMENTS, and that derivation cannot answer it any
+  more: BUG-0069 is precisely that no rule over `trx` gets all nineteen
+  reverse-charge purchases right, because D-52 is forward-only. It holds the
+  ledger against the **open bills** now, which is the identity `bill_references`
+  was built to make true.
+- ⚠️ **The annexure's document-by-document comparison with `outstandingOracle`
+  is retired**, and that is honest rather than a loss: the two are now different
+  derivations of different things, and row for row they disagree by
+  construction. What replaced it is the party's **net** against the ledger,
+  which is the stronger statement and the one BUG-0040 asked for. The document
+  oracle keeps its own tests.
+
+#### What P6 inherits
+
+- **`trx_groups`-era `vendorOutstanding` / `customerOutstanding` are still
+  live.** Their screens are gone but the two reads are not, because the parity
+  harness captures them and the Financial Dashboard's shape has not been
+  revisited. They answer the same question as the new reports, from
+  `journal_lines` rather than from the register, and the honest end state is one
+  of the two — a decision that belongs with D9, when `trxGroupId` goes.
+- **An `advance` can never be applied to a later bill.**
+  `planSettlementReferences` only ever points an `against` row at a `new` bill,
+  so an advance stands open for ever and the annexure lists it. Tally lets a
+  later invoice be settled against one; that is a settlement-engine change, not a
+  reporting one, and nothing in P5 promised it.
+
 ### Verification pass — 2026-08-28
 
 The plan was written from a reading of the source. It has since been checked
@@ -5117,6 +5334,16 @@ negative-side open item, an On Account amount is reported as unapplied.
 > the **same rows** as the ledger side. D-55's synthesised opening-balance bill
 > becomes an ordinary `refType: 'new'` row with no voucher behind it, and the two
 > sides stop being two sides.
+>
+> ✅ **Landed in P5d**, and the equality is now a property rather than an aim:
+> `PartyStatementService.pendingBills` reads the register, so
+> `Σ outstanding − Σ owed back` **is** the party ledger's balance, over all 381
+> ledgers of the development database. The three terms it used to reconstruct by
+> hand — D-18's note netting, BUG-0069's posted party share, D-55's synthesised
+> opening balance — are gone with the derivation that needed them. ⚠️ The visible
+> cost is that a return note is a **bill of its own on the opposite side** rather
+> than folded into its target: 180 of 802 parties' totals moved, and §P5d's record
+> carries the argument.
 
 ### 3.7 Cost centres and categories
 
@@ -5195,7 +5422,7 @@ caches deliberately not consulted — and gains a hierarchy and a spine.
 | **Profit & Loss** | ✅ Grouped in **P3b**. The Trading Account and the Gross Profit line are §3.8 and land in **P6** — half a Trading Account would print a gross profit with no direct/indirect split behind it. |
 | **Ledger** *(new)* | ✅ **Landed in P3a**, and its **screen in P3d‑1**. One ledger, monthly summary rows, each expanding to its vouchers, each opening the voucher — `GET /reports/ledger/:ledgerId` and `…/vouchers`. This is what a Tally user means by "open the ledger". Reads `acc_ledgers` directly; the Particulars column is the contra **ledger's** name, or `(as per details)`. ⚠️ A voucher number is a link only where there is a screen behind it — seven of the ten `sourceType` values have none. |
 | **Group Summary** *(new)* | ✅ **Landed in P3a.** A group's children with closing balances — sub-groups carrying their whole subtree, ledgers carrying their own — `GET /reports/group-summary/:groupId`. The intermediate step of every drill-down, and the report whose totals property (8) of the gate ties to its own breakdown. |
-| **Bills Receivable / Payable** *(new)* | Derived from `bill_references`, with ageing. Supersedes the two Outstanding screens, which keep redirecting. |
+| **Bills Receivable / Payable** *(new)* | ✅ **Landed in P5d.** Derived from `bill_references`, with ageing — party rows carrying the total the two Outstanding screens showed, expanding to the bills behind it. `GET /reports/bills-receivable` and `…/bills-payable`; the two Outstanding tabs render them and every old path still redirects. ⚠️ A party appears under **exactly one** side (their ledger hangs under one control group, D3), so a dual-role party's contra bills travel with them as *owed back* rather than being reported twice. |
 | **Cash / Bank Book** | Become instances of the Ledger report. `CASH_BOOK_ACCOUNT_TYPES`'s derivation (D-54) is preserved as the group assignment during migration, so no account can fall out of every book the way UPI did. |
 | **Day Book** | Its lines drill into the **ledger** since P3d‑1 (P3b put `ledgerId` on every one). The voucher-type chips and the drill into the *voucher* are still to come — `dayBook` returns each entry's id but not the `sourceType`/`sourceId` pair a document is opened by, and adding them is a payload change the parity harness captures. |
 | **Cost Centre reports** *(new)* | Four, per §3.7. |
@@ -5803,7 +6030,7 @@ sub-phases, agreed 2026-08-30:
 | **P5a** | `bill_references` — table, entity, scope registry, hard-delete edge, and the **full-history backfill**. Read by nothing yet | the gate lands here: Σ open refs per party == ledger balance, 381/381 |
 | **P5b** | the posting engine writes them — `new` on approval, `against` from `applyReceiptSettlement`, and **Advance / On Account** for the unallocated remainder | forward maintenance keeps the gate green |
 | **P5c** | the entry screen's reference grid — the party's open bills, oldest-first, with what this voucher applies to each. ⚠️ Split three ways in the event, all three done: **P5c‑1** the backend (a voucher may name no bill), **P5c‑2** the grid, **P5c‑3** naming a bill no document made (`billRefId` on the allocation, and the database insisting on exactly one target). ⚠️⚠️ It does **not** pop on save — decided 2026-08-30: it is inline, where the multi-select was, because a blocking dialog between `Ctrl+S` and a saved voucher on the busiest cash screens costs more than the Tally muscle memory buys, and `revealInvalidPanel` (P4e) already owns *"Save reveals the blocker"* | `qa:money` — seven properties in a browser |
-| **P5d** | Bills Receivable/Payable, and the annexure moves onto refs | `pendingBills` stops deriving and starts reading |
+| **P5d** | Bills Receivable/Payable, and the annexure moves onto refs — ⚠️ split three ways in the event, all landed together: the annexure's read, the two reports, and the **denominator** P5c‑3 could not move on its own (`isPaid` against what a voucher POSTED, not against `grandTotal`) | `pendingBills` stopped deriving and started reading; `qa:p5d-annexure` 16/16 |
 
 **Backfill depth: full history** — every approved current party document becomes
 a `new` ref, every approved allocation an `against` ref, and D-55's synthesised
