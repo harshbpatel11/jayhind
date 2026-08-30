@@ -2038,15 +2038,18 @@ src/
       chord and never will** — purchase requisition and quotation are ours rather
       than Tally's, and inventing one would be inventing muscle memory; they are
       reached from the type bar's overflow, which is why that menu has to exist.
-    - ⚠️ **`Ctrl+H` does not exist, and that is a ruling** (P4e). §3.5 asks for it
-      to toggle Accounting Invoice ↔ Item Invoice, but an Accounting Invoice is
-      **not representable**: all 9,970 financial vouchers carry at least one item
-      row, `trx_items` names a `productId` and never a ledger, and `buildLegs`
-      gives a sales voucher exactly **one** `Main` leg. Tally's N-ledger invoice
-      needs a per-line allocation the schema does not have. 474 vouchers are
-      service-only today and are typed through the item grid with a service
-      product. Don't add the toggle before deciding what it toggles to — *a
-      toggle with one destination is a button that lies.*
+    - ⚠️ **`Ctrl+H` is a RULE without a screen yet** (P4e‑1 done, P4e‑2 not).
+      The older claim here — that an Accounting Invoice is *not representable* —
+      was measured and is **wrong**, so correct it if you are carrying it: its
+      rows are ledger allocations, and `trx_charges` already is one, expanded by
+      `resolveLegs` into a journal line per row on that row's own ledger. A
+      no-items Sales voucher with one allocation to the Sales head posts what
+      Tally posts, with no migration and no posting change. `InvoiceBodyMode` /
+      `canSwitchInvoiceBody` / `invoiceBodyOf` are the rule (mirrored, check 11d);
+      what is missing is the mode on screen and six print templates, which iterate
+      `trxItem` and so print an empty body for a document with none. ⚠️⚠️ The
+      ruling is **single-head** even though the mechanism gives N heads for free —
+      475 of 475 service-only vouchers carry exactly one distinct product.
     - **`F12` opens the voucher type's configuration as a dialog** —
       `TransactionConfigEditComponent` took `MAT_DIALOG_DATA`/`MatDialogRef`
       `{ optional: true }`, the shape every voucher form here already uses. Not a
@@ -3243,7 +3246,8 @@ is one nobody reads.
 | Why isn't Purchase Order a button on the voucher type bar? | it is, behind the **overflow** — fourteen buttons is not a row of keys, so the row is the eight that post and the six that do not sit in one menu (P4d). The menu is filtered by `hiddenTransactionMenus`, because those six are exactly the hideable stages |
 | Why does the voucher type bar look identical on two different screens? | it IS one — `components/shared/voucher-type-bar/`, rendered by both entry components (P4c). Presentational: it emits the type and each host navigates, which is what keeps a switch a navigation through `pendingChangesGuard` |
 | Why does a brand-new voucher ask "Discard unsaved changes?" | it should not — `app-ledger-picker`'s `preselectDefault` restores pristine/untouched after applying the seeded head (P4c). ⚠️ Any programmatic write through a `ControlValueAccessor`'s `onChange` marks the control dirty **and** touched: Angular cannot tell it from a keystroke, so a component applying a default has to say so |
-| Why is there no `Ctrl+H` mode toggle? | an Accounting Invoice is not representable — `trx_items` names a product and never a ledger, and `buildLegs` gives a sales voucher one `Main` leg (measured at P4c: 9,970 of 9,970 financial vouchers carry an item row). It is **P4e**, with the two candidate shapes recorded in TALLY-PARITY-PLAN.md §3.5 |
+| Why is there no `Ctrl+H` mode toggle YET? | the rule exists and the screen does not — P4e‑1 vs P4e‑2. ⚠️ The old answer here said an Accounting Invoice is *not representable*; that was measured and is wrong. See the row below |
+| What IS an Accounting Invoice in this schema? | **ledger allocation rows** — `trx_charges`, whose name is residue of the only job it used to have. `resolveLegs` expands them one journal line per row onto each row's own ledger, and nothing constrains a row's head to a charge head (`charges[].groupId` is checked for ownership only). `src/const/voucher-entry.const.ts` `InvoiceBodyMode` is the rule; `invoiceBodyOf` reads the ROWS, because a stored body mode is a second statement that can disagree with them |
 | Which mode is this voucher type entered in? | `client-back/src/const/voucher-entry.const.ts` → `ENTRY_MODE_BY_TYPE`, mirrored in `client-front/src/utils/voucher-entry.util.ts` and compared by `check-mirrors.js` check 11. Three: **accounting** (the Dr/Cr grid), **item** (`trx-add-edit`), **workflow-document** (the six upstream documents — F6, decided 2026-08-29, **built P4d**). ⚠️ The last one's invariant is the conversion chain, never a balance, and it is **not** a `Ctrl+H` destination; its spec asserts the set against `buildLegs` returning no legs rather than against a second list. ⚠️⚠️ It needed **no third component** — the mode is an invariant, not a screen |
 | Which rows does a voucher's Dr/Cr grid draw? | `accountingRowPlan` in the same file — **`buildLegs`, projected**, so the screen and the ledger cannot disagree. A leg role with no row kind mapped throws at first render |
 | Why is a Payment's head not on the grid? | it is not a leg — `postPaymentReceipt` reads `trxGroupId` only for a Journal, and the head appears in a line of its own voucher on 0 of 2,862 posted payments and receipts. It **classifies** the voucher (the register prints it as `groupName`) and sits beside the party (P4b) |

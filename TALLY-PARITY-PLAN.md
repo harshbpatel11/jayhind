@@ -202,13 +202,32 @@ an invoice that has quietly lost its totals, so the title bar states what it
 converts into — the mode's own invariant, and the stage *this* company will
 actually convert into rather than the one the chain names.
 
-⚠️⚠️ **`Ctrl+H` was not built, deliberately**, and the measurement is why: all
-9,970 financial vouchers carry at least one item row, `trx_items` names a product
-and never a ledger, and `buildLegs` gives a sales voucher exactly **one** `Main`
-leg. Tally's Accounting Invoice needs a per-line ledger allocation this schema
-does not have — a figure-moving change, not a re-host. It is now **P4e**, on
-P4b's own ruling: *a toggle with one destination is a button that lies.* It is
-the last of P4.
+**And P4e‑1 is done: an Accounting Invoice IS representable, and this plan said
+it was not.** P4c measured that `trx_items` names a product and never a ledger and
+that `buildLegs` gives a sales voucher one `Main` leg, and concluded Tally's
+N-ledger invoice needed a new allocation table, several legs, a migration and a
+backfill — **XL**. The measurements stand; the conclusion did not. `trx_charges`
+is already a per-row `{ ledger, amount, tax }` and `resolveLegs` already expands
+it one journal line per row onto that row's own ledger, with nothing constraining
+a row's head. A no-items Sales voucher with one allocation to the Sales head
+posts **Party Dr 59,000 · CGST Cr 4,500 · SGST Cr 4,500 · Sales Cr 50,000** —
+Tally's own posting — with no migration, no DTO change and no posting change.
+
+⚠️ **It was unusable until GST-021 was fixed the same day**, and that is the
+phase's real find: `GstReturnAssemblyService` loaded `trx_items` alone, so a
+charge's value and its tax reached neither GSTR-1 nor GSTR-3B. On the existing
+books that under-declared ₹816 of output tax and left **49 invoices** whose
+payload did not close against their own declared value; on an Accounting Invoice
+it would have been the *whole document* declared to nobody. `qa-artifacts`' own
+oracle was blind in the identical way **and passing**, because every
+charge-bearing voucher falls outside the twelve reconciled periods — a missing
+rule reconciling against a missing rule for a financial year.
+
+**The ruling is single-head**, and it stands even though the mechanism gives N
+heads for the same code: 475 of 475 service-only vouchers carry exactly one
+distinct product. What is left is **P4e‑2** — the mode on screen and the six
+print templates, which iterate `trxItem` and print an empty body for a document
+that has none, under either candidate shape.
 
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
@@ -244,7 +263,8 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P4b | The unified entry screen + the accounting (Dr/Cr) mode; the third mode named (F6) | M | **done** — [§P4b record](#p4b-record--2026-08-29) |
 | P4c | Item mode — `trx-add-edit` re-hosted onto the surface | L | **done** — [§P4c record](#p4c-record--2026-08-30) |
 | P4d | Workflow Document mode, and the remaining route redirects | M | **done** — [§P4d record](#p4d-record--2026-08-30) |
-| P4e | `Ctrl+H` — what an Accounting Invoice IS in this schema | L | not started |
+| P4e‑1 | What an Accounting Invoice IS — the mechanism, and GST-021 | M | **done** — [§P4e‑1 record](#p4e-1-record--2026-08-30) |
+| P4e‑2 | `Ctrl+H` — the mode on screen, and the six print templates | M | not started |
 | P5 | Bill-wise details | L | not started |
 | P6 | Trading Account and Gross Profit | M | not started |
 | P7 | Cost centres | L | not started |
@@ -3233,6 +3253,122 @@ Three things this phase deliberately did **not** do:
 - **The `hiddenTransactionMenus` filter is not gated**, above, and is the one
   thing in this phase measured by hand.
 
+
+### P4e‑1 record — 2026-08-30
+
+**An Accounting Invoice IS representable, and this plan said it was not.** §3.5
+recorded the opposite at P4c, from a real measurement — `trx_items` names a
+`productId` and never a ledger, and `buildLegs` gives a sales voucher exactly one
+`Main` leg — and concluded that Tally's N-ledger invoice needed a per-line
+allocation table, several `Main` legs, a migration and a backfill: *"XL, and it
+moves figures — closer in size to P2 than to P4c."*
+
+It needs none of them. **The allocation table already exists.**
+
+#### `trx_charges` is a ledger allocation line whose name is residue
+
+A `trx_charges` row is `{ head, ledger, amount, taxId, taxPercentage, taxAmount }`
+— a per-row ledger allocation with its own tax — and `PostingService.resolveLegs`
+expands the single aggregate `LegRole.Charges` leg into **one journal line per
+row, on that row's own ledger**, handling both signs. Nothing constrains a row's
+head to a "charge" head: the only check on `charges[].groupId` is that it belongs
+to this company (BUG-0025). The header arithmetic already carries it —
+`grandTotal = totalAmount + chargesTotal + totalTax`.
+
+Measured end to end against the running stack, not reasoned. A Sales voucher with
+**no item lines** and one allocation of ₹50,000 to the *Sales* head at 18 %:
+
+```
+BUILT   totalAmount 0 · totalTax 9,000 · chargesTotal 50,000 · grandTotal 59,000
+LEGS    Party        Dr 59,000
+        CGST Output  Cr  4,500
+        SGST Output  Cr  4,500
+        Sales        Cr 50,000
+GSTR-1  val 59,000 · txval 50,000 · camt 4,500 · samt 4,500
+```
+
+Which is exactly what Tally posts for an Accounting Invoice, and a return that
+closes against its own declared value. `POST /trx` with `productItems: []` was
+already accepted — every helper in `TrxWriteService` early-returns on
+`!items.length` — it simply stored a **zero** document, because the totals are
+derived from lines and there were none. Put the money in allocation rows and the
+derivation answers correctly with no change at all.
+
+#### 🐞 The mechanism was unusable until GST-021 was fixed, and that is the phase's real find
+
+`GstReturnAssemblyService` loaded `TrxItem` and **nothing else**, so a charge's
+value and its tax reached neither GSTR-1 nor GSTR-3B. On the existing books that
+was an under-declaration — ₹816 of output tax and ₹5,600 of taxable value on one
+company's month, with the payload failing to close against its own `val` on
+**49 invoices** (₹63,566). On an Accounting Invoice built this way it would have
+been **the whole document declared to nobody**.
+
+So it was fixed first: [GST-021](../qa-artifacts/docs/findings/gst.md), ruled *a
+charge is its own return line, at the rate actually charged*. §15 went into the
+citation ledger as row 27 at the same time — its absence from a table holding
+every rule about the rate, the split, the document and the portal is part of the
+finding. ⚠️ `qa-artifacts`' own oracle was blind in the identical way **and
+passing**, because every charge-bearing voucher is dated after the twelve
+reconciled periods: a missing rule reconciled against a missing rule for a whole
+financial year. Both derivations are taught now, independently, and the test
+asserts they **meet** — both one-sided injections reproduced.
+
+**This is what P4e's measurement was for.** The phase's own question — *is an
+Accounting Invoice representable?* — could not be answered without walking the
+document all the way to the portal, and walking it there is what found a High
+defect that had nothing to do with P4e.
+
+#### The second axis, and why it is not `VoucherEntryMode`
+
+`VoucherEntryMode` answers *which screen is this type typed on* and is a property
+of the **type**. `Ctrl+H` asks *what is in this document's body* and is a property
+of the **voucher**: two Sales invoices raised the same day can differ. So
+`InvoiceBodyMode` is a second axis rather than a fourth mode, and:
+
+- **`canSwitchInvoiceBody` is DERIVED from `entryModeFor`**, on both sides, rather
+  than listing the four item types — so the toggle belongs to the item form and
+  cannot drift from which component a type loads. `check-mirrors.js` **11d** runs
+  the function per type rather than diffing a constant, for exactly that reason:
+  two lists agree until one is edited alone.
+- **`invoiceBodyOf` reads the rows, and there is no `trx.invoiceBodyMode`
+  column.** A stored body mode is a second statement of a fact the rows already
+  carry, and the two can disagree — BUG-0034's shape, and D-56's.
+- ⚠️ **A Workflow Document is still not a destination** (P4d's ruling, now
+  enforced by a derivation rather than by a sentence): the spec asserts it, and
+  injecting the widening fails 3 of 14 unit tests and 6 mirror comparisons.
+
+The unit spec ties `canSwitchInvoiceBody` to **`buildLegs` returning legs**
+rather than to a second list — and it caught its own first probe: an item
+voucher's legs are keyed off `net`/`grand`, not the `amount` the four cash
+vouchers use, so probing with `{ amount: 1 }` answers *"posts no legs"* for all
+four switchable types. **The probe was wrong, not the rule**, which is the
+failure a tie-test is supposed to produce before anyone trusts it.
+
+#### What P4e‑2 inherits, and the one cost that did not go away
+
+The server is done: no migration, no DTO change, no posting change, and the
+parity diff is empty by construction. What is left is the **screen** and the
+**print**, and the print half is worth stating plainly because it is common to
+both of §3.5's candidate shapes rather than a consequence of this one:
+
+- **Six print templates iterate `voucher?.trxItem`** for the invoice body, so a
+  document with no item lines prints an empty table. An Accounting Invoice has no
+  `trxItem` under *any* shape — a stated net on the header would have had the
+  identical problem — so this is P4e's work either way, not a cost of choosing
+  allocations.
+- **The entry screen** needs the mode: `Ctrl+H` on the four item types, a grid of
+  `{ ledger, amount, tax }` rows, and a saved voucher reopening in the mode its
+  own rows imply.
+
+⚠️ **And one thing to decide rather than drift into.** Single-head was the ruling,
+and this mechanism gives **N** heads for the same code — one allocation row or
+three is the same path. That is not licence to ship the wider thing: the choice
+was made on a measurement (475 of 475 service-only vouchers in the database carry
+exactly **one** distinct product, against goods documents averaging 1.61 and
+reaching 6), and the screen should offer one head until there is a reason for
+more. The mechanism generalising for free is a **property to record**, not a
+feature to add.
+
 ---
 
 ### Verification pass — 2026-08-28
@@ -3842,7 +3978,7 @@ It is the whole of the "full Tally replacement" decision.
 | Element | Behaviour |
 |---|---|
 | **Voucher type** | `F4` Contra · `F5` Payment · `F6` Receipt · `F7` Journal · `F8` Sales · `F9` Purchase · `Alt+F5` Debit Note · `Alt+F6` Credit Note, plus `Ctrl+F8/F9` for orders. Switching type on an unsaved blank voucher is free; on a dirty one it asks. |
-| **Mode** | `Ctrl+H` toggles **Accounting Invoice** ↔ **Item Invoice**. Contra, Payment, Receipt and Journal are accounting-only. Sales, Purchase and both notes default to Item Invoice and remember per voucher type. The third mode is the **Workflow Document** (F6, decided 2026-08-29) and is deliberately **not** a `Ctrl+H` destination — see below. ⚠️ **Not built at P4c, and it is now P4e** — an Accounting Invoice is not representable in this schema; the measurement is below. |
+| **Mode** | `Ctrl+H` toggles **Accounting Invoice** ↔ **Item Invoice**. Contra, Payment, Receipt and Journal are accounting-only. Sales, Purchase and both notes default to Item Invoice and remember per voucher type. The third mode is the **Workflow Document** (F6, decided 2026-08-29) and is deliberately **not** a `Ctrl+H` destination. ⚠️ **The RULE is built (P4e‑1, 2026-08-30) and the screen is P4e‑2.** An Accounting Invoice *is* representable — its rows are ledger allocations, which `trx_charges` already is — and `InvoiceBodyMode` / `canSwitchInvoiceBody` / `invoiceBodyOf` are the mirrored rule. See below, and correct the older sentence you may be carrying: it said not representable, and that was wrong. |
 | **Workflow Document mode** | **Done (P4d.)** The six upstream documents are typed on the same surface, on the **item grid** — no third component, because the mode is an invariant rather than a screen. What makes it visible is the title bar naming **what this document converts into**, read through `nextVisibleInFlow` so it names the stage *this company* actually reaches; the GST and Due Date chips are absent, following from posting no legs. ⚠️ `loadFor` asks `isAccountingEntry`, the half with a closed membership: asking `isItemEntry` drops all six onto the Dr/Cr grid, with both totals zero for ever. |
 | **Accounting mode grid** | **Done (P4b.)** Dr/Cr rows: side · ledger · amount · (bill-wise popup if the ledger is bill-wise — P5) · (cost-centre popup if applicable — P7). Running Dr and Cr totals with the difference shown live; save is refused while it is non-zero, **in the voucher's own words** rather than a form error. ⚠️ The rows are **derived from `buildLegs`**, so what the screen draws is what the voucher posts — which is how P4b found the old Payment screen drawing its *head* as the debit row, a head that is a leg of none of the 2,862 posted payments and receipts. |
 | **Item mode grid** | **Done (P4c.)** The existing form, re-hosted: `trx-add-edit` is routed under `/transaction/voucher/<type>` and gains the shell's type bar and Tally's key map, and nothing inside it changed. `applyCatalogueSnapshots`, `TrxWriteService`, the e-invoice and e-way bill paths, HSN/UQC and price capture are **untouched**. ⚠️ Re-hosted as a **sibling component on the same surface**, not as a child of `VoucherEntryComponent` — both already render `.vch-shell` and `.vch-titlebar`, so nesting would have meant one screen drawing two title bars and the child's own `CanComponentDeactivate` sitting under a guard it no longer owned. What they share is the **type bar**, which became one component. |
@@ -3899,19 +4035,40 @@ It is the whole of the "full Tally replacement" decision.
 > with a service product, which is precisely what a Tally operator would type as
 > an Accounting Invoice.
 >
-> Two shapes are available and the choice is P4e's, not a detail:
+> Two shapes were recorded here and the choice was P4e's:
 >
 > - **Single-head.** A no-items form: party + the one income/expense head +
->   amount + tax. Reuses `buildLegs` unchanged and needs only the server to accept
->   a net stated without item lines. Covers the 474; is **not** Tally's N-ledger
->   invoice.
-> - **Full multi-ledger.** A per-line allocation (`trx_items.ledgerId`, or a
->   `trx_ledger_allocations` table) and a posting engine emitting several `Main`
->   legs, plus a migration and a backfill. **XL, and it moves figures** — closer
->   in size to P2 than to P4c.
+>   amount + tax. **Chosen 2026-08-30.**
+> - **Full multi-ledger.** A per-line allocation and a posting engine emitting
+>   several `Main` legs, plus a migration and a backfill — judged **XL**.
 >
-> Until one is chosen there is nothing to toggle to, which is P4b's own ruling:
-> *a toggle with one destination is a button that lies.*
+> ✅ **RULED single-head, and then the sizing above turned out to be wrong**
+> (P4e‑1, 2026-08-30). The paragraph above is kept because its *measurements*
+> stand and only its conclusion does not. **The allocation table already exists:**
+> `trx_charges` is a per-row `{ ledger, amount, tax }` and `resolveLegs` already
+> expands it into one journal line per row on that row's own ledger, with nothing
+> constraining a row's head to a charge head. A no-items Sales voucher with one
+> allocation to the Sales head posts `Party Dr · CGST Cr · SGST Cr · Sales Cr` —
+> Tally's own Accounting Invoice — with **no migration, no DTO change and no
+> posting change**. Measured, not argued: see
+> [§P4e‑1 record](#p4e-1-record--2026-08-30).
+>
+> ⚠️ It was **unusable until GST-021 was fixed** the same day: the GST returns
+> loaded `trx_items` alone, so an invoice whose money lived in allocations would
+> have been declared to nobody at all. Walking the document to the portal is what
+> found that, and it is what this phase's measurement was for.
+>
+> ⚠️⚠️ The mechanism gives **N** heads for the same code, and single-head remains
+> the ruling: the screen offers one head until there is a reason for more. 475 of
+> 475 service-only vouchers in the database carry exactly **one** distinct
+> product, against goods documents averaging 1.61 and reaching 6.
+>
+> ⚠️ The measurement that ranked the need is also narrower than it reads. *"474
+> vouchers are service-only (4.8 %)"* is a fact about the **QA fixture
+> generator**: on the only real-ish books in the database it is **58 of 69
+> (84 %)**, and their service products are named `Subscription Fee` and `Job Work
+> Charges` — income heads being typed through the product master, which is
+> precisely what an Accounting Invoice is for. A thin sample, stated as one.
 
 > ⚠️ **What must not be lost.** The voucher options bar, `revealInvalidPanel`, the
 > maker–checker lifecycle and `voucher-lifecycle.const.ts`'s rules all stay exactly
@@ -4550,10 +4707,12 @@ of each voucher type without a mouse.
 > keyboard half of the gate is met for those eight; the remaining six meet it when
 > P4d re-hosts them, and their keys navigate until then rather than pretending.
 >
-> ⚠️ **`Ctrl+H` moved out of this phase into P4e**, because an Accounting Invoice
-> is not representable in this schema — see §3.5's measurement. The phase heading
-> above still lists it among P4's keys, which is right: it is P4's work, and it is
-> the last of it.
+> ⚠️ **`Ctrl+H` moved out of this phase into P4e**, on the reading — correct at
+> the time, and **wrong** — that an Accounting Invoice was not representable in
+> this schema. P4e‑1 measured it and found the allocation table already there;
+> see §3.5 and [§P4e‑1](#p4e-1-record--2026-08-30). The phase heading above still
+> lists `Ctrl+H` among P4's keys, which is right: it is P4's work, and it is the
+> last of it.
 
 > **P4d is done** ([record](#p4d-record--2026-08-30)): **all fourteen** types are
 > typed on the surface and **the old routes redirect — all fourteen of them**,
@@ -4566,7 +4725,17 @@ of each voucher type without a mouse.
 > ⚠️ The third mode took **no third component**: it is an invariant, not a screen.
 > See §3.5's F6 note.
 
-**What is left of P4 is `Ctrl+H`**, and it is a decision before it is a build.
+> **P4e‑1 is done** ([record](#p4e-1-record--2026-08-30)): the decision is taken —
+> **single-head** — and the mechanism turned out to exist already, so the phase's
+> server half is a rule, a spec and a mirror rather than a migration. What it
+> found on the way was **GST-021**, a High defect with nothing to do with P4e: the
+> GST returns loaded `trx_items` alone, so an additional charge's value and its
+> tax were declared to nobody. Fixed first, because it is what makes the mechanism
+> usable.
+
+**What is left of P4 is `Ctrl+H` ON SCREEN** — P4e‑2: the mode, its grid, and the
+six print templates, which iterate `trxItem` and so print an empty body for a
+document that has none. That cost is common to both of §3.5's candidate shapes.
 
 ### P5 · Bill-wise details `[L]`
 
