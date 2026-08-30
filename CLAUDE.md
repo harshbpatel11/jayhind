@@ -1185,6 +1185,37 @@ literal `0`, because GSTR-1's schema requires `csamt`. Don't reintroduce a
 client-supplied cess: if it is ever wanted, it is a rate on the item master
 derived beside `gstLineTax`, not a column the client fills in.
 
+**An additional charge is part of the taxable value, and the RETURNS have to load
+it** (GST-021, fixed 2026-08-30). A `trx_charges` row carries its own head, rate
+and tax; `computeTrxTaxAmounts` folds that tax into the same CGST/SGST/IGST split
+as the line taxes and `resolveLegs` expands the aggregate charges leg into one
+journal line per charge. `GstReturnAssemblyService` loaded `TrxItem` and **nothing
+else**, so neither the charge's value nor its tax reached GSTR-1 or GSTR-3B: on 49
+of the development database's invoices the ledger declared one figure and the
+portal was told another, and the payload did not close against **itself** — `val`
+is `grandTotal` and carries the charge while the line details did not. CGST Act
+**§15(2)(c)** settles it: an incidental expense charged on the invoice is part of
+the transaction value. Both loaders now include `trxCharge` and
+`chargeToLineInput` maps each row to a line.
+
+Three things to carry:
+
+- **The rate declared is the one actually charged.** An untaxed charge on a
+  taxable invoice is arguably an under-charge; a *return* states what the document
+  says and does not re-rate it — the same doctrine as the line's own tax citation.
+- ⚠️ **A charge still has no HSN/SAC**, so it groups under `UNSPECIFIED_HSN` in
+  GSTR-1 table 12 — deliberately, on that constant's own argument that dropping a
+  line understates turnover. A real SAC belongs on the charge **head**, snapshotted
+  the way `applyCatalogueSnapshots` snapshots a product's; that is a `trx_groups`
+  column and a screen, not part of the fix.
+- ⚠️⚠️ **`qa-artifacts`' own oracle was blind in the identical way and passed.**
+  `return-rules.ts` recomputes GSTR-1 from its own SQL and read `trx_items` alone,
+  and every charge-bearing voucher is dated after the twelve reconciled periods —
+  so a missing rule reconciled against a missing rule for a whole financial year.
+  **Teaching one derivation and not the other is how a reconciliation suite comes
+  to agree with a defect**; both are taught now, independently, and the test
+  asserts they meet.
+
 **A cancelled voucher leaves a PAIR in BOTH ledgers, and only one of them has a
 shared primitive for saying so** (BUG-0044). `journal_entries` carries
 `isReversal` + `reversedEntryId`, and `liveEntrySql` in `posting.const.ts` is the
@@ -3090,6 +3121,7 @@ is one nobody reads.
 | How do the two servers talk? | `client-back/src/services/master-hub/master-hub.client.ts`, both `guards/internal-service.guard.ts` |
 | How are files stored? | `client-back/src/services/storage/` + `src/const/storage-key.const.ts` — **local to the ERP since 2026-08-15**, §6.4. `hub-upload.const.ts` still holds the multer options and the category names; `admin-back/src/services/storage/` is the hub's own tree, no longer the ERP's |
 | How is a voucher posted? | `src/services/posting.service.ts`, `src/const/posting.const.ts` |
+| Is a charge on the invoice part of the taxable value? | **Yes** — CGST Act §15(2)(c). `GstReturnAssemblyService.chargeToLineInput` (GST-021) makes each `trx_charges` row a return line at the rate actually charged. ⚠️ It carries no HSN/SAC, so table 12 groups it under `UNSPECIFIED_HSN`; a real code belongs on the charge **head** |
 | Which tax does this supply bear, and why? | `src/const/gst.const.ts` (`isInterStateSupply`, `gstLineTax`), `src/const/gst-returns/gst-classification.const.ts` (the deemed-inter-state set) |
 | What unit code does a statutory document declare? | `src/const/uqc.const.ts` `resolveUqc` — the portal's own list, used by GSTR-1 table 12, the IRN payload and the e-way bill alike (BUG-0037) |
 | Is this GSTIN real, and what does it say? | `src/const/gstin.const.ts` (grammar, check digit, state, PAN) |
