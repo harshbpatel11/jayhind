@@ -774,6 +774,46 @@ if (hubFeatureColumns && hubFeaturesDto && consoleFeatures) {
         );
       }
     }
+    // 11d. The invoice BODY axis — P4e's `Ctrl+H`. Both sides DERIVE
+    // `canSwitchInvoiceBody` from their own `entryModeFor` rather than listing
+    // the four item types, so this runs it per type rather than diffing a
+    // constant: a list on each side would agree until one was edited alone.
+    // `invoiceBodyOf` is run too, because "a voucher with no item lines IS an
+    // Accounting Invoice" is the rule that decides which grid a SAVED document
+    // reopens on, and a screen that disagreed with the server about that would
+    // reopen an invoice in the wrong mode.
+    if (back.canSwitchInvoiceBody && front.canSwitchInvoiceBody) {
+      diffMaps('InvoiceBodyMode', back.InvoiceBodyMode, front.InvoiceBodyMode, 'client-back', 'client-front');
+      let bodyCompared = 0;
+      for (const type of types) {
+        const b = back.canSwitchInvoiceBody(type);
+        const f = front.canSwitchInvoiceBody(type);
+        bodyCompared++;
+        if (b !== f) {
+          failures.push(
+            `voucher-entry DRIFT · canSwitchInvoiceBody('${type}'): client-back ${b}, client-front ${f}\n` +
+              '      — Ctrl+H belongs to the item form and to nothing else; both sides derive it from entryModeFor.',
+          );
+        }
+      }
+      for (const count of [0, 1, 5]) {
+        const b = back.invoiceBodyOf({ itemLineCount: count });
+        const f = front.invoiceBodyOf({ itemLineCount: count });
+        if (b !== f) {
+          failures.push(
+            `voucher-entry DRIFT · invoiceBodyOf({ itemLineCount: ${count} }): ` +
+              `client-back ${b}, client-front ${f}`,
+          );
+        }
+      }
+      notes.push(`voucher-entry: ${bodyCompared} invoice-body answers run on both sides (P4e).`);
+    } else {
+      failures.push(
+        'voucher-entry: `canSwitchInvoiceBody` is missing on one side — P4e\'s Ctrl+H axis must be mirrored, ' +
+          'and a check that silently skips is the coverage-that-cannot-fail this script exists to avoid.',
+      );
+    }
+
     notes.push(
       `voucher-entry: ${Object.keys(back.ENTRY_MODE_BY_TYPE).length} types compared as data and ` +
         `${compared} row plans run on both sides (P4b).`,
