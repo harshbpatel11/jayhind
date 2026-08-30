@@ -182,13 +182,33 @@ Angular reads as a keystroke — so making a type switch a navigation turned
 *"Discard unsaved changes?"* into a prompt between every pair of the eight
 vouchers on an empty form.
 
+**And P4d is done: the third mode exists, and the surface is complete.** All
+**fourteen** types are typed at `/transaction/voucher/<type>` — the six Workflow
+Documents joined the eight — and **no type has an entry route outside the surface
+any more**, which is the remaining route redirects. It took **no third
+component**: a Workflow Document's grid, pickers and options bar are the item
+form's, and what makes it its own mode is the invariant, which `trx-add-edit` has
+enforced through `isFinancialTrxType` all along. What it took was turning one
+condition round — `loadFor` asks *"is this an accounting voucher?"*, the half
+with a closed membership, because asking the other way round drops all six onto
+the Dr/Cr grid and draws a Purchase Order as **two rows whose totals are both
+zero**, which is precisely the shape F6 was filed about. ⚠️ Fourteen buttons is
+not a row of keys, so the eight that post stay a row and the six that do not sit
+behind one overflow — a split that **is** `buildLegs` returning legs or none, and
+the surface the *no-invented-chords* ruling implies must exist, since purchase
+requisition and quotation have no chord at all. ⚠️⚠️ And the mode had to become
+**visible**: a document with the item grid and neither of its guarantees reads as
+an invoice that has quietly lost its totals, so the title bar states what it
+converts into — the mode's own invariant, and the stage *this* company will
+actually convert into rather than the one the chain names.
+
 ⚠️⚠️ **`Ctrl+H` was not built, deliberately**, and the measurement is why: all
 9,970 financial vouchers carry at least one item row, `trx_items` names a product
 and never a ledger, and `buildLegs` gives a sales voucher exactly **one** `Main`
 leg. Tally's Accounting Invoice needs a per-line ledger allocation this schema
 does not have — a figure-moving change, not a re-host. It is now **P4e**, on
-P4b's own ruling: *a toggle with one destination is a button that lies.* **P4d —
-Workflow Document mode — is next.**
+P4b's own ruling: *a toggle with one destination is a button that lies.* It is
+the last of P4.
 
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
@@ -223,7 +243,7 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P4a | `app-ledger-picker`, `Alt+C`, and `groupFor` stops deciding (F4) | M | **done** — [§P4a record](#p4a-record--2026-08-29) |
 | P4b | The unified entry screen + the accounting (Dr/Cr) mode; the third mode named (F6) | M | **done** — [§P4b record](#p4b-record--2026-08-29) |
 | P4c | Item mode — `trx-add-edit` re-hosted onto the surface | L | **done** — [§P4c record](#p4c-record--2026-08-30) |
-| P4d | Workflow Document mode, and the remaining route redirects | M | not started |
+| P4d | Workflow Document mode, and the remaining route redirects | M | **done** — [§P4d record](#p4d-record--2026-08-30) |
 | P4e | `Ctrl+H` — what an Accounting Invoice IS in this schema | L | not started |
 | P5 | Bill-wise details | L | not started |
 | P6 | Trading Account and Gross Profit | M | not started |
@@ -3010,6 +3030,211 @@ than re-deriving it.
 
 ---
 
+### P4d record — 2026-08-30
+
+**The six Workflow Documents are typed on the unified surface, and the mode says
+what it is.** `/transaction/voucher/<type>` now hosts **all fourteen** voucher
+types — purchase requisition, purchase order, goods receipt, quotation, sales
+order and delivery challan joined the eight at P4d — their old entry paths
+redirect, and **no type has an entry route outside the surface any more**. That
+is the second half of this phase's title: the remaining route redirects.
+
+No DTO changed, no service changed, **the backend diff is empty**, and the
+parity diff is empty by construction. The six posted nothing before and post
+nothing now.
+
+#### The third mode is a mode, not a screen — so there is no third component
+
+§3.5 names three entry modes and P4d builds the last of them, and the shape of
+the phase is that it took **no new component**. A Workflow Document's grid, its
+pickers, its header strip, its options bar and its lifecycle are the item form's;
+what makes it its own mode is the **invariant** — the forward conversion chain
+instead of a balance — and `trx-add-edit` has enforced exactly that through
+`isFinancialTrxType` since long before this programme. So the six arrived the way
+the four before them did: **re-hosted, never rewritten**. A third component would
+have been a copy of the second with one branch removed.
+
+What that leaves is one line, and it is the one line that matters:
+
+```ts
+const loadFor = (type: VoucherEntryType) =>
+  isAccountingEntry(type)            // ⚠️ not `isItemEntry`
+    ? VoucherEntryComponent          // the Dr/Cr grid — a CLOSED set of four
+    : TrxAddEditComponent;           // everything else on this surface
+```
+
+⚠️ **The test had to be turned round.** P4c asked *"is this an item voucher?"*,
+which was a complete question while the surface hosted eight and became a wrong
+one the moment it hosted fourteen: the six would have fallen through to the Dr/Cr
+component and been drawn as **two rows whose totals are both zero**, held to a
+balance they can never have. That is the exact shape F6 was filed about, arriving
+by omission. The Dr/Cr grid is the half with a closed membership, so it is the
+half the condition should name — the same *"make the safe branch the one you get
+for free"* rule §13's still-open #3 records as the strongest of its three
+answers.
+
+Two things fell out of the injection that proved it. The defect is **loud**
+rather than silent — `accountingRowPlan` throws on a type that is not on the
+Dr/Cr grid, which is a guard P4b wrote for its own reasons and which fires here
+six times per page. And it is loud *and* still renders a screen: the shell, the
+title bar, the type bar and the footer's live difference all came up. **A route
+that renders is not a route that works**, which is why property (3) below looks
+for the difference rather than for a stack trace.
+
+#### ⚠️ Fourteen buttons is not a row of keys
+
+The type bar's whole purpose is that every voucher is one key away from every
+other, and it is read as a **row of chords**. Fourteen of them wrap onto three
+lines of a title bar and stop being scannable at all — measured, not reasoned:
+the bar already wraps, and the six new labels are the longest in the set
+("Ctrl+F9 · Purchase Order").
+
+So the row is the **eight that post** and the six that do not sit behind one
+overflow. That split is not a layout convenience wearing a name: it **is**
+`buildLegs` returning legs or returning none — the same fact `ENTRY_MODE_BY_TYPE`
+is keyed off and the backend's co-located spec asserts — so the bar's two tiers
+say out loud what kind of document each of these is.
+
+⚠️ **The menu is also the surface the *no-invented-chords* ruling implies must
+exist.** `VOUCHER_SHORTCUTS` has always said that **purchase requisition** and
+**quotation** have no chord, deliberately, because they are ours rather than
+Tally's and inventing one would be inventing muscle memory. Two of the six are
+therefore unreachable by any key, so a keyboard is not a complete way in and
+something on screen has to be. The menu lists the six in **conversion** order
+rather than key order for the same reason: a bar is read as a row of keys and a
+menu as a list, and a third of this list would otherwise be sorted by an absent
+fact.
+
+⚠️⚠️ **The menu is filtered by `hiddenTransactionMenus`, and the six hideable
+stages are exactly these six.** `nextVisibleInFlow`'s own note says the terminal
+Purchase and Sales are never hideable, so the admin's hide list and the overflow's
+membership are the same set. `app-sidemenu` already applies that filter and so
+does the convert action; a bar that went on offering a stage both of them had
+hidden would have been **one rule enforced in two of the three places that need
+it** — §13's standing shape, in a third place. The eight above are never
+filtered: they are not hideable, and a bar that could lose its Payment button is
+a worse failure than the one being fixed.
+
+⚠️ It is **not gated**, and the reason is a measurement rather than an oversight:
+`JSON_LENGTH(hiddenTransactionMenus)` is **zero on every company row** in the
+development database, so a browser property would have to write a company's
+configuration and put it back — a mutation of the shared QA world for a filter
+with nothing to exclude. Recorded in the spec's *what is deliberately not here*
+rather than asserted, which is the call `ledger-picker.ui.spec.ts` already makes
+about the invoice-scan review. It is also, precisely, D-56's *"a filter with
+nothing to exclude is not a tested filter"* — stated about this one before it
+bites rather than after.
+
+#### The mode had to become visible, or it was an item invoice that lost its totals
+
+An accounting voucher is recognisable from the grid in front of you: two columns
+and a live difference. An item invoice is recognisable from its tax and its grand
+total. A Workflow Document has the second one's grid and **neither** guarantee —
+it posts no legs, moves no stock and carries no payment obligation — so with
+nothing saying so, a Purchase Order on this surface reads as a Sales invoice that
+has quietly lost half its footer.
+
+So the title bar states the mode's own invariant: **what this document converts
+into** — `Quotation → Sales Order`, `Goods Receipt → Purchase Entry`. It is the
+one fact that distinguishes the mode, and it is a fact an operator wants anyway.
+
+⚠️ It reads `nextVisibleInFlow`, not `DOCUMENT_FLOW_NEXT`, so the caption names
+the stage **this company will actually convert into**: an installation that has
+hidden Delivery Challan converts a Sales Order straight to a Sales Invoice, and a
+caption promising a stage nobody can reach is worse than no caption. Both ends of
+each chain are also renamed by the flow's own labels — a goods receipt becomes a
+**Purchase Entry** and a delivery challan a **Sales Invoice** — which is why the
+gate asserts the label rather than the type slug: asserting the slug would have
+passed on a caption naming the wrong document.
+
+The two option chips that follow from the same fact were already conditional and
+are asserted rather than added: a document that declares no supply carries no
+**GST** chip, and one that owes nothing on a date carries no **Due Date** chip.
+
+#### The gate, and four injections
+
+`qa-artifacts/tests/ui/money/workflow-document.ui.spec.ts` +
+`workflow-document-rules.ts` (restated, never imported). **Six properties, in a
+browser** — P3d's argument, P4a's, P4b's and P4c's: the phase moves no figure, so
+a snapshot diff is empty by construction and says nothing about a route, a
+component boundary, a menu or a caption.
+
+1. **the six are on the surface**, and their old entry paths land on it;
+2. ⚠️ **the six LISTS did not move** — the property extending the redirect over
+   six more types can break, since `<type>` and `<type>/new` are one segment
+   apart;
+3. ⚠️⚠️ **a Workflow Document is the item grid and shows no Dr/Cr difference** —
+   the `loadFor` property, asserted **from both sides** so that a build rendering
+   the difference nowhere cannot pass it;
+4. ⚠️ **the mode is legible** — each of the six names the document it converts
+   into, with its chain's own label; no financial voucher carries the caption;
+   and the GST and Due Date chips are absent here and present on a Purchase;
+5. **the bar is eight and the overflow is six**, offered in full, in chain order,
+   and the menu actually reaches Quotation — which has no chord at all;
+6. ⚠️ **one key crosses in and out**: `Ctrl+F9`, `Ctrl+F8`, `Alt+F8` and `Alt+F9`
+   from a Sales invoice reach their documents on the surface, and `F8` from a
+   Purchase Order comes back.
+
+Shown to fail: `loadFor` back to `isItemEntry` (**5 of 6 fail**; only the lists
+survive, correctly, since a list does not depend on which component an entry
+route loads), all fourteen buttons pushed into the row with the overflow removed
+(**2 fail** — P4d's (5) *and* P4c's rewritten (3), which is the pair that says the
+row did not grow *and* the overflow exists), the conversion caption removed (**(4)
+alone**), and the redirect's `pathMatch` moved onto the list path (**(1) and (2)**).
+
+⚠️ **One property was inert when first written, and the reason is worth keeping.**
+(3) originally looked for `.vch-grid` as *"the Dr/Cr grid"* — and the item form's
+own table is `class="vch-grid vch-grid--items"`, so the selector matched on
+**both** components. It failed on the correct build and would have failed on the
+broken one for the same reason: a property that cannot pass rather than one that
+cannot fail. The right discriminator was never a class name but the **invariant**
+— `[data-testid="difference"]`, the live Dr − Cr the accounting mode rests on and
+the one thing a document with no legs can never have. **When a property is about
+a rule, look for the rule, not for the markup that happens to carry it.**
+
+#### One pre-existing failure, found and fixed in passing
+
+`qa:a11y` came back **106/107** with `/product/product-configuration/general-
+settings` failing `button-name [critical]` — a *Clear default* icon button
+carrying a `matTooltip` and no `aria-label`, which is UI-010's exact shape (a
+tooltip is a *description*, offered after a name the element must already have).
+Confirmed pre-existing by re-running the same test with this phase's changes
+stashed. Fixed, because a red gate is one nobody reads: **107/107**.
+
+#### The measurements
+
+| | |
+|---|---|
+| Workflow documents in the development database | **1,494** of 12,015 (12.4%) — PO 270, GRN 269, QUO 241, PRQ 240, SO 238, DC 236 |
+| Companies hiding a Transaction stage | **0** of 14 — which is why the overflow's filter is not gated |
+| Types on the entry surface | 8 → **14** |
+| Types with an entry route outside it | 6 → **0** |
+| Buttons in the type bar's row | 8 → **8** (the six went behind one overflow) |
+
+`qa:money` **99/99**, `qa:shell` **30/30**, `qa:screens` **50/50**, `qa:print`
+**30/30**, `qa:a11y` **107/107**, `check-mirrors.js` green (487 lifecycle
+vectors, 14 entry modes, 14 row plans). Backend diff empty.
+
+#### What P4e inherits
+
+The surface is complete: fourteen types, two components, one type bar, one key
+map, one set of redirects. What is left of P4 is **`Ctrl+H`**, and it is a
+decision before it is a build — §3.5 carries the measurement and the two
+candidate shapes.
+
+Three things this phase deliberately did **not** do:
+
+- **No new component for the third mode**, above.
+- **`Ctrl+H` still has one destination**, and a Workflow Document is deliberately
+  not the second: a non-financial type is *always* in this mode and can never
+  leave it, and a financial one can never enter it. That is what keeps the
+  accounting grid's *"Dr must equal Cr"* an invariant rather than a case with an
+  exception — P4b's own decision, unchanged by having built the mode.
+- **The `hiddenTransactionMenus` filter is not gated**, above, and is the one
+  thing in this phase measured by hand.
+
+---
+
 ### Verification pass — 2026-08-28
 
 The plan was written from a reading of the source. It has since been checked
@@ -3618,6 +3843,7 @@ It is the whole of the "full Tally replacement" decision.
 |---|---|
 | **Voucher type** | `F4` Contra · `F5` Payment · `F6` Receipt · `F7` Journal · `F8` Sales · `F9` Purchase · `Alt+F5` Debit Note · `Alt+F6` Credit Note, plus `Ctrl+F8/F9` for orders. Switching type on an unsaved blank voucher is free; on a dirty one it asks. |
 | **Mode** | `Ctrl+H` toggles **Accounting Invoice** ↔ **Item Invoice**. Contra, Payment, Receipt and Journal are accounting-only. Sales, Purchase and both notes default to Item Invoice and remember per voucher type. The third mode is the **Workflow Document** (F6, decided 2026-08-29) and is deliberately **not** a `Ctrl+H` destination — see below. ⚠️ **Not built at P4c, and it is now P4e** — an Accounting Invoice is not representable in this schema; the measurement is below. |
+| **Workflow Document mode** | **Done (P4d.)** The six upstream documents are typed on the same surface, on the **item grid** — no third component, because the mode is an invariant rather than a screen. What makes it visible is the title bar naming **what this document converts into**, read through `nextVisibleInFlow` so it names the stage *this company* actually reaches; the GST and Due Date chips are absent, following from posting no legs. ⚠️ `loadFor` asks `isAccountingEntry`, the half with a closed membership: asking `isItemEntry` drops all six onto the Dr/Cr grid, with both totals zero for ever. |
 | **Accounting mode grid** | **Done (P4b.)** Dr/Cr rows: side · ledger · amount · (bill-wise popup if the ledger is bill-wise — P5) · (cost-centre popup if applicable — P7). Running Dr and Cr totals with the difference shown live; save is refused while it is non-zero, **in the voucher's own words** rather than a form error. ⚠️ The rows are **derived from `buildLegs`**, so what the screen draws is what the voucher posts — which is how P4b found the old Payment screen drawing its *head* as the debit row, a head that is a leg of none of the 2,862 posted payments and receipts. |
 | **Item mode grid** | **Done (P4c.)** The existing form, re-hosted: `trx-add-edit` is routed under `/transaction/voucher/<type>` and gains the shell's type bar and Tally's key map, and nothing inside it changed. `applyCatalogueSnapshots`, `TrxWriteService`, the e-invoice and e-way bill paths, HSN/UQC and price capture are **untouched**. ⚠️ Re-hosted as a **sibling component on the same surface**, not as a child of `VoucherEntryComponent` — both already render `.vch-shell` and `.vch-titlebar`, so nesting would have meant one screen drawing two title bars and the child's own `CanComponentDeactivate` sitting under a guard it no longer owned. What they share is the **type bar**, which became one component. |
 | **`Alt+C`** | Create ledger / stock item / cost centre inline from the field that needed it. **The ledger half is done (P4a)**, on every head field. |
@@ -3637,14 +3863,23 @@ It is the whole of the "full Tally replacement" decision.
 > the toggle**; retrofitting a "no posting" case into a grid whose invariant is
 > "Dr must equal Cr" is how that invariant gets weakened.
 >
-> ✅ **Decided 2026-08-29, with P4b: the third mode is the WORKFLOW DOCUMENT.**
-> Its invariant is the forward conversion chain (`DOCUMENT_FLOW_NEXT`), never a
-> balance, and it is **not reachable by `Ctrl+H`** — a non-financial type is
-> always in it and a financial one can never enter it, which is what keeps the
-> accounting grid's invariant an invariant rather than a case with an exception.
-> `voucher-entry.const.ts` is the rule and its spec asserts the set against
-> `buildLegs` returning no legs at all, so the mode cannot drift from the
-> posting behaviour that defines it.
+> ✅ **Decided 2026-08-29 with P4b; BUILT at P4d (2026-08-30): the third mode is
+> the WORKFLOW DOCUMENT.** Its invariant is the forward conversion chain
+> (`DOCUMENT_FLOW_NEXT`), never a balance, and it is **not reachable by
+> `Ctrl+H`** — a non-financial type is always in it and a financial one can never
+> enter it, which is what keeps the accounting grid's invariant an invariant
+> rather than a case with an exception. `voucher-entry.const.ts` is the rule and
+> its spec asserts the set against `buildLegs` returning no legs at all, so the
+> mode cannot drift from the posting behaviour that defines it.
+>
+> ⚠️ **It needed no third component**, which is the part worth carrying: the mode
+> is an *invariant*, not a screen. Its grid, pickers, header strip and options bar
+> are the item form's, and `trx-add-edit` has enforced the difference through
+> `isFinancialTrxType` since long before this programme. What P4d added was one
+> reversed condition in `loadFor` (the Dr/Cr grid is the closed set, so it is the
+> half the test should name) and a **caption** — because a document carrying the
+> item grid and neither of its guarantees is otherwise an invoice that has quietly
+> lost its totals.
 
 > ⚠️ **`Ctrl+H` IS NOT BUILDABLE AS A TOGGLE HERE — measured 2026-08-30, at P4c**,
 > and this is where P4e starts. Tally's Accounting Invoice is N income/expense
@@ -4268,7 +4503,7 @@ is **empty by construction** — the whole backend diff is one field on
 The unified entry screen, its modes, the function keys, `Alt+C`, `Ctrl+A`,
 `Ctrl+H`, `F12`. `groupFor` stops being consulted (F4) and the picker offers what
 the group nature allows. The old routes redirect — **fourteen of them, not six**
-(F6).
+(F6). ✅ All fourteen redirect as of P4d.
 
 > **P4a is done** ([record](#p4a-record--2026-08-29)): `app-ledger-picker`,
 > `Alt+C`, and F4 closed. It went first, and into the **current** screens rather
@@ -4319,6 +4554,19 @@ of each voucher type without a mouse.
 > is not representable in this schema — see §3.5's measurement. The phase heading
 > above still lists it among P4's keys, which is right: it is P4's work, and it is
 > the last of it.
+
+> **P4d is done** ([record](#p4d-record--2026-08-30)): **all fourteen** types are
+> typed on the surface and **the old routes redirect — all fourteen of them**,
+> which is the second sentence of this phase's heading, closed. The keyboard half
+> of the gate is now met for every type that has a chord; the two that do not —
+> purchase requisition and quotation, deliberately, because they are ours rather
+> than Tally's — are reached from the type bar's overflow, which exists precisely
+> because they cannot be reached any other way.
+>
+> ⚠️ The third mode took **no third component**: it is an invariant, not a screen.
+> See §3.5's F6 note.
+
+**What is left of P4 is `Ctrl+H`**, and it is a decision before it is a build.
 
 ### P5 · Bill-wise details `[L]`
 

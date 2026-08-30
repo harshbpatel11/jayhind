@@ -1896,14 +1896,16 @@ src/
     second half is what recovers a browser that already has the old shape
     stored. `setOptions()` persists everything it is handed, which is how a
     derived value acquired a memory nobody decided to give it.
-  - **EIGHT voucher types are entered on ONE surface** — Contra, Payment,
-    Receipt and Journal since P4b (2026-08-29), and Sales, Purchase, Debit Note
-    and Credit Note since **P4c** (2026-08-30):
-    `/transaction/voucher/<type>/new` and `…/<type>/:id/edit`. The old
-    `…/vouchers/<type>/new` paths redirect (they are in bookmarks and in P3d's
-    drill stack) and the **lists** stay where they are. Note the
-    singular/plural: `/transaction/voucher` is the entry surface,
-    `/transaction/vouchers` is the lists.
+  - **ALL FOURTEEN voucher types are entered on ONE surface** — Contra, Payment,
+    Receipt and Journal since P4b (2026-08-29), Sales, Purchase, Debit Note and
+    Credit Note since P4c, and the six **Workflow Documents** (purchase
+    requisition, purchase order, goods receipt, quotation, sales order, delivery
+    challan) since **P4d** (2026-08-30):
+    `/transaction/voucher/<type>/new` and `…/<type>/:id/edit`. **No type has an
+    entry route outside the surface.** The old `…/vouchers/<type>/new` paths
+    redirect (they are in bookmarks and in P3d's drill stack) and the **lists**
+    stay where they are. Note the singular/plural: `/transaction/voucher` is the
+    entry surface, `/transaction/vouchers` is the lists.
     - **One surface, TWO components**, and that is deliberate.
       `VoucherEntryComponent` draws the Dr/Cr grid (it replaced and **deleted**
       `trx-contra-add-edit`, `trx-payment-receipt-add-edit` and
@@ -1916,12 +1918,47 @@ src/
       is `app-voucher-type-bar`.
     - **`entrySurfaceFor(type)`** (`utils/voucher-entry.util.ts`) is the one
       answer to *which surface is this type typed on*, read by the type bar's
-      two hosts, both route files, the drill spine and the scan review. The six
-      Workflow Document types answer `vouchers` until P4d — a **seam**, so a key
-      naming one navigates to the route it already has. ⚠️ It is frontend-only
-      on purpose: the server has no opinion about which screen a voucher is
-      typed on, and `ENTRY_MODE_BY_TYPE` beside it — which IS the server's
-      opinion — is the mirrored half (check 11).
+      two hosts, both route files, the drill spine and the scan review. Since
+      P4d every type answers `voucher`; it is kept rather than collapsed to a
+      literal, because it is the one place a new type declares where it is typed
+      and the plural surface still exists — it is where all fourteen **lists**
+      live. ⚠️ It is frontend-only on purpose: the server has no opinion about
+      which screen a voucher is typed on, and `ENTRY_MODE_BY_TYPE` beside it —
+      which IS the server's opinion — is the mirrored half (check 11).
+    - ⚠️ **Which component a type loads is decided by `isAccountingEntry`, not
+      `isItemEntry`** (`voucher-entry.routes.ts`). The Dr/Cr grid hosts a
+      **closed** set of four and everything else on the surface is the item
+      form, so the closed half is the half the condition names — asking it the
+      other way round dropped the six Workflow Documents onto
+      `VoucherEntryComponent`, which draws a document that posts no legs as two
+      rows whose totals are both zero and holds it to a balance it can never
+      have. It throws loudly (`accountingRowPlan` refuses a type that is not on
+      the grid) **and still renders a screen**: a route that renders is not a
+      route that works.
+    - **The third mode is an invariant, not a screen.** A Workflow Document
+      (F6 — items and quantities, no legs and no stock) is the **item form**,
+      whose `isFinancialTrxType` branches have always drawn the difference; what
+      P4d added is that the mode became *visible*. The title bar states **what
+      the document converts into** (`convertsIntoLabel`, read through
+      `nextVisibleInFlow` so it names the stage this company actually reaches,
+      not the one the chain names), and the GST and Due Date chips are absent,
+      which follows from posting nothing rather than from a style choice. Without
+      the caption the screen is an item invoice that has quietly lost its totals.
+    - **The type bar's row is the EIGHT that post; the six that do not sit
+      behind one overflow.** Fourteen buttons wrap onto three lines of a title
+      bar and stop being a row of keys. The split **is** `buildLegs` returning
+      legs or returning none — the same fact `ENTRY_MODE_BY_TYPE` is keyed off —
+      so the two tiers say what kind of document each is. ⚠️ The menu is also the
+      surface the *no-invented-chords* ruling implies must exist: **purchase
+      requisition** and **quotation** have no chord deliberately (they are ours,
+      not Tally's), so a keyboard is not a complete way in. It lists the six in
+      **conversion** order, not key order — a bar is read as a row of keys and a
+      menu as a list. ⚠️⚠️ It is filtered by `hiddenTransactionMenus`, because
+      the six hideable stages are **exactly** these six (the terminal Purchase
+      and Sales are never hideable), and `app-sidemenu` and the convert action
+      both already apply it — a third place that must not forget. Not gated: no
+      company in the development database hides anything, so it is verified by
+      hand and recorded as such.
     - ⚠️ **A blank item voucher used to be born dirty** (found by P4c's gate).
       `app-ledger-picker`'s `preselectDefault` applies the seeded head through
       `onChange`, the `ControlValueAccessor`'s **view→model** path, which Angular
@@ -1962,12 +1999,14 @@ src/
       not "focus the account head" / "focus the party" as the four replaced or
       re-hosted screens had it — ours, not Tally's, and the opposite of what the
       same keys meant one level up in the same module. `Alt+N`/`Alt+D` (add and
-      remove an item line) collide with no voucher chord and stayed. A key naming
-      a type the surface does not host yet **navigates** to that type's existing
-      route — a seam for P4d. ⚠️ So does a switch between two types it DOES host,
-      including across the two components: each is its own route config, so the
-      router rebuilds either way, and `pendingChangesGuard` is what asks about a
-      dirty voucher.
+      remove an item line) collide with no voucher chord and stayed. Since P4d
+      the surface hosts every type, so every chord lands on it. ⚠️ A switch is a
+      **navigation** either way, including across the two components: each type
+      is its own route config, so the router rebuilds, and `pendingChangesGuard`
+      is what asks about a dirty voucher. ⚠️⚠️ **Two of the fourteen have no
+      chord and never will** — purchase requisition and quotation are ours rather
+      than Tally's, and inventing one would be inventing muscle memory; they are
+      reached from the type bar's overflow, which is why that menu has to exist.
     - ⚠️ **`Ctrl+H` does not exist, and that is a ruling** (P4e). §3.5 asks for it
       to toggle Accounting Invoice ↔ Item Invoice, but an Accounting Invoice is
       **not representable**: all 9,970 financial vouchers carry at least one item
@@ -2715,6 +2754,7 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
 | The voucher head picker | `qa-artifacts/tests/ui/money/ledger-picker.ui.spec.ts` + `ledger-picker-rules.ts` (restated) — P4a's gate: every head field is `app-ledger-picker` **and no group-fed select survives**, it offers what the group NATURE allows (the widening compared against a live `groupFor` count, not a number written down), a **control head is offered in no context**, the pre-filled default survived the widening, a saved voucher renders its own head even one outside the field's scope, and `Alt+C` from **inside the open dropdown** creates a ledger that carries the head the form binds. ⚠️ A fifth injection **passed** and the property was the problem: scoping the hydration by nature left it green because `legacyHeadOption` answered instead — *a fallback that covers a bug is how a rule stops being measurable*. ⚠️⚠️ The invoice-scan review is the seventh site and is deliberately **not** gated (it needs a `scanned_invoices` row the QA world does not build); verified by hand and recorded as such | `npm run qa:money` |
 | The unified voucher entry screen | `qa-artifacts/tests/ui/money/voucher-entry.ui.spec.ts` + `voucher-entry-rules.ts` (restated) — P4b's gate, eight properties: one screen for Contra/Payment/Receipt/Journal with the old paths redirecting onto it, **the rows on screen equal to the legs the voucher posts** (read from `data-role`, then compared against the approved voucher's own `journal_lines`, for a contra **and** a payment), a keyboard-only post, an unbalanced split journal refused in the voucher's own words with **no request leaving the page**, and a Payment's head on no grid row. ⚠️ Its ledger property was **wrong at first and passed an injection**: it compared the saved voucher's `toAccountId`/`fromAccountId` with the legs, and the posting engine *derives* the debit from `toAccountId` — so swapping the two grid cells left it green. It compares the **account names chosen on screen** now. ⚠️⚠️ Whether the accept chord is `document:`-scoped is **not observable here** (the select's overlay pane renders inside the component's own subtree) and the spec says so rather than implying coverage. ⚠️ It pushes **`/status of 429/` and nothing else** into `problems.ignore`: the ERP throttles 100 req/min per IP, `qa:money` shares one bucket across 85 serial tests, and these two properties are the request-heaviest — a rate limit that actually broke a screen still fails through the assertions | `npm run qa:money` |
 | The item grid, re-hosted | `qa-artifacts/tests/ui/money/voucher-rehost.ui.spec.ts` + `voucher-rehost-rules.ts` (restated) — P4c's gate, six properties: eight types on one surface with the old paths redirecting onto it, **the LISTS unmoved** (the property the redirect itself can break — `sales` and `sales/new` are one segment apart), both halves offering the same eight buttons **in the same order** (a scrambled bar is a different defect from a short one), one key crossing from the item half to the accounting half and back, the form arriving **whole** (header strip · items grid · options bar · head picker — a stub renders a route just as well as the real form), and F4/F6 switching the voucher rather than focusing a field while `Alt+N` still adds a line. ⚠️ A browser is the only instrument that can see this phase: no DTO and no service changed, so the parity diff is empty **by construction**. ⚠️⚠️ It found a real defect rather than being written around one — every blank item voucher was **born dirty**, because P4a's head preselect propagates through the `ControlValueAccessor`'s view→model path, so a type switch asked *"Discard unsaved changes?"* on an empty form. Shown to fail three ways: the F4 focus binding put back, a redirect that drops its `/new` segment, and item mode un-hosted | `npm run qa:money` |
+| The Workflow Document mode | `qa-artifacts/tests/ui/money/workflow-document.ui.spec.ts` + `workflow-document-rules.ts` (restated) — P4d's gate, six properties: the six upstream documents on the surface with their old paths redirecting, **the six LISTS unmoved**, each of them the **item grid with no Dr/Cr difference**, each naming **what it converts into** (with the chain's own label — a goods receipt becomes a *Purchase Entry*), the bar's row still eight with the six behind one overflow that actually reaches Quotation (which has no chord), and a key crossing in and out. ⚠️ A browser is the only instrument that can see this phase: the backend diff is **empty**, so the parity diff is empty by construction. ⚠️⚠️ Its (3) was **inert when first written** — it looked for `.vch-grid` as "the Dr/Cr grid", and the item form's own table is `class="vch-grid vch-grid--items"`, so the selector matched **both** components and could not discriminate; the right discriminator was never markup but the **invariant** (`[data-testid="difference"]`), asserted from both sides so a build rendering it nowhere cannot pass. Shown to fail four ways: `loadFor` back to `isItemEntry` (5 of 6 fail; only the lists survive), all fourteen buttons pushed into the row (2 fail — P4d's own and P4c's rewritten bar property), the conversion caption removed, and the redirect's `pathMatch` moved onto the list path | `npm run qa:money` |
 | Rule-7 parent ids | `qa-artifacts/tests/transactions/jobwork-scope.spec.ts` and `tests/api/parent-scope.spec.ts` — every caller-supplied parent id on a write, probed with a stranger resolved from `company_members` (never from a fixture: the QA world **shares** an identity between two tenants on purpose) | `npm run qa:transactions` |
 | Shared-read exposure | `qa-artifacts/tests/permissions/shared-read-party.spec.ts` — sweeps **every** `@SharedRead()` route as a trading party and asserts the allow-list exactly (D-46). Route list comes from the regenerated inventory, so a new shared read is swept the day it lands | `npm run qa:permissions` |
 | The storage seam | `qa-artifacts/tests/storage/` — nine properties over the tree the ERP now owns (§6.4): the index against the **disk** as a census, keys inside their own company's folder, traversal refusals, the spool drained on refusal too, no static serving, who may be handed the bytes (BUG-0057), and every owned file still having its owner (BUG-0058) | `npm run qa:storage` |
@@ -3165,10 +3205,14 @@ is one nobody reads.
 | What happens when a party with no ledger is posted to for the first time? | `src/services/ledger-resolution.ts` `resolveOrCreateLedger` provisions one, **inside the posting transaction**, so it commits with the entry that needed it or rolls back with it. Its side comes from the **control head the posting is on** — not `derivePartySide`'s no-activity default, because at migration time there was a history to weigh and a human to review it (`party_ledger_plan`) and here there is neither, but there IS better information than a default. Refusing to post for want of a row the engine can create would be a regression, not a safety property |
 | Where is a Contra / Payment / Receipt / Journal typed? | `client-front` `components/admin/transaction/vouchers/voucher-entry/` — `/transaction/**voucher**/<type>/new` (singular; the plural is the lists). P4b; it replaced three components and deleted them |
 | Where is a Sales / Purchase / Debit Note / Credit Note typed? | the **same** surface since P4c — `/transaction/voucher/<type>/new` — but a different component: `vouchers/trx/trx-add-edit/`, re-hosted and otherwise untouched. `entrySurfaceFor()` in `utils/voucher-entry.util.ts` is the one answer to which surface a type is on; don't write `/transaction/voucher` at a call site |
+| Where is a Purchase Order / Quotation / Delivery Challan typed? | the same surface since **P4d**, on the same component as the item four — a Workflow Document IS the item grid, under a different invariant. Reached by `Ctrl+F8`/`Ctrl+F9`/`Alt+F8`/`Alt+F9`, or from the type bar's **overflow**, which is the only way in for purchase requisition and quotation (no chord, deliberately) |
+| Why is a Purchase Order not drawn as a Dr/Cr grid? | `loadFor` in `voucher-entry.routes.ts` asks `isAccountingEntry`, not `isItemEntry` — the Dr/Cr grid hosts a closed set of four and everything else on the surface is the item form. Asked the other way round, all six Workflow Documents render two rows whose totals are both zero (F6) |
+| Why does this voucher's title bar say "→ Goods Receipt"? | `TrxAddEditComponent.convertsIntoLabel` (P4d) — the Workflow Document mode's invariant made visible, since a document with the item grid and neither of its guarantees otherwise reads as an invoice that lost its totals. It reads `nextVisibleInFlow`, so it names the stage **this company** converts into rather than the one `DOCUMENT_FLOW_NEXT` names |
+| Why isn't Purchase Order a button on the voucher type bar? | it is, behind the **overflow** — fourteen buttons is not a row of keys, so the row is the eight that post and the six that do not sit in one menu (P4d). The menu is filtered by `hiddenTransactionMenus`, because those six are exactly the hideable stages |
 | Why does the voucher type bar look identical on two different screens? | it IS one — `components/shared/voucher-type-bar/`, rendered by both entry components (P4c). Presentational: it emits the type and each host navigates, which is what keeps a switch a navigation through `pendingChangesGuard` |
 | Why does a brand-new voucher ask "Discard unsaved changes?" | it should not — `app-ledger-picker`'s `preselectDefault` restores pristine/untouched after applying the seeded head (P4c). ⚠️ Any programmatic write through a `ControlValueAccessor`'s `onChange` marks the control dirty **and** touched: Angular cannot tell it from a keystroke, so a component applying a default has to say so |
 | Why is there no `Ctrl+H` mode toggle? | an Accounting Invoice is not representable — `trx_items` names a product and never a ledger, and `buildLegs` gives a sales voucher one `Main` leg (measured at P4c: 9,970 of 9,970 financial vouchers carry an item row). It is **P4e**, with the two candidate shapes recorded in TALLY-PARITY-PLAN.md §3.5 |
-| Which mode is this voucher type entered in? | `client-back/src/const/voucher-entry.const.ts` → `ENTRY_MODE_BY_TYPE`, mirrored in `client-front/src/utils/voucher-entry.util.ts` and compared by `check-mirrors.js` check 11. Three: **accounting** (the Dr/Cr grid), **item** (`trx-add-edit`), **workflow-document** (the six upstream documents — F6, decided 2026-08-29). ⚠️ The last one's invariant is the conversion chain, never a balance, and it is **not** a `Ctrl+H` destination; its spec asserts the set against `buildLegs` returning no legs rather than against a second list |
+| Which mode is this voucher type entered in? | `client-back/src/const/voucher-entry.const.ts` → `ENTRY_MODE_BY_TYPE`, mirrored in `client-front/src/utils/voucher-entry.util.ts` and compared by `check-mirrors.js` check 11. Three: **accounting** (the Dr/Cr grid), **item** (`trx-add-edit`), **workflow-document** (the six upstream documents — F6, decided 2026-08-29, **built P4d**). ⚠️ The last one's invariant is the conversion chain, never a balance, and it is **not** a `Ctrl+H` destination; its spec asserts the set against `buildLegs` returning no legs rather than against a second list. ⚠️⚠️ It needed **no third component** — the mode is an invariant, not a screen |
 | Which rows does a voucher's Dr/Cr grid draw? | `accountingRowPlan` in the same file — **`buildLegs`, projected**, so the screen and the ledger cannot disagree. A leg role with no row kind mapped throws at first render |
 | Why is a Payment's head not on the grid? | it is not a leg — `postPaymentReceipt` reads `trxGroupId` only for a Journal, and the head appears in a line of its own voucher on 0 of 2,862 posted payments and receipts. It **classifies** the voucher (the register prints it as `groupName`) and sits beside the party (P4b) |
 | Which voucher does this function key mean? | `client-front/src/utils/voucher-entry.util.ts` `VOUCHER_SHORTCUTS` — §2.2's table, read by the entry screen AND `TransactionLayoutComponent`. ⚠️ Bare **F4 is Contra**, not "focus the head" |
