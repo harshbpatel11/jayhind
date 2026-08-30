@@ -225,9 +225,23 @@ rule reconciling against a missing rule for a financial year.
 
 **The ruling is single-head**, and it stands even though the mechanism gives N
 heads for the same code: 475 of 475 service-only vouchers carry exactly one
-distinct product. What is left is **P4e‑2** — the mode on screen and the six
-print templates, which iterate `trxItem` and print an empty body for a document
-that has none, under either candidate shape.
+distinct product.
+
+**And P4e‑2 is done, which closes P4: `Ctrl+H` exists.** The four financial item
+vouchers switch between stock lines and ledger allocations on the chord and on a
+button; a saved voucher reopens in the body its own rows imply, read from the
+rows because there is no column to disagree with them; and the six print
+templates render an Accounting Invoice as a document that adds up. It needed no
+new form control — `trx-add-edit`'s `charges` FormArray was already
+`{ ledger, amount, tax }` per row, and P4e‑2 renders it as the body instead of as
+a folded chip. ⚠️ Building it found the print half **twice**: the document first
+printed no body at all (predicted, and common to both candidate shapes), and then
+printed one reading *"Sub Total 0.00 … Grand Total 56,000.00"*, because
+`trx.totalAmount` is the **item** net and is zero here. The second was not
+predicted; it was found by reading the paper. ⚠️⚠️ And the gate caught an
+exclusion the author had talked himself into — the two notes, kept out on an
+argument that did not survive `trxAgainstIds` being an optional *header* field
+and **43** of this database's service-only vouchers being credit notes.
 
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
@@ -264,7 +278,7 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P4c | Item mode — `trx-add-edit` re-hosted onto the surface | L | **done** — [§P4c record](#p4c-record--2026-08-30) |
 | P4d | Workflow Document mode, and the remaining route redirects | M | **done** — [§P4d record](#p4d-record--2026-08-30) |
 | P4e‑1 | What an Accounting Invoice IS — the mechanism, and GST-021 | M | **done** — [§P4e‑1 record](#p4e-1-record--2026-08-30) |
-| P4e‑2 | `Ctrl+H` — the mode on screen, and the six print templates | M | not started |
+| P4e‑2 | `Ctrl+H` — the mode on screen, and the six print templates | M | **done** — [§P4e‑2 record](#p4e-2-record--2026-08-30) |
 | P5 | Bill-wise details | L | not started |
 | P6 | Trading Account and Gross Profit | M | not started |
 | P7 | Cost centres | L | not started |
@@ -3371,6 +3385,117 @@ feature to add.
 
 ---
 
+
+### P4e‑2 record — 2026-08-30
+
+**`Ctrl+H` exists, and P4 is complete.** The four financial item vouchers switch
+between stock lines and ledger allocations, on the chord and on a button; a saved
+voucher reopens in the body its own rows imply; and the six print templates render
+an Accounting Invoice as a document that adds up.
+
+No DTO, no service, no migration, no posting change — P4e‑1 established that the
+mechanism was already there, so the whole of this phase is a screen, six
+templates and a gate. The parity diff is **empty by construction**.
+
+#### The body is the `charges` FormArray, and nothing new was built to hold it
+
+`trx-add-edit` already carried a `charges` FormArray of exactly the right shape —
+`{ label, groupId, amount, taxId, taxPercentage, taxAmount, totalAmount }`, with
+an `app-ledger-picker` on the head and the tax master on the rate. P4e‑2 renders
+that array as the voucher's **body** instead of as a folded option chip, and
+points its picker at the voucher's own `headContext` rather than at `Charge`, so
+a Sales accounting invoice offers income heads exactly as its main head field
+does.
+
+Three consequences fall out of using the same array:
+
+- ⚠️ **The Charges chip is hidden in accounting mode.** The same rows would
+  otherwise be offered twice — once as the body and once as a chip calling them
+  something else — and one grid's line would be editable from both.
+- **A row names itself after its ledger.** `label` is required by the DTO and the
+  ledger already says what the row is, so `onAllocationLedgerPicked` fills a
+  **blank** label from the picked option and never overwrites a typed one.
+- **`invoiceBodyOf` decides what a saved voucher reopens as**, from its rows.
+  There is no `trx.invoiceBodyMode`, so there is nothing that can disagree.
+
+#### ⚠️ The gate caught an exclusion the author had talked himself into
+
+The first cut excluded the two **notes** from `Ctrl+H`, on the argument that a
+credit or debit note's lines are derived from the invoices it is raised against,
+so an accounting body would drop the link the note exists to carry. Property (1)
+failed on it, and the argument did not survive two measurements: `trxAgainstIds`
+is an **optional header field**, so the link survives a body with no lines at
+all — and **43 of this database's service-only vouchers are credit notes**, a
+post-hoc discount being exactly what somebody types as an Accounting Invoice. The
+exclusion would have denied the mode to a population that measurably wants it.
+
+**A gate that only confirms what the author already believed is not a gate**, and
+this is the second time in two phases that a property written against the plan
+rather than against the implementation is what found the defect.
+
+#### 🐞 Two print defects, both found by printing one
+
+The six templates iterate `voucher?.trxItem`. P4e‑1 predicted the first of these
+and could not design it away — it is common to both of §3.5's candidate shapes,
+since an Accounting Invoice has no `trxItem` under either:
+
+- **The document printed no body at all** — a header, a footer, and nothing
+  between them. `PrintService.allocationRows` is the shared answer, and it is
+  *shared* deliberately: `PrintService` is the one module all six templates
+  already import, and a rule restated six times drifts six ways.
+- ⚠️⚠️ **And then it printed one that did not add up.** `trx.totalAmount` is the
+  **item** net and is `0` on an Accounting Invoice, whose money sits in
+  `chargesTotal` — so the first working print read *"Sub Total 0.00 … Grand Total
+  56,000.00"*. That was not predicted; it was found by reading the paper.
+  `bodySubTotal` is the fix, and the gate asserts the **arithmetic on the page**
+  rather than "the sub-total equals `chargesTotal`", because the defect is a
+  template reading the wrong column and the right assertion is the one a reader
+  would make.
+
+A third, smaller: the GST template's rate-wise **tax summary** was folded from
+item lines only, so the block a recipient reconciles their ITC against printed
+empty on a document that plainly charges tax. It now reads the allocations too,
+keyed by rate rather than by `taxId` — a charge names one tax where a line names
+several citations at the same rate, and the summary is a statement about rates.
+
+#### The gate, and five injections
+
+`qa-artifacts/tests/ui/money/accounting-invoice.ui.spec.ts` +
+`accounting-invoice-rules.ts` (restated, never imported). **Six properties in a
+browser**, because the backend diff is empty and a snapshot diff says nothing
+about a keyboard, a grid, a discard prompt or a printed page:
+
+1. **the toggle is offered on exactly the four** — by chord and by button — and
+   on **none** of the other ten, where the chord must also do nothing rather than
+   throw or navigate;
+2. ⚠️ **the Charges chip is gone** while the allocations are the body;
+3. **an accounting invoice saves as a voucher with no item lines** — asserted
+   against the rows, which is the definition;
+4. **a saved voucher reopens in its own body**, both ways;
+5. ⚠️⚠️ **the printed document names the allocation and reconciles**;
+6. **a switch that would discard asks first** — and declining keeps the work.
+
+Shown to fail five ways, each on its own property: the Charges chip left up
+(**2**), the sub-total reading the item net (**5**), the print body losing its
+rows — the pre-P4e‑2 state (**5**), the discard made silent (**6**), and a saved
+accounting invoice reopening on the item grid (**4**).
+
+#### What is deliberately not here
+
+- **The approved posting.** `resolveLegs`' expansion of an allocation onto its own
+  ledger is P4e‑1's measurement and belongs to the posting engine; re-approving
+  here would add a posted document to the shared QA world on every run, for a fact
+  this phase did not change. The **draft** is what P4e‑2 built.
+- **Multi-row allocations.** The mechanism gives N heads for the same code and the
+  ruling is single-head, so the screen offers one row at a time and that is what
+  is measured. A property asserting N would gate a decision nobody took.
+- **`trx_charges` is not renamed.** It is really *a ledger allocation line with
+  its own tax*, and the name is residue of the only job it had. Renaming it is a
+  migration across four writers, the print payload and the GST assembly, and it
+  buys nothing a doc comment does not — §6.4's `hubFileId` ruling, again.
+
+---
+
 ### Verification pass — 2026-08-28
 
 The plan was written from a reading of the source. It has since been checked
@@ -3978,7 +4103,7 @@ It is the whole of the "full Tally replacement" decision.
 | Element | Behaviour |
 |---|---|
 | **Voucher type** | `F4` Contra · `F5` Payment · `F6` Receipt · `F7` Journal · `F8` Sales · `F9` Purchase · `Alt+F5` Debit Note · `Alt+F6` Credit Note, plus `Ctrl+F8/F9` for orders. Switching type on an unsaved blank voucher is free; on a dirty one it asks. |
-| **Mode** | `Ctrl+H` toggles **Accounting Invoice** ↔ **Item Invoice**. Contra, Payment, Receipt and Journal are accounting-only. Sales, Purchase and both notes default to Item Invoice and remember per voucher type. The third mode is the **Workflow Document** (F6, decided 2026-08-29) and is deliberately **not** a `Ctrl+H` destination. ⚠️ **The RULE is built (P4e‑1, 2026-08-30) and the screen is P4e‑2.** An Accounting Invoice *is* representable — its rows are ledger allocations, which `trx_charges` already is — and `InvoiceBodyMode` / `canSwitchInvoiceBody` / `invoiceBodyOf` are the mirrored rule. See below, and correct the older sentence you may be carrying: it said not representable, and that was wrong. |
+| **Mode** | **Done (P4e).** `Ctrl+H` toggles **Accounting Invoice** ↔ **Item Invoice** on the four financial item vouchers — Sales, Purchase and **both notes** — and on nothing else: the Dr/Cr four have no item body to leave, and a Workflow Document is deliberately not a destination (F6). An Accounting Invoice's rows are **ledger allocations**, which `trx_charges` already is; the body is `trx-add-edit`'s own `charges` FormArray rendered as the grid rather than as a folded chip, and the Charges chip is hidden while it is. A saved voucher reopens in the body its **own rows** imply (`invoiceBodyOf` — there is no stored mode to disagree with them). ⚠️ Correct the older sentence you may be carrying: it said an Accounting Invoice was *not representable*, and that was measured and wrong. |
 | **Workflow Document mode** | **Done (P4d.)** The six upstream documents are typed on the same surface, on the **item grid** — no third component, because the mode is an invariant rather than a screen. What makes it visible is the title bar naming **what this document converts into**, read through `nextVisibleInFlow` so it names the stage *this company* actually reaches; the GST and Due Date chips are absent, following from posting no legs. ⚠️ `loadFor` asks `isAccountingEntry`, the half with a closed membership: asking `isItemEntry` drops all six onto the Dr/Cr grid, with both totals zero for ever. |
 | **Accounting mode grid** | **Done (P4b.)** Dr/Cr rows: side · ledger · amount · (bill-wise popup if the ledger is bill-wise — P5) · (cost-centre popup if applicable — P7). Running Dr and Cr totals with the difference shown live; save is refused while it is non-zero, **in the voucher's own words** rather than a form error. ⚠️ The rows are **derived from `buildLegs`**, so what the screen draws is what the voucher posts — which is how P4b found the old Payment screen drawing its *head* as the debit row, a head that is a leg of none of the 2,862 posted payments and receipts. |
 | **Item mode grid** | **Done (P4c.)** The existing form, re-hosted: `trx-add-edit` is routed under `/transaction/voucher/<type>` and gains the shell's type bar and Tally's key map, and nothing inside it changed. `applyCatalogueSnapshots`, `TrxWriteService`, the e-invoice and e-way bill paths, HSN/UQC and price capture are **untouched**. ⚠️ Re-hosted as a **sibling component on the same surface**, not as a child of `VoucherEntryComponent` — both already render `.vch-shell` and `.vch-titlebar`, so nesting would have meant one screen drawing two title bars and the child's own `CanComponentDeactivate` sitting under a guard it no longer owned. What they share is the **type bar**, which became one component. |
@@ -4733,9 +4858,13 @@ of each voucher type without a mouse.
 > tax were declared to nobody. Fixed first, because it is what makes the mechanism
 > usable.
 
-**What is left of P4 is `Ctrl+H` ON SCREEN** — P4e‑2: the mode, its grid, and the
-six print templates, which iterate `trxItem` and so print an empty body for a
-document that has none. That cost is common to both of §3.5's candidate shapes.
+> **P4e‑2 is done** ([record](#p4e-2-record--2026-08-30)), and with it **P4 is
+> complete**: fourteen types on one surface, two components, one type bar, one key
+> map, and `Ctrl+H` switching the four that can. It needed no new form control and
+> no backend change at all; what it cost was six print templates, which is the one
+> price P4e‑1 predicted and could not design away.
+
+**P4 is closed.** The next phase is **P5 — bill-wise details**.
 
 ### P5 · Bill-wise details `[L]`
 
