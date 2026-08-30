@@ -268,6 +268,18 @@ the 2,759 approved payment/receipt vouchers is fully allocated — so `advance` 
 `on-account` have no instance and this gate asserts nothing about them. That arm
 is **P5b's**, and saying so beats a green line implying otherwise.
 
+**And P5b is done: the posting engine maintains the register**, from
+`persistLines` — the one writer of `journal_lines` — so the invariant is
+guaranteed by the seam rather than by three call sites remembering. Its gate is
+**7/7** over cases this database does not contain: `advance` and `on-account`
+have no instance in the world, so the gate constructs a partly-allocated receipt
+and an unallocated one. ⚠️ The half a backfill could not teach is **cancellation**
+— a reversal *retires* the original's references and records none of its own,
+because both entries leave the live population together. ⚠️⚠️ And dropping the
+unapplied remainder is caught **at write time by the posting itself** rather than
+by an assertion: a posting that cannot describe itself is a refused transaction
+naming the line and both figures.
+
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
 report whose shape is fixed?"*, and there is no longer a second derivation to
@@ -305,7 +317,7 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P4e‑1 | What an Accounting Invoice IS — the mechanism, and GST-021 | M | **done** — [§P4e‑1 record](#p4e-1-record--2026-08-30) |
 | P4e‑2 | `Ctrl+H` — the mode on screen, and the six print templates | M | **done** — [§P4e‑2 record](#p4e-2-record--2026-08-30) |
 | P5a | `bill_references` + the full-history backfill (the gate lands here) | M | **done** — [§P5a record](#p5a-record--2026-08-30) |
-| P5b | The posting engine writes refs; Advance / On Account | M | not started |
+| P5b | The posting engine writes refs; Advance / On Account | M | **done** — [§P5b record](#p5b-record--2026-08-30) |
 | P5c | The entry screen's reference grid | M | not started |
 | P5d | Bills Receivable/Payable; the annexure moves onto refs | M | not started |
 | P6 | Trading Account and Gross Profit | M | not started |
@@ -3631,6 +3643,82 @@ injections:
   its own ancestor and no topological order places the table). D5 and D6 each hit
   this; `company-hard-delete-order.const.spec.ts` verifies the graph is
   *consistent*, not that it is *complete*.
+
+### P5b record — 2026-08-30
+
+**The posting engine maintains the register.** `PostingService.persistLines` —
+the one writer of `journal_lines` — now writes bill references for every party
+leg, and its gate holds at **7/7** over cases this database does not contain.
+
+#### The seam is `persistLines`, and that is the whole design decision
+
+The invariant is a statement about journal lines (`Σ|ref| = |line|` on every
+party line), so **the place that writes party journal lines is the only place
+that can guarantee it**. The alternative — hanging this off `postTrx`,
+`postPaymentReceipt` and `postPartyOpeningBalance` — is one rule enforced at the
+three places somebody thought of, which is §13's standing shape and the direct
+cause of BUG-0024, BUG-0028, BUG-0032 and BUG-0056. §4.9 already requires every
+writer of `journal_lines` to go through `persistLines`; putting the register
+there **inherits** that guarantee instead of restating it.
+
+It also means the invariant is checked where it is created:
+`writeForEntry` puts every line to `referenceCoverageProblem` before inserting,
+so a posting that cannot describe itself is a refused transaction rather than a
+figure discovered by a nightly report over a book that has already moved.
+
+#### A reversal retires; it does not record
+
+⚠️ **This is the half a backfill could not have taught**, because a backfill only
+ever sees the finished state.
+
+Cancelling a voucher writes a reversal whose party line is the opposite of the
+original's, and **both entries then leave the live population at once** —
+`liveEntrySql` drops the reversal (`isReversal = 1`) *and* the original
+(something reverses it). So recording the reversal would create a second bill for
+a cancelled document, on a line no report will read; and recording nothing would
+strand the original's references on a dead line, which is exactly what P5a's gate
+property (2) refuses. A reversal therefore **retires the references of the entry
+it reverses** — soft-deleted, because a bill that was raised and then cancelled
+is a fact about the past — and writes none of its own.
+
+#### The gate builds what the world does not contain
+
+`npm run qa:p5b-register-maintenance` — seven properties, every write inside one
+rolled-back transaction over vouchers **cloned from real ones**, so the scratch
+data cannot drift from what the schema actually requires. Properties (2) and (3)
+are the reason it exists: `advance` and `on-account` have **no instance** here,
+so the gate constructs a partly-allocated receipt and an unallocated one.
+
+Shown to fail two ways, and the second is the more interesting:
+
+- deleting the retire branch fails **(5)**, naming the row whose `deletedAt` is
+  still NULL;
+- dropping the unapplied remainder is caught **at write time by the posting
+  itself**, not by an assertion — the run dies with *"the bill references on
+  journal line 73495 come to 84,700.00, which fall short of the line's own
+  1,69,400.00"* and the transaction rolls back. A gate that has to notice is
+  weaker than a write that cannot happen.
+
+#### Two things to carry
+
+- **`on-account`, never `advance`, wherever nobody was asked.** The two differ by
+  *intent*, not arithmetic — an advance is money deliberately paid against a bill
+  expected to arrive, and only the person entering it knows that. Both the
+  backfill and the engine say the true thing and leave re-designating it to P5c,
+  where there is a human and a screen.
+- **A missing bill degrades to `on-account` rather than to a dangling
+  `against`.** It should be unreachable — `findByIdsForSettlement` refuses a
+  target that is not approved, and an approved document has a bill — but if it
+  ever happens, money attributed to no bill *is* what on-account means, the
+  register's shape survives, and the rows are how you would find out.
+
+⚠️ **The register has no rebuild door yet, and it deliberately should not get a
+blind one.** Re-running the P5a migration is idempotent and fills any gap, which
+is the repair door for now. That stops being safe at **P5c**: the moment an
+operator can state an advance or name a bill by hand, a rebuild from the postings
+would erase decisions a person made. BUG-0042's rule — *a cache and its rebuild
+are one change* — does not apply unchanged here, because the register stops being
+derivable the moment it stops being only a partition.
 
 ### Verification pass — 2026-08-28
 
