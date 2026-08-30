@@ -280,6 +280,17 @@ unapplied remainder is caught **at write time by the posting itself** rather tha
 by an assertion: a posting that cannot describe itself is a refused transaction
 naming the line and both figures.
 
+**And P5c‑1 is done: a voucher may name no bill.** Until it, a payment or receipt
+had to name an open `trx` document — so an **advance** was impossible, and **53
+parties (₹2,65,000) were unsettleable**, their only open item being an opening
+balance, which has no `trx` row to appear in a picker built from `trx`. Gate
+**9/9**, and its first property measures the gap from both sides at once:
+`getDueInvoice` answers 0 where `openBills` answers the bill. ⚠️ The refusal was
+written **twice, independently** — `saveReceipt`'s own and `planSettlement`'s —
+so relaxing either alone would have changed nothing; §13's standing shape, found
+only by going looking after relaxing the first. `advance` vs `on-account` is a
+**column**, because there is no arithmetic that separates intent.
+
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
 report whose shape is fixed?"*, and there is no longer a second derivation to
@@ -318,7 +329,8 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P4e‑2 | `Ctrl+H` — the mode on screen, and the six print templates | M | **done** — [§P4e‑2 record](#p4e-2-record--2026-08-30) |
 | P5a | `bill_references` + the full-history backfill (the gate lands here) | M | **done** — [§P5a record](#p5a-record--2026-08-30) |
 | P5b | The posting engine writes refs; Advance / On Account | M | **done** — [§P5b record](#p5b-record--2026-08-30) |
-| P5c | The entry screen's reference grid | M | not started |
+| P5c‑1 | A voucher may name no bill; `unappliedRefType`; the open-bills read | M | **done** — [§P5c‑1 record](#p5c-1-record--2026-08-30) |
+| P5c‑2 | The entry screen's reference grid | M | not started |
 | P5d | Bills Receivable/Payable; the annexure moves onto refs | M | not started |
 | P6 | Trading Account and Gross Profit | M | not started |
 | P7 | Cost centres | L | not started |
@@ -3719,6 +3731,66 @@ operator can state an advance or name a bill by hand, a rebuild from the posting
 would erase decisions a person made. BUG-0042's rule — *a cache and its rebuild
 are one change* — does not apply unchanged here, because the register stops being
 derivable the moment it stops being only a partition.
+
+### P5c‑1 record — 2026-08-30
+
+**A payment or receipt may now name no bill at all, and the register says what
+the money is.** Gate **9/9**. P5c split in two on the same argument every other
+[L]-shaped phase here did: this is the backend the grid needs, and P5c‑2 is the
+grid.
+
+#### The gap, measured from both sides at once
+
+Until this, a payment or receipt **had** to name at least one open `trx`
+document. Two ordinary things were therefore impossible:
+
+- an **advance** — money moved before the bill it is meant for exists;
+- collecting from a party whose only open item is an **opening balance**, which
+  has no `trx` row (D-55) and so can never appear in a picker built from `trx`.
+
+That second one is **53 parties and ₹2,65,000 on the development books, none of
+them settleable at all** — and it is the clearest statement of why the register
+had to exist. Gate property (1) measures exactly it: on one of those parties,
+`getDueInvoice` answers **0** and `openBills` answers the bill.
+
+#### ⚠️ The refusal was written twice, and fixing one would have changed nothing
+
+`saveReceipt` carried its own *"At least one invoice to settle is required"*,
+and `planSettlement` — reached through `persistAllocation` — carried *"Select at
+least one document to settle."* Two independent statements of one rule, in two
+files. Relaxing either alone leaves the gap exactly where it was.
+
+This is §13's standing shape, and it was found **only** by going looking after
+relaxing the first: the second is what property (7) exercises, and the injection
+that restores it fails that property alone. `planSettlement`'s refusal **stays** —
+it is correct for a voucher that does mean to settle something, and the
+controller now short-circuits before reaching it.
+
+#### `advance` is a column, because there is no arithmetic that finds it
+
+`trx_payment_receipts.unappliedRefType` (`advance` | `on-account`). Both look
+like "cash with no allocation row"; the difference is intent, and only the
+person entering it knows. Deriving it would be BUG-0034's shape — a fact that
+belonged on the document being re-derived later from something that merely
+correlates with it.
+
+⚠️ **The default is on the COLUMN, not the DTO.** §12: `ValidationPipe` runs with
+`transform: true`, so a property initialiser on an `@IsOptional()` field is a
+value supplied on **every** request that omits it, `PUT` included — BUG-0020,
+where renaming a closed financial year reopened it.
+
+#### A note on the injections
+
+Shown to fail three ways — restoring `saveReceipt`'s refusal fails (7), ignoring
+the stated intent fails (5), and excluding the opening balance from `openBills`
+fails (1).
+
+⚠️ That third one **passed on the first attempt**, and the property was not the
+problem: the edit had not applied, because the shell mangled the quoting in a
+one-line `python -c`. **A passing injection is a claim about the edit before it
+is a claim about the property**, and the difference is one `grep` of the file
+under test. Worth writing down, because a green injection reads as reassurance
+and is the one result nobody re-checks.
 
 ### Verification pass — 2026-08-28
 
