@@ -379,6 +379,29 @@ in the body font on all three statements since P3b — `app-statement-tree` shar
 `reports.shared.scss` to prevent exactly that, and an ancestor-qualified rule
 cannot reach it, because Angular stamps every compound of a descendant chain.
 
+**And P7a is done: the books have a parallel dimension, and the general ledger
+does not know it exists.** `cost_categories` and `cost_centres`, the second
+caller of `materialised-path.const.ts` — which had already anticipated it in its
+own header — and the invariant §3.7 asks for: **Σ per category, never Σ over the
+line**, because *Department* and *Location* cut the same expense in parallel and
+four rows totalling ₹3,38,800 against a ₹1,69,400 line is **correct**. It warns
+and never refuses, which is §3.7's own ruling and `statutory-windows.const.ts`'
+precedent, and a test asserts the no-throw so it cannot be reversed by accident.
+Gate **264/264**, four injections, parity diff **empty** with nothing re-based.
+⚠️ **The whole feature has no instance anywhere** — `costCentresApplicable` is
+`0` on all 1,383 ledgers of all 14 companies, there are zero centres, and the
+real Tally backup carries one category, eleven switched-on ledgers and **no
+centres at all**: its owner turned the switch on and never created one. So the
+gate constructs everything it measures, P5b's `advance` arm a fourth time. ⚠️⚠️
+Two guards bit, both usefully: `ci-guard-raw-sql` failed on **seven sites that
+were not P7a's**, because its allow-list is keyed by `path:line` and the
+provisioning seed moved every entry below it (CLAUDE.md §14's own trap, met);
+and `check-mirrors` caught the licence key existing server-side with no
+frontend half. ⚠️ The third injection was caught **twice** — once by the
+property it was aimed at and once by a refusal asserted against its own
+sentence, *"still holds 2 cost centres"*, which counted 3. That is the argument
+for matching the message rather than the throw, made by accident.
+
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
 report whose shape is fixed?"*, and there is no longer a second derivation to
@@ -422,7 +445,10 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P5c‑3 | A voucher may name a document-less bill (`billRefId` on the allocation) | M | **done** — [§P5c‑3 record](#p5c-3-record--2026-08-31) |
 | P5d | Bills Receivable/Payable; the annexure moves onto refs | M | **done** — [§P5d record](#p5d-record--2026-08-31) |
 | P6 | Trading Account and Gross Profit | M | **done** — [§P6 record](#p6-record--2026-08-31) |
-| P7 | Cost centres | L | not started |
+| P7a | The cost dimension's masters (`cost_categories`, `cost_centres`) and its invariant | M | **done** — [§P7a record](#p7a-record--2026-08-31) |
+| P7b | `cost_allocations`, written from `persistLines` | M | not started |
+| P7c | The masters screen, the entry panel, and cost centre classes | M | not started |
+| P7d | The four cost reports | M | not started |
 | P8 | Posting rules, budgets, interest, multi-currency, scenarios | L | not started |
 
 Sizes are relative, not calendar.
@@ -4815,6 +4841,241 @@ an answerable question belongs to whoever owns D9, not to a Trading Account.
   companies. The first company to run a close is the first reader of that row,
   and it will sit beside whatever direct income they book.
 
+### P7a record — 2026-08-31
+
+**The books gained a parallel dimension, and the general ledger does not know it
+exists.** §2.4's design consequence is the whole of P7a's shape, and it is quoted
+in the migration for a reason:
+
+> Allocations must **not** be extra journal lines. That would double GL volume and
+> put a second, weaker balancing rule into the engine.
+
+So `journal_lines` is untouched and stays untouched at P7b — `cost_allocations`
+will point **at** it. The parity diff across the whole phase is `PARITY HELD — the
+diff is empty`, with nothing re-based and nothing declared.
+
+| Artefact | What it is |
+|---|---|
+| `src/const/cost-allocation.const.ts` (+ 29 tests) | The rule. `costItemKindOf`, `applicableCategories`, `costAllocationProblems` (the per-category invariant, as sentences), the three `describe*Block` refusals, and the primary category's name and key. Dependency-free. |
+| `src/entities/cost-category.entity.ts` · `cost-centre.entity.ts` | The two masters. The centre carries `acc_groups`' materialised, slash-terminated `path`. |
+| Migration `20260831100000-cost-centres` | DDL, plus one `Primary Cost Category` per company — **14 seeded, one each**. Idempotent; re-running is a no-op. |
+| `CompanyProvisioningService` step 5d | The same row for a company created tomorrow. |
+| `CostCategoryService` · `CostCentreService` · `cost-centre.controller.ts` | **19 routes** over the two masters, one permission key (`cost-centres`), both under `LicensedModule.Transaction`. |
+| `scripts/qa-p7a-cost-masters.ts` · `npm run qa:p7a-cost-masters` | The gate. **264/264** over 14 companies and 13 constructed allocation cases, shown to fail four ways. |
+
+**Measured before the phase started**, as every phase since P2b‑3c has, and the
+measurement decided the gate:
+
+- `acc_ledgers.costCentresApplicable` is **`0` on all 1,383 ledgers of all 14
+  companies**. The column has existed since `20260828100000-acc-ledgers`, whose
+  own comment reads *"Reserved for P5 and P7 respectively. Written by the seed,
+  read by nothing yet."* P7a is what reads it.
+- There are **zero** cost centres and were **zero** cost categories.
+- The real Tally Prime backup in `qa-artifacts/fixtures/tally` carries **exactly
+  one** Cost Category — `Primary Cost Category`, `allocaterevenue: true`,
+  `allocatenonrevenue: true` — **eleven** ledgers with *"cost centres are
+  applicable"* switched on (Bank Charges, Freight & Forwarding, two Purchase
+  heads, Salary and Wages, Sales Account, two vehicles…), and **no cost centres
+  at all**. Its owner turned the switch on and never created a centre.
+
+That last line is the phase in miniature: the feature has **no instance
+anywhere**, so a census would report green over a mechanism that has never run
+once.
+
+#### The whole feature has no instance, so the gate constructs it
+
+P5b's `advance` arm, P5c‑3's mixed voucher and P6's closing stock, a fourth
+time — and by now it is less a discovery than a habit worth naming. Properties
+(5) through (10) build, inside a **rolled-back** transaction per company: two
+real categories through the real service (one revenue-only, one both), a real
+two-level tree in the first and a root in the second, and then — the part the
+world has never contained — `costCentresApplicable = 1` on a **real posted P&L
+ledger**, so the invariant is asked about a journal line that exists rather than
+about a fixture.
+
+Property (0) then asserts nothing survived: `SELECT COUNT(*) … WHERE name LIKE
+'QA·P7a%'` is 0 after every rollback. A committed scratch category is a row the
+parity harness would capture and a `QA·P7a Department` sitting in a customer's
+masters.
+
+#### ⚠️ Σ **per category** — the rule, and why the gate restates it
+
+Every cost centre belongs to exactly one category, and a business may have
+several: *Department* and *Location* are two independent ways of cutting the same
+expense, so a ₹1,69,400 purchase line is allocated **in full under each**. The
+invariant is therefore stated once per category:
+
+```
+for each applicable category:  Σ allocation.amount  =  line.debit − line.credit
+```
+
+Summing across categories instead is the mistake the rule exists to prevent: four
+rows totalling ₹3,38,800 against a ₹1,69,400 line is **correct**, and a whole-line
+Σ reads it as a 100 % over-allocation. Property **(7c)** is that sentence measured
+on a real line — Σ over *all* the rows is 2× the line and the invariant is quiet —
+with **(7d)** computing the per-category sums in the gate rather than trusting the
+rule's own arithmetic. P6's first injection passed because its oracle imported the
+constant it was checking; that is §13's standing shape in P2b‑3c's variant, and
+(7c)/(7d) are written the other way round on purpose.
+
+⚠️⚠️ **It is signed, where the bill register's Σ compares magnitudes**, and the
+two differ deliberately. A bill reference partitions what a party *owes* and both
+directions genuinely occur on one ledger, so magnitude is the quantity being
+partitioned. An allocation partitions the line's own net movement, and a credit
+note against a department has to **reduce** that department's spend — so the sign
+travels with the allocation and a Cost Centre Summary is a plain Σ with no
+direction to reconstruct. The spec asserts the magnitude form would have accepted
+a wrong-signed row.
+
+#### It warns. It does not refuse.
+
+§3.7: *"a partial or missing allocation is a warning on a reconciliation report,
+not a refused save."* Nothing in `cost-allocation.const.ts` throws, and a test
+asserts it — the same ruling and the same test `statutory-windows.const.ts`
+carries for the three filing deadlines, for the same reason: refusing punishes an
+operator for a fact about the *books* being incomplete, and silence means the
+incompleteness is found by whoever reads the report months later.
+
+⚠️ The *"missing"* half is what a lazier rule loses. A check that only looked at
+rows that exist could never report the commonest incompleteness there is — a
+switched-on ledger with no allocation at all — and property (7a) is that case,
+reported with the ledger's name, the category's, and both figures. Injection 2
+below is exactly that rule written lazily.
+
+#### Which ledgers a category cuts is DERIVED, not listed again
+
+`allocateRevenue` / `allocateNonRevenue` are Tally's two switches, and they
+classify by **statement**: revenue is a Profit & Loss figure, non-revenue a
+Balance Sheet one. `costItemKindOf` reads `ACCOUNT_NATURE_META[nature].statement`
+rather than restating which natures are which — D-54's shape (`bookForAccountType`
+— *"derived, so a new type cannot fall out of both"*), and a fifth account nature
+would acquire a kind by having a statement rather than by anyone remembering this
+file. A spec asserts every nature that exists resolves.
+
+⚠️ **`null` in, `null` out.** `acc_groups.nature` is nullable for exactly two of
+Tally's primaries — `Suspense A/c` and `Branch / Divisions`, which have no fixed
+side of the books — and a ledger filed under one cannot be called revenue or
+non-revenue without inventing the answer. It means *"no category applies"*, which
+is the quiet, correct behaviour for a rule that only warns. It is not a default
+waiting to be tidied in.
+
+⚠️⚠️ And a category that allocates **neither** kind is refused at creation, in a
+sentence: it would apply to no ledger, no allocation against it could ever be
+reconciled, and every one would be reported as `NotApplicable` for ever. Better a
+400 than a reconciliation report nobody can act on.
+
+#### The trees have to be parallel, or the per-category Σ is not true
+
+`describeCentrePlacementBlock` refuses a parent in another category, and this is
+not tidiness. Every P7d report will roll a subtree up by `path` prefix **within
+one category**, so a *location* hanging under a *department* would be collected by
+a Department Summary with no business seeing it, and the two categories' totals
+would overlap — which is the parallel-category invariant failing one level down
+from where it is stated.
+
+The tree itself is `acc_groups`' tree, and `materialised-path.const.ts` had
+already said so in its own header: *"§3.7's `cost_centres` carries a `path` too,
+for the same reason and with the same trap. One definition, one spec, two
+callers."* P7a is the second caller — `buildPath`, `subtreePrefix`, `depthOf` and
+`rebuildSubtreePaths` are all shared, so BUG-0023's dropped terminator has one
+place to be got wrong rather than two.
+
+⚠️ **A cost centre move is never refused for having posted**, unlike a group's
+re-parent, and the difference is worth stating: a group's `nature` is denormalised
+onto its whole subtree, so moving it re-signs figures already reported. A centre's
+path carries no such copy, and re-organising departments between years is exactly
+what a business does. Every allocation keeps naming the same centre and every
+report simply rolls it up somewhere new — which is the truthful answer.
+
+#### 🐞 Four injections, all caught, and one caught twice
+
+| Injection | Caught by |
+|---|---|
+| Σ over **all** allocations instead of per category | (7b) and (7c), the second printing *"Σ all rows ₹3,38,800.00 vs line ₹1,69,400.00"* |
+| Only check categories that **have rows** — the *"missing"* half dropped | (7a) and (7b) |
+| The cross-category parent refusal removed | (9a) *"did not refuse at all"* — **and (9e)**, whose message counts the category's centres and read `3` where the property says `2` |
+| `path` built by hand at the call site, terminator dropped | (5), printing `/137 · /137138 · /139` |
+
+The third is the one worth keeping. (9e) asserts a refusal **against its own
+sentence** — *"still holds 2 cost centres"* — so a defect three properties away
+that changed how many centres exist failed it as a side effect. That is the
+argument for matching the message rather than the throw, made by accident: a bare
+`toThrow()` is satisfied by a 404 on a mistyped id, and it would also have been
+satisfied here.
+
+⚠️ Property **(2)** — every path terminated and agreeing with its own depth — did
+**not** catch the fourth, and that is honest rather than a gap: it is a census
+over committed rows, and there are none, so it is vacuous on today's data. (5) is
+what exercises path construction, because (5) builds the tree.
+
+#### Guard-rails tripped, and one that bit
+
+Every one of §6's guards was hit and cleared: the scope registry (both entities
+classified, with the sharp edge named — a centre list is a map of how a business
+is organised), `company-hard-delete-order` (one edge, `cost_centres → cost_
+categories`, plus the self-edge in `SELF_REFERENCING_NULL_OUT`; positions 33 and
+34 of 122), the audit registries, the permission registry, `MODULE_BY_PERMISSION_
+KEY`, the role matrix, and `ci-guard-body-dto`.
+
+⚠️ **`ci-guard-raw-sql` failed on eight sites and seven of them were not P7a's.**
+The allow-list is keyed by `path:line`, so the 25 lines P7a added to
+`company-provisioning.service.ts` moved every entry below them — the exact trap
+CLAUDE.md §14 records from 2026-08-26. Each of the seven was re-read at its new
+line and still describes the statement now at it (the `companies` duplicate probe,
+the `insert()` helper, `countries`, `states`, `users`-by-email, the `users` insert,
+the `freeUsername` probe); the keys were re-pointed, not re-justified.
+
+⚠️⚠️ **`check-mirrors.js` caught the frontend half**, which is what it is for:
+`'cost-centres' is in client-back but missing from client-front`. The permission
+key exists on the server a phase before any screen does — the order `acc-ledgers`
+arrived in (P2b‑3b's 18 routes, P3d‑2's screen) — but the licence map is mirrored
+in the same commit regardless, because a key on one side only is the drift the
+check exists to catch.
+
+#### The allocation delete guard is wired a phase before the table it protects
+
+`describeCentreDeleteBlock` refuses erasing a centre that has been allocated to —
+§4.9 rule 2 (*"a voucher that ever posted is never erased"*) one dimension across
+— and `CostCentreService.remove` already calls it, with an `information_schema`
+probe answering 0 until `cost_allocations` exists. That is deliberate and is
+allow-listed with the argument: §13's standing shape is *one rule enforced at the
+places somebody thought of*, and the place that gets forgotten is the delete
+written a phase before its table.
+
+#### What P7b inherits
+
+- **The gate sentence.** *"Every Trial Balance figure is unchanged by the presence
+  of allocations"* is only falsifiable once allocations exist. P7a's (6) is the
+  same capture-either-side shape and will be the skeleton of P7b's.
+- **`applicableCategories` is the seam.** It is the only reader of the two
+  switches, and P7b's writer in `persistLines` asks it once per party-or-P&L line.
+  Nothing else may ask them, or the answer acquires a second definition — BUG-0046's
+  shape (a decision applied to every writer of a column and to none of its readers).
+- **Nothing is switched on.** A company's first cost centre and its first
+  `costCentresApplicable = 1` are both an operator's decision, and P7c is the
+  screen where they make it. Until then P7b's writer runs over `applicableCategories`
+  returning empty for every line in the world, which is a correct no-op and is
+  also why P7b's gate must construct exactly as this one did.
+- **No centres are seeded, deliberately** — the call `OPERATION_TYPES` and
+  `HOLIDAYS` already make: a guessed *Head Office* / *Marketing* is live master
+  data nobody chose, and here it would additionally start demanding allocations on
+  every P&L line the moment a ledger's switch went on.
+
+#### Everything else, re-run
+
+`npm test` **2031/2031** (132 suites, was 2002); all five guards green; `npm run
+build` and `lint:ci` clean in both repos; `check-mirrors` in sync;
+`dump-routes` boots the real `AppModule` and lists **945** routes, 19 of them new.
+Earlier gates: `qa:p1-group-tree` 56, `qa:p2c-import-tree` 227, `qa:p3-ledger-report`
+140, `qa:p3b-statements` 323, `qa:p5-bill-register` 157, `qa:p5b` 9, `qa:p5c` 9,
+`qa:p5c3` 18, `qa:p5d-annexure` 16, `qa:p6-trading` 154.
+
+⚠️ **The one pre-existing failure is unchanged**: `qa:p2-ledgers` (2) on company
+28 — *"449 in population, 422 planned"* — reproduced on `main` at P6 and recorded
+there. `party_ledger_plan` is deliberately frozen after D3, so that population
+keeps drifting past it; whether the property is still asking an answerable
+question belongs to whoever owns D9.
+
 ### Verification pass — 2026-08-28
 
 The plan was written from a reading of the source. It has since been checked
@@ -6296,12 +6557,33 @@ sentence is also not sufficient on its own: it holds under *any* partition, so a
 section on the wrong side of the line passes it. Property (5a) is the one that
 does not.
 
-### P7 · Cost centres `[L]`
+### P7 · Cost centres `[L]` — split into four
 
 §3.7 in full, including categories, classes and the four reports.
 
 **Gate:** every Trial Balance figure is unchanged by the presence of allocations —
 the proof that the GL was not touched.
+
+⚠️ **Split on the same argument as the four splits before it** (P2, P3, P4, P5):
+an `[L]` here is four separable claims, each with its own gate, and the one thing
+this programme has learned about a large phase is that the gate written at the
+end covers what the author remembers. The order is the same one P5 used — the
+table, then the engine that maintains it, then the screens, then the reports —
+because every earlier link is what the next one's gate ties to.
+
+| | | |
+|---|---|---|
+| **P7a** | `cost_categories` · `cost_centres` · the per-category invariant · the masters API | **done** — [record](#p7a-record--2026-08-31) |
+| **P7b** | `cost_allocations`, written from `persistLines`; the voucher's allocation payload | not started |
+| **P7c** | The masters screen, the entry screen's allocation panel, and cost centre classes | not started |
+| **P7d** | Cost Centre Summary · Category Summary · Cost Centre Breakup · Ledger Breakup | not started |
+
+⚠️ **The plan's gate sentence belongs to P7b**, not to P7a — there are no
+allocations until P7b, so *"unchanged by the presence of allocations"* is
+unfalsifiable before then. P7a's version of it is the same claim about the
+*masters*: a category, a two-level tree in two categories and a switched-on
+ledger, all constructed inside a rolled-back transaction, with the Trial Balance
+captured either side of them.
 
 ### P8 · Posting rules, budgets, interest, multi-currency, scenarios `[L]`
 
