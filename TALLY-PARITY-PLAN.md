@@ -565,6 +565,40 @@ Summary's `categoryId` predicate changes nothing, because a centre belongs to
 one category for life and `describeAllocationPayloadBlock` refuses a row that
 names another — the filter is the index's, not the rule's.
 
+**And P7d‑2 is done, which closes P7: a person can read the dimension.** The
+five reports P7d‑1 shipped had **no caller** — BUG-0068's *"an endpoint nothing
+calls is an endpoint nobody has run"*, with the gate as the only thing that had
+ever run them — and P7d‑2 is the callers, plus the two `DrillTarget` members
+that make them a journey: *Category Summary → Cost Centre Summary → a centre →
+its ledgers → a ledger's own report → a voucher*, one click a screen, Esc back
+out. Gate **8/8** in a browser, seven injections, parity diff **empty** and
+nothing re-based, because no DTO, no service and no query changed. ⚠️ **Two
+members, not the one the plan named**: the first hop is a *category* opening its
+own tree and it resolved nowhere either, and spelling one of them as a
+`routerLink` is the per-report URL `drill-target.ts` exists to prevent —
+injection 7 measures it. ⚠️⚠️ **Four tabs for five reports**, and the asymmetry is
+a rule: a tab is for a report whose subject is at most **one** picker away, and a
+cost centre's is two (a category, then a centre in that category's tree) — the
+Cost Centre Summary already *is* that picker, so its breakup is reached by
+drilling and still has a URL somebody can paste. ⚠️ **The screen is where "no
+grand total" becomes visible**: the API says it by having no field, and a reader
+who has read neither file has no way to know they must not add the rows up — so
+the Category Summary prints a caption where every other report prints a total,
+and (1) asserts both halves at once, because *"there is no total"* is true of a
+screen with no rows. ⚠️⚠️ **The gate posts real money and cancels it** — these
+reports read `cost_allocations`, which exists only once a voucher has posted, so
+P7c‑3a's draft-only trade was not available; measured afterwards at **0.00 across
+every live allocation**, because an allocation is signed and a reversal negates
+it. ⚠️ And reading the two red gates P7d‑1 handed over found
+[BUG-0071](../qa-artifacts/docs/bugs/BUG-0071.md), which is **why** they were
+red: `trx_cost_allocations.ownerId` carries no foreign key, so erasing a voucher
+strands its allocations — unreadable (`sharesForOwners` is keyed by the id that
+no longer resolves) *and* undeletable, holding a cost centre hostage through
+`describeCentreDeleteBlock` with no draft behind it anybody could act on. 14
+orphans across 12 categories, fixed at the two erase seams, repaired by a script,
+and both gates' (0) made **census-relative** so they can no longer inherit
+another suite's leak.
+
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
 report whose shape is fixed?"*, and there is no longer a second derivation to
@@ -615,7 +649,7 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P7c‑3a | The Dr/Cr surface's allocation panel, the mirrored expansion, the wire | M | **done** — [§P7c‑3a record](#p7c-3a-record--2026-09-01) |
 | P7c‑3b | The item form's allocation panel — the voucher head and each charge row | S | **done** — [§P7c‑3b record](#p7c-3b-record--2026-09-01) |
 | P7d‑1 | The four cost reports' API, and the reconciliation §3.7 promised | M | **done** — [§P7d‑1 record](#p7d-1-record--2026-09-01) |
-| P7d‑2 | The cost reports' screens, and the drill spine's fourth target | M | not started |
+| P7d‑2 | The cost reports' screens, and the drill spine's fourth target | M | **done** — [§P7d‑2 record](#p7d-2-record--2026-08-31) |
 | P8 | Posting rules, budgets, interest, multi-currency, scenarios | L | not started |
 
 Sizes are relative, not calendar.
@@ -6524,6 +6558,216 @@ neighbouring gates: `qa:p1-group-tree` 56/56, `qa:p3-ledger-report` 140/140,
   still measures 0 posted allocations across 14 companies. P7d‑2's browser gate
   constructs its own, as P7c‑2's and P7c‑3's did.
 
+
+### P7d‑2 record — 2026-08-31
+
+**The dimension can be read by a person.** P7d‑1 shipped five derivations and
+`qa:p7d-cost-reports` held them to their arithmetic; **not one of them had a
+caller**, which is BUG-0068's *"an endpoint nothing calls is an endpoint nobody
+has run"* with the gate as the only thing that had ever run them. P7d‑2 is the
+callers, and the two `DrillTarget` members that make them a journey rather than
+five screens.
+
+| Artefact | What it is |
+|---|---|
+| `components/admin/transaction/reports/cost-categories/` | **Category Summary** — the landing report, and the one with no total. |
+| `…/cost-centres/` | **Cost Centre Summary** — one category's centre tree, `?categoryId=`. |
+| `…/cost-centre-breakup/` | **Cost Centre Breakup** — a centre cut by ledger, `?centreId=`. Drill-only. |
+| `…/cost-ledger-breakup/` | **Ledger Breakup** — a ledger cut by centre, sectioned per category. |
+| `…/cost-allocation-check/` | **The reconciliation** — §3.7's warning, as a list of sentences. |
+| `…/cost-reports.shared.scss` | Their five-component stylesheet, beside `reports.shared.scss` rather than in it. |
+| `utils/drill-target.ts` | Two new members — `cost-category` and `cost-centre`. |
+| `services/api-call.ts` +5 | The five reads. |
+| `qa-artifacts/tests/ui/money/cost-reports.ui.spec.ts` + `cost-report-rules.ts` | The gate — **8/8**, seven injections. |
+| `client-back` `CostAllocationService.discardForOwners` + `scripts/purge-orphaned-cost-allocations.ts` | 🐞 [BUG-0071](../qa-artifacts/docs/bugs/BUG-0071.md). |
+
+#### ⚠️ `DrillTarget` needed TWO members, not the one the plan named
+
+P7d‑1's handover asked for a **cost centre**. The journey it described in the
+same paragraph — *Category Summary → Cost Centre Summary → a centre → its
+ledgers → a ledger's own report → a voucher* — needs two: the first hop is a
+**category** opening its own tree, and it resolved nowhere either. Adding one and
+spelling the other as a `routerLink` would have been the per-report URL
+`drill-target.ts` exists to prevent, and injection 7 measures exactly that
+(a `router.navigate` in place of the drill leaves the route stack empty, so Esc
+walks the reader out one screen and then stops).
+
+They are deliberately **not** interchangeable with `group`/`ledger`, even though
+both pairs are a tree and its leaves: a cost centre answers *which part of the
+business*, never *which side of the books*, so nothing resolves a `cost-centre`
+onto a statement.
+
+#### ⚠️⚠️ Four tabs for five reports, and the asymmetry is a rule
+
+A sub-nav tab is for a report somebody can reach **cold**, which means its
+subject is at most one picker away — a ledger, a group, a category. The Cost
+Centre Breakup's subject is **two**: the centres are scoped to a category and
+their tree is drawn per category, so picking one from nothing means choosing a
+category and then a centre. The Cost Centre Summary already *is* that picker,
+with the figures beside it, one click away.
+
+So it is reached by drilling — and it is still a real route with its subject in
+the query string, which is what makes it pasteable and what lets the drill stack
+restore it. `COST_REPORT_TABS` in the gate's rules file states the four, and (8)
+asserts the fifth has none, because an asymmetry nobody wrote down is one
+somebody tidies away.
+
+#### The screen is where "no grand total" becomes visible
+
+`cost-allocation.const.ts` has argued since P7a that the categories are parallel
+partitions of the same figure, and P7d‑1 made the API say so by having **no
+field** to put a total in. A screen can still print one, and a reader who has
+never read either file has no way to know they should not add the rows up.
+
+So the Category Summary prints a **caption where every other report here prints
+a total row**, and (1) asserts both halves at once: two categories carrying the
+posted money *and* no `.grand-total-row` in the table. Either alone is
+satisfiable by a defect — *"there is no total"* is true of a screen with no rows,
+and *"both categories show a figure"* is true of one that would happily add them.
+
+The same ruling one level down is what makes the Ledger Breakup **sections**
+rather than one table with a category column: each section is a *complete* cut,
+`allocated + unallocated = the ledger's own figure`, and (6) asks it **per
+section** — never `Σ sections = the ledger`, which is the check that passes on a
+report that split one figure between two categories.
+
+#### ⚠️ The gate posts real money, and the cleanup cancels rather than deletes
+
+Every P7 gate has measured the same empty ground: `costCentresApplicable` is `0`
+on all 1,383 ledgers of all 14 companies, no centres, no allocations. P7c‑3a's
+browser gate could stop at the **draft's** own statement
+(`trx_cost_allocations`) and deliberately did. These five reports read
+`cost_allocations`, which exists only once a voucher has **posted** — so this
+file approves two real journals, which is the trade
+`bill-reference-grid.ui.spec.ts` already makes and ends the same way: *a voucher
+that ever posted is never erased*, so the sweep **cancels** them. Measured
+afterwards: **0.00 across every live allocation**, because an allocation is
+signed and a reversal negates it (P7b), and every one of these reports honours
+`liveEntrySql` besides.
+
+⚠️ The masters are **ensured, not re-created per run**, and that is the other
+half of the same fact: a centre that has been allocated to can no longer be
+erased, so a per-run copy leaves one archived set behind on **every** run —
+which is precisely the leak P7d‑1 had to file against P7c‑3. One fixed set,
+created on the first run and reused, with the ledger switched back off at the
+end so `qa:p7a-cost-masters` (4) still sees the ground it describes.
+
+#### 🐞 Reading the two red gates found a real defect, and it is why they were red
+
+[BUG-0071](../qa-artifacts/docs/bugs/BUG-0071.md).
+`trx_cost_allocations.ownerId` carries **no foreign key** — the column is
+polymorphic over D6's four `ledgerId` holders, and that is documented. What was
+not written down is the consequence: **the database therefore removes nothing
+when the owner goes.** A hard delete erases the `trx` or the
+`trx_payment_receipts` row, `ON DELETE CASCADE` takes its charges or its lines,
+and every allocation they carried stays, naming an id that is not there.
+
+An orphan is worse than untidy in two directions at once. **Nothing can read
+it** — `sharesForOwners` is keyed by the id that no longer resolves. And **it
+holds a cost centre hostage for ever**: `describeCentreDeleteBlock` counts
+`trx_cost_allocations` on purpose, so a centre named by an unapproved draft is
+refused rather than turning that draft's approval into a foreign-key error weeks
+later — but an orphan has no draft behind it and no screen can show it, so the
+refusal it causes can never be acted on. The centre is undeletable, then the
+category above it is, with nothing anywhere able to say why.
+
+Measured: **14 orphans holding 14 centres in 12 categories**, every one written
+by `voucher-allocation.ui.spec.ts` deleting its own scratch vouchers — the
+cleanup doing exactly what it should. `discardForOwners` is the missing half of
+`replaceForOwner`, called at the **two erase seams** with the child ids read
+*before* the destroy (they cascade away, and a moment later there is no way left
+to name them); `scripts/purge-orphaned-cost-allocations.ts` is the repair, and
+it **stops** on an `ownerType` it has no table for rather than falling through
+to a delete.
+
+⚠️ **And that is what had turned `qa:p7b-cost-allocations` (0) and
+`qa:p7c-cost-classes` (0) red.** Both were written as a global `COUNT(*) = 0`, so
+they inherited another suite's leak and reported it as their own failure —
+*a permanently-red gate is one nobody reads*, which P7d‑1's record filed and
+asked for the census-relative form its own (0) already had. Both have it now,
+and it stopped being optional the moment this phase's gate started posting and
+cancelling real vouchers by design. **139/139** and **307/307**.
+
+#### Seven injections
+
+| # | Injection | Caught by |
+|---|---|---|
+| 1 | the Category Summary grows a grand total row | (1) |
+| 2 | a summary row reports its OWN figures, not its subtree's | (2) and (3) — ⚠️ **and the compiler first** |
+| 3 | a `cost-category` drill drops the origin's period | (2) |
+| 4 | a category that no longer applies is hidden rather than reported | (7) |
+| 5 | the check re-words `costAllocationProblems`' sentence | (8) |
+| 6 | the breakup's ledger drill drops the period | (4) |
+| 7 | a category row navigates itself instead of emitting a `DrillTarget` | (5) |
+
+⚠️ **Injection 2 was refused by the compiler before the gate could see it** —
+the spec's own `CentreNode` does not declare `own`, so printing it is a `TS2339`.
+That is P7d‑1's injection 6 a second time, and the same lesson: *the safe
+behaviour has to be the one you get for free*. It was then widened deliberately
+so the property itself could be measured, and it failed twice.
+
+⚠️⚠️ **Injection 3 failed (2) and NOT (5)**, which is the separation working: the
+period travelling *in* is the drill's job, and Esc restoring an origin is the
+route stack's — it stores the origin's whole URL, so it comes back correct even
+when the outward hop lost the range. Two properties, two mechanisms, and a
+single test conflating them would have hidden one of them.
+
+#### ⚠️ And a third absolute count, met while proving the second
+
+`qa:p7d-cost-reports` (0) went **red on this phase's own mark**. Its census half
+was already relative; its *named-row* half was written as `LIKE 'QA·P7d%'`, and
+that wildcard also matches **`QA·P7d2`** — the mark P7d‑2's gate puts on the
+masters it deliberately keeps. So a property whose rollback was perfect failed on
+a later phase's name.
+
+The patterns are this script's own spellings now (`QA·P7d ` with the space for a
+master, `QA·P7d-` with the hyphen for a voucher). Same family as the two census
+fixes above, and worth stating as a rule: **a count that means *"my rows"* has to
+be written so it can only ever mean that** — a phase mark is a prefix of the next
+phase's mark, every time.
+
+#### Everything else, re-run
+
+`npm test` **2096/2096**, all five guards green, both `build`s and both
+`lint:ci`s clean (no new warning), `check-mirrors` in sync — nothing here is
+mirrored, because the report payloads are **read**, never restated — `dump-routes`
+**unchanged**, and the parity diff **empty with nothing re-based**, which it is by
+construction: no DTO, no service and no query changed. The neighbouring gates:
+`qa:p7a-cost-masters` 264/264, `qa:p7b-cost-allocations` 139/139,
+`qa:p7c-cost-classes` 307/307, `qa:p7d-cost-reports` 169/169.
+
+The whole browser lane is **`qa:money` 130 passed / 1 failed**, and the one
+failure is **not this phase's**: `bill-reference-grid` (6) — *"search reaches the
+rest"* — which passes **7/7 in isolation**, twice. Nothing here touches the
+open-bills read, its `search` or its bounded window; what the lane adds is
+position, and this lane is documented as over the ERP's 100 req/min per-IP
+budget throughout (CLAUDE.md §11 — *"a new suite spends a budget that is already
+gone"*), so a throttled search response arriving after that property's own 2.5 s
+wait leaves the grid showing the page it had. Recorded rather than papered over:
+widening someone else's timing on a hunch is how a flake becomes a rule nobody
+can read.
+
+⚠️ **And the sweep did not see the five new screens on that run** — Playwright
+collects a spec's data at load, and `screens.ts` was edited mid-lane, so the
+sweep went from `daily-cash` straight to `stock-ledger`. Run on its own
+afterwards: **5/5**. Worth knowing before reading a green lane as coverage of a
+list that changed while it ran.
+
+#### What P8 inherits
+
+- **P7 is complete.** The cost dimension has masters, figures, a template, five
+  entry hosts, four reports, a reconciliation and a screen for every one of them.
+- ⚠️ **The world is still empty by choice.** `costCentresApplicable` is `0` on
+  every ledger of every company and the gate switches it back off; the feature
+  is now reachable end to end by a customer who decides to use it, and no
+  customer has. The first one to switch a ledger on is the first real
+  measurement this dimension will get.
+- ⚠️⚠️ **A browser gate over posted figures leaves a cancelled voucher per run**,
+  and that is the standing cost of measuring a report that reads
+  `cost_allocations`. It is figure-neutral — the pair nets to zero and
+  `liveEntrySql` drops both — but it is not free, and a gate that ran on every
+  commit would want a scratch company rather than company 28.
+
 ### Verification pass — 2026-08-28
 
 The plan was written from a reading of the source. It has since been checked
@@ -7370,7 +7614,7 @@ caches deliberately not consulted — and gains a hierarchy and a spine.
 | **Bills Receivable / Payable** *(new)* | ✅ **Landed in P5d.** Derived from `bill_references`, with ageing — party rows carrying the total the two Outstanding screens showed, expanding to the bills behind it. `GET /reports/bills-receivable` and `…/bills-payable`; the two Outstanding tabs render them and every old path still redirects. ⚠️ A party appears under **exactly one** side (their ledger hangs under one control group, D3), so a dual-role party's contra bills travel with them as *owed back* rather than being reported twice. |
 | **Cash / Bank Book** | Become instances of the Ledger report. `CASH_BOOK_ACCOUNT_TYPES`'s derivation (D-54) is preserved as the group assignment during migration, so no account can fall out of every book the way UPI did. |
 | **Day Book** | Its lines drill into the **ledger** since P3d‑1 (P3b put `ledgerId` on every one). The voucher-type chips and the drill into the *voucher* are still to come — `dayBook` returns each entry's id but not the `sourceType`/`sourceId` pair a document is opened by, and adding them is a payload change the parity harness captures. |
-| **Cost Centre reports** *(new)* | ✅ **Landed in P7d‑1** — four, per §3.7, plus the reconciliation. `GET /reports/cost-centre-summary/:categoryId` · `…/cost-category-summary` · `…/cost-centre-breakup/:centreId` · `…/cost-ledger-breakup/:ledgerId` · `…/cost-allocation-reconciliation`. ⚠️ Every one is scoped to a single category structurally: the categories are parallel partitions of the same figure, so the Category Summary has **no grand total** and the Ledger Breakup is sectioned rather than summed. Screens are P7d‑2. |
+| **Cost Centre reports** *(new)* | ✅ **Landed in P7d‑1** — four, per §3.7, plus the reconciliation. `GET /reports/cost-centre-summary/:categoryId` · `…/cost-category-summary` · `…/cost-centre-breakup/:centreId` · `…/cost-ledger-breakup/:ledgerId` · `…/cost-allocation-reconciliation`. ⚠️ Every one is scoped to a single category structurally: the categories are parallel partitions of the same figure, so the Category Summary has **no grand total** and the Ledger Breakup is sectioned rather than summed. **Screens landed in P7d‑2** — four sub-nav tabs (Cost Categories · Cost Centres · Ledger Breakup · Allocation Check) plus the Cost Centre Breakup as a drill destination, and `DrillTarget` gained `cost-category` and `cost-centre`. |
 
 **The drill-down is one shared mechanism**, not per-report links: a `DrillTarget`
 union (`group` \| `ledger` \| `voucher`) with a single resolver, so a new report
@@ -8030,7 +8274,7 @@ because every earlier link is what the next one's gate ties to.
 | **P7c‑2** | The masters screen — categories · the centre tree · classes | **done** — [record](#p7c-2-record--2026-09-01) |
 | **P7c‑3** | The entry screen's allocation panel, and `expandCostCentreClass` mirrored | not started |
 | **P7d‑1** | Cost Centre Summary · Category Summary · Cost Centre Breakup · Ledger Breakup · the reconciliation — the API | **done** — [record](#p7d-1-record--2026-09-01) |
-| **P7d‑2** | Their screens, and `DrillTarget`'s fourth member | not started |
+| **P7d‑2** | Their screens, and `DrillTarget`'s fourth and fifth members | **done** — [record](#p7d-2-record--2026-08-31) |
 
 ⚠️ **The plan's gate sentence belongs to P7b**, not to P7a — there are no
 allocations until P7b, so *"unchanged by the presence of allocations"* is
