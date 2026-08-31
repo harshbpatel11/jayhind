@@ -1061,6 +1061,14 @@ if (hubFeatureColumns && hubFeaturesDto && consoleFeatures) {
 // expansion it is one statement with; the centre rules live with the allocation
 // invariant they protect. The screen is one screen, so the mirror is one file —
 // and the name check below reads both sources.
+//
+// ⚠️⚠️ **P7c‑3 added a comparison that is not a sentence.** `expandCostCentreClass`
+// is MONEY: a class is a stencil, so the entry screen expands it, the operator
+// sees the rows, and what is saved is the rows — two sides rounding a third of
+// ₹1,000 differently means the operator reads one split and the books carry
+// another, with nothing to say which was meant. `FIGURE_RULES` compares it share
+// by share in **integer paisa with `===`**, never `near`: P7c‑1 measured a
+// paisa-tolerant check reading ₹0.06 as equal to ₹0.05 and passing.
 {
   const BACK_CA = 'jayhind-client-back/src/const/cost-allocation.const.ts';
   const BACK_CC = 'jayhind-client-back/src/const/cost-centre-class.const.ts';
@@ -1162,6 +1170,28 @@ if (hubFeatureColumns && hubFeaturesDto && consoleFeatures) {
         section: 'classDelete', fn: 'describeClassDeleteBlock', mod: () => backClass, literal: true,
         call: (m) => m.describeClassDeleteBlock(),
       },
+      {
+        // P7c‑3 — the VOUCHER's own payload rule. Literal for `classLines`'
+        // reason: the fact space is a list of shares plus two maps.
+        section: 'allocationPayload', fn: 'describeAllocationPayloadBlock', mod: () => backAlloc, literal: true,
+        call: (m, row) => m.describeAllocationPayloadBlock(row.shares, mapById(row.centres), mapById(row.categories)),
+      },
+    ];
+
+    // ⚠️ **The expansion is not a sentence, it is MONEY**, so it is compared
+    // separately and in INTEGER PAISA with `===`. A class is a stencil: the
+    // screen expands it, the operator sees the rows, and what is saved is the
+    // rows — so two sides rounding a third of ₹1,000 differently means the
+    // operator reads one split and the books carry another, with nothing to say
+    // which was meant. A paisa-tolerant comparison cannot see that defect;
+    // P7c‑1 measured it (70/30 of ₹0.05 came out as ₹0.06 and passed a `near`
+    // check), which is why this comparator exists rather than reusing the one
+    // above.
+    const FIGURE_RULES = [
+      {
+        section: 'classExpansion', fn: 'expandCostCentreClass',
+        call: (m, row) => m.expandCostCentreClass(row.lines, row.amount),
+      },
     ];
 
     // The name check, and it is not redundant: a rule that exists on one side
@@ -1173,6 +1203,10 @@ if (hubFeatureColumns && hubFeaturesDto && consoleFeatures) {
       ...parseExportedFunctions(backCc).filter((n) => REFUSALS.test(n)),
     ];
     const frontNames = parseExportedFunctions(frontCr).filter((n) => REFUSALS.test(n));
+
+    // `RULES` only: `backNames`/`frontNames` are the `describe*Block` families,
+    // and `expandCostCentreClass` is not one of them. Its own name check is
+    // below, inside the loaded guard.
     const mirrored = new Set(RULES.map((r) => r.fn));
     for (const n of mirrored) {
       if (!backNames.includes(n)) failures.push(`cost-rules: '${n}' is compared here and no longer exists in client-back`);
@@ -1181,18 +1215,38 @@ if (hubFeatureColumns && hubFeaturesDto && consoleFeatures) {
     for (const n of frontNames) {
       if (!backNames.includes(n)) failures.push(`cost-rules: '${n}' exists in client-front but not client-back — the screen would refuse something the server allows`);
     }
-    // A backend refusal with no mirror is NAMED, not failed: the entry screen's
-    // own payload rule (`describeAllocationPayloadBlock`) is P7c‑3's, and a
-    // failure here would be a check demanding a phase that has not landed.
+    // A backend refusal with no mirror is NAMED, not failed. As of P7c‑3 all
+    // seven are mirrored and this is quiet; it stays because the next cost
+    // refusal will be written on the server first, and a check that FAILED on
+    // that gap would be demanding a screen that has not been built — which is a
+    // check somebody switches off. A note asks for the mirror without stopping
+    // the work that has to precede it.
     const unmirrored = backNames.filter((n) => !mirrored.has(n));
     if (unmirrored.length) {
       notes.push(
-        `⚠️  cost-rules: ${unmirrored.join(', ')} ${unmirrored.length === 1 ? 'is' : 'are'} not mirrored yet — ` +
-          'the voucher allocation panel is P7c‑3. Add a section to scripts/vectors/cost-rules.vectors.json with it.',
+        `⚠️  cost-rules: ${unmirrored.join(', ')} ${unmirrored.length === 1 ? 'is' : 'are'} not mirrored in ` +
+          'cost-rules.util.ts — add the mirror and a section in scripts/vectors/cost-rules.vectors.json ' +
+          'with the screen that needs it.',
       );
     }
 
     if (backAlloc && backClass && front) {
+      // The expansion is not a `describe*Block`, so the name regex above cannot
+      // see it — and a rule that exists on one side only has no vector to fail
+      // (check 5's argument for keeping a name comparison beside a behavioural
+      // one). Named explicitly for that reason.
+      for (const rule of FIGURE_RULES) {
+        if (typeof backClass[rule.fn] !== 'function') {
+          failures.push(`cost-rules: '${rule.fn}' is compared here and no longer exists in client-back`);
+        }
+        if (typeof front[rule.fn] !== 'function') {
+          failures.push(
+            `cost-rules: '${rule.fn}' exists in client-back but not client-front — the entry screen ` +
+              'would have to ask the server to expand a class, which is not what a stencil is',
+          );
+        }
+      }
+
       let compared = 0;
       for (const rule of RULES) {
         const cases = table[rule.section];
@@ -1231,6 +1285,47 @@ if (hubFeatureColumns && hubFeaturesDto && consoleFeatures) {
         }
       }
 
+      // ── the expansion, share by share, in integer paisa ───────────────────
+      for (const rule of FIGURE_RULES) {
+        const cases = table[rule.section];
+        if (!Array.isArray(cases)) {
+          failures.push(`cost-rules vectors: no '${rule.section}' cases in the table`);
+          continue;
+        }
+        // ⚠️ `[categoryId, costCentreId, paisa]`, and the ORDER is compared too:
+        // an expansion emitting the same shares in a different order would hand
+        // the panel's rows to different centres than the operator read.
+        const paisa = (shares) =>
+          (shares ?? []).map((x) => [Number(x.categoryId), Number(x.costCentreId), Math.round(Number(x.amount) * 100)]);
+        const show = (v) => JSON.stringify(v);
+        for (const vector of cases) {
+          const row = vector.given;
+          const b = paisa(rule.call(backClass, row));
+          const f = paisa(rule.call(front, row));
+          const expected = (vector.expect ?? []).map((x) => x.map(Number));
+          compared++;
+
+          if (show(b) !== show(f)) {
+            failures.push(
+              `cost-rules DRIFT · ${rule.section}/${vector.id}:\n` +
+                `      client-back:  ${show(b)}\n` +
+                `      client-front: ${show(f)}\n` +
+                '      (as [categoryId, costCentreId, PAISA] — compared exactly, never `near`)\n' +
+                `      — ${vector.why}`,
+            );
+          } else if (show(b) !== show(expected)) {
+            failures.push(
+              `cost-rules RULE CHANGED · ${rule.section}/${vector.id}:\n` +
+                `      both sides say ${show(b)}\n` +
+                `      the table says ${show(expected)}\n` +
+                '      (as [categoryId, costCentreId, PAISA])\n' +
+                `      — ${vector.why}\n` +
+                '      If the rule genuinely changed, update scripts/vectors/ in the same commit.',
+            );
+          }
+        }
+      }
+
       // The one constant both halves of the class rule are stated against. It is
       // compared as data because the sentence PRINTS it ("each category's lines
       // total 100%") and the expansion divides by it.
@@ -1243,8 +1338,9 @@ if (hubFeatureColumns && hubFeaturesDto && consoleFeatures) {
 
       notes.push(
         `cost-rules: ${compared} behavioural comparisons over ` +
-          `${RULES.reduce((n, r) => n + (table[r.section]?.length ?? 0), 0)} region cases, run against BOTH ` +
-          'implementations, comparing the message text (P7c‑2).',
+          `${[...RULES, ...FIGURE_RULES].reduce((n, r) => n + (table[r.section]?.length ?? 0), 0)} region cases, run ` +
+          'against BOTH implementations — the message text for the seven refusals, and the class ' +
+          'expansion share by share in integer paisa (P7c‑2, P7c‑3).',
       );
     }
   }

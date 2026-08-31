@@ -478,6 +478,34 @@ only arrived on Save would fire once for every keystroke nobody has typed yet.
 the dev server had not rebuilt, so the browser was running the code the edit had
 replaced. P5c‑1's own note a second time, with a different cause.
 
+**And P7c‑3a is done: a figure can be split on the voucher that posts it.** The
+Dr/Cr surface's head fields carry Tally's own allocation sub-screen, at Tally's
+own moment, and a **cost centre class** expands into its rows to the paisa. Gate
+**7/7**, five injections. ⚠️ **Which rows allocate is DERIVED, not written down**:
+the trigger sits on the grid's `ledger` rows and `accountingRowPlan` gives a
+`Ledger` ref to a **Journal alone**, because `postPaymentReceipt` reads
+`trxGroupId` only for a Journal — so a Payment's head is a classification and not
+a leg, and rows stored against it would be read by nothing, which is worse than a
+missing panel. ⚠️⚠️ **The one backend change is a field on a picker option** —
+`VoucherHeadOption.costCategoryIds` answers `applicableCategories` server-side, so
+the screen mirrors nothing for it: `costItemKindOf` is a *derivation* from each
+nature's own statement (D-54's shape) and its mirror could only have been a list.
+No report reads it, so the parity diff is empty by construction. ⚠️ **The two
+halves of §3.7 are drawn differently on purpose** — a malformed payload is
+refused with Accept disabled, an *incomplete* one is a coverage hint per category
+and saves, because a gate there would refuse both the ordinary case and the
+default one. ⚠️⚠️ Two real product bugs came out of the gate rather than out of
+review: **a dialog closing with the wrong result shape does not close at all**
+(`UnsavedChangesService` replaces `ref.close` and swallows anything without
+`status: true` — no error, no state change, an Accept button that looked live and
+was inert), and **a hydrated head announced nothing**, so every reopened voucher
+lost its panel — CLAUDE.md §14's placeholder-over-a-real-choice family one step
+on, where the picker renders correctly and the component beside it silently has
+nothing. ⚠️ And **injection 2 passed because the FIXTURE could not produce the
+error**: ₹1,000 at 33.3333×2 + 33.3334 has every exact share below a half, so
+`round` and `floor` agree; check 13 failed on three vectors while the browser gate
+stayed green, and the two instruments disagreeing is what exposed it.
+
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
 report whose shape is fixed?"*, and there is no longer a second derivation to
@@ -525,7 +553,8 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P7b | `cost_allocations`, written from `persistLines` | M | **done** — [§P7b record](#p7b-record--2026-09-01) |
 | P7c‑1 | Cost centre classes — the tables, the expansion rule, the masters API | M | **done** — [§P7c‑1 record](#p7c-1-record--2026-09-01) |
 | P7c‑2 | The masters screen — categories · the centre tree · classes | M | **done** — [§P7c‑2 record](#p7c-2-record--2026-09-01) |
-| P7c‑3 | The entry screen's allocation panel, and the mirrored expansion | M | not started |
+| P7c‑3a | The Dr/Cr surface's allocation panel, the mirrored expansion, the wire | M | **done** — [§P7c‑3a record](#p7c-3a-record--2026-09-01) |
+| P7c‑3b | The item form's allocation panel — the voucher head and each charge row | S | not started |
 | P7d | The four cost reports | M | not started |
 | P8 | Posting rules, budgets, interest, multi-currency, scenarios | L | not started |
 
@@ -5478,7 +5507,21 @@ author remembers.
 |---|---|---|
 | **P7c‑1** | Cost centre classes: the tables, the expansion rule, the masters API | **done** |
 | **P7c‑2** | The masters screen — categories · the centre tree · classes | **done** |
-| **P7c‑3** | The entry screen's allocation panel, the mirrored expansion, `check-mirrors` check 13 | not started |
+| **P7c‑3** | The entry screen's allocation panel and the mirrored expansion | split again at P7c‑3 — see below |
+
+⚠️ `check-mirrors` **check 13 landed at P7c‑2** rather than here: the masters
+screen needed the six refusals mirrored, so the check that compares them had to
+exist for it. P7c‑3 adds the two rules the *voucher* needs to the same table.
+
+⚠️⚠️ And P7c‑3 split again once measured, on this table's own argument. The panel
+has **four** hosts — the Dr/Cr grid's header head and its N-line rows, then the
+item form's own head and each of its charge rows — and the second pair is a
+re-hosting of a component the first pair builds, which is exactly P4b→P4c's seam.
+
+| | | |
+|---|---|---|
+| **P7c‑3a** | The Dr/Cr surface (a Journal's header head and its N lines), the mirrored expansion, the wire | **done** |
+| **P7c‑3b** | The item form — the voucher's own head, and each charge row | not started |
 
 The order is P5's and P7's own: *the table, then the engine that maintains it,
 then the screens*, because every earlier link is what the next one's gate ties
@@ -5868,6 +5911,256 @@ is a check somebody switches off.
   (with the split). `POST /cost-allocations/list` still has no caller.
 - ⚠️ **The world is still empty.** P7c‑3's gate will have to construct a switched-on
   ledger and a voucher as well as the masters — P5b's `advance` arm a seventh time.
+
+### P7c‑3a record — 2026-09-01
+
+**A figure can now be split on the voucher that posts it.** The Dr/Cr surface's
+head fields carry an allocation sub-screen — Tally's own, at Tally's own moment —
+and a **cost centre class** expands into its rows to the paisa.
+
+| Artefact | What it is |
+|---|---|
+| `client-front` `components/shared/voucher-cost-allocation/` | The sub-screen (`cost-allocation-dialog`) and the trigger that says whether a row is allocated (`cost-allocation-button`). |
+| `cost-rules.util.ts` `expandCostCentreClass` · `describeAllocationPayloadBlock` | The two rules the voucher needs, mirrored. |
+| `voucher-head-option.const.ts` `costCategoryIds` | **The one backend change** — the picker option now answers which categories apply to the head it offers. |
+| `acc-ledger.service.ts` `pickerFeed` | One read of the categories per page, through `CostCategoryService.list`. |
+| `scripts/vectors/cost-rules.vectors.json` + `check-mirrors.js` **check 13** | Two new sections — **134 comparisons over 49 region cases** — and a second comparator: the expansion, share by share, in **integer paisa**. |
+| `voucher-entry.ts` / `.html` | The header head and each N-line row, the payload, and the read-back. |
+| `qa-artifacts/tests/ui/money/voucher-allocation.ui.spec.ts` + `-rules.ts` | The gate, **7/7**, shown to fail **five** ways, and the rules restated a third time. |
+
+#### The wire carries the ANSWER, not the inputs — and that is a decision
+
+The panel has to know two things about a head: whether it is allocated at all,
+and across which categories. Both are `applicableCategories`, which turns on the
+ledger's `costCentresApplicable` switch and on its nature's **kind** — and
+`costItemKindOf` is deliberately a *derivation* from each nature's own financial
+statement (D-54's shape: *"a fifth nature gets a kind by having a statement, not
+by somebody remembering this file"*).
+
+So mirroring it would have meant writing that derivation out as a **list** on the
+frontend, which is the one shape the backend refused. `VoucherHeadOption` answers
+`costCategoryIds` instead: one field, derived where the fact lives, and the screen
+mirrors nothing for it. An empty array means *"not allocated"* and covers all
+three ordinary ways that happens at once — the switch off, no nature, no category
+configured — because a screen does not need to tell those apart.
+
+⚠️ **"Revenue" is Tally's word for a P&L item, not for income.** An **Expense**
+head is a revenue item, so a revenue-only category applies to it. Reading the
+flag as "income" is the mistake that makes an Expense head answer no categories
+at all — and it is the mistake this phase's own unit spec made first time, caught
+by the assertion rather than by review. It is now the one that names it.
+
+#### Which rows allocate is DERIVED from the posting engine, not written down
+
+On this surface only a **Journal** allocates, and nothing says so:
+
+- the trigger renders on the grid's `ledger` rows;
+- `accountingRowPlan` gives a `Ledger` ref to `journal` alone;
+- because `postPaymentReceipt` reads `trxGroupId` only for a Journal, so a
+  Payment's or a Receipt's head is a **classification** and not a leg — P4b
+  measured it as a leg of 0 of 974 payments and 0 of 1,888 receipts.
+
+That matters more than tidiness: rows stored against a head that is not a leg
+would be read by **nothing**. The operator would have allocated a figure and no
+report would ever show it — worse than the panel being absent. The DTO says the
+same thing in its own words, which is why the two agree without either importing
+the other.
+
+#### ⚠️ The expansion is compared in integer paisa, because a paisa is the defect
+
+`expandCostCentreClass` is a **stencil**: the screen expands it, the operator sees
+the rows, and what is saved is the rows. So if the two sides rounded a third of
+₹1,000 differently, the operator would read one split and the books would carry
+another, with nothing to say which was meant.
+
+Check 13's new comparator therefore compares `[categoryId, costCentreId, paisa]`
+with `===` and **in order**, never `near`. P7c‑1 measured why: a paisa-tolerant
+check read ₹0.06 as equal to ₹0.05 and passed. Three of its nine expansion
+vectors exist only to separate the two candidate algorithms —
+`expand-ten-way-nickel` (round-and-correct takes a share to −₹0.04, which the
+payload rule then refuses: *a class that made its own voucher unsavable*),
+`expand-tie-order` (equal remainders, so the line order breaks the tie), and
+`expand-70-30-nickel` (P7c‑1's own injection 1).
+
+#### The two halves of §3.7, drawn differently on purpose
+
+| | | |
+|---|---|---|
+| the **payload** is malformed | a centre in the wrong category, a negative or zero share | `describeAllocationPayloadBlock` — **refused**, Accept disabled |
+| the **books** are incomplete | ₹600 allocated of a ₹1,000 row | a **coverage hint per category**, and Accept stays live |
+
+⚠️ A coverage gate here would refuse the *ordinary* case — somebody allocating
+part of a figure and coming back to it — and the **default** case, which is a row
+with no allocation at all: a company that has just switched a ledger on has every
+voucher unallocated. Check 13 carries a vector for each of those two directions
+(`alloc-empty`, `alloc-partial`) precisely so a later "improvement" cannot quietly
+turn the panel into a gate, and the gate's (5) drives it end to end.
+
+⚠️⚠️ **Coverage is per category**, because the categories are parallel partitions
+of one figure: an expense split across two departments and two locations is four
+rows totalling 2× the row, and that is correct. `alloc-two-categories` is the
+vector; a whole-payload Σ would refuse every two-category voucher.
+
+#### Two small rulings the code had to make
+
+- **A head change drops the rows whose category no longer applies, and keeps the
+  rest.** Carrying them all would store a figure that can never be reconciled
+  (`costAllocationProblems` would report `NotApplicable` for ever); clearing them
+  all would punish re-picking a head inside the same kind, which is an ordinary
+  correction.
+- ⚠️ **An N-line Journal's allocations are keyed by POSITION**, so `removeLine`
+  re-keys both maps. Without it, removing line 1 hands line 2's split to line 1 —
+  silently, and against a different head. It is the defect a `Map<index, …>`
+  beside a `FormArray` produces whenever nobody re-keys, and gate property (7) is
+  what measures it.
+- **Changing an allocation marks the form dirty**, so `pendingChangesGuard` asks
+  about it; a hydration then re-marks pristine, because a voucher that opened
+  dirty is P4c's own defect one phase across.
+
+#### 🐞 What the gate found — four defects, and two of them were real product bugs
+
+Two are in the product and two in the harness, and the first is the one to carry.
+
+- ⚠️⚠️ **A dialog that closes with the wrong RESULT SHAPE does not close at all.**
+  `FormGuardDirective` is auto-applied by selector to any `[formGroup]`
+  (`SHARED_IMPORTS`), and inside a dialog it hands the ref to
+  `UnsavedChangesService.attachDialogGuard`, which **replaces `ref.close`**: a
+  result that is not `true` and does not carry `status: true` is read as *leaving
+  with unsaved changes* and swallowed behind a discard prompt. So `close({
+  shares })` did **nothing** — no error, no state change, `afterClosed` never
+  firing, an Accept button that looked live and was inert. Four gate runs went on
+  it. The tell was `MatDialogRef._state` still reading `OPEN` **after** `close()`
+  returned without throwing, which is only reachable through an early return.
+  `status: true` is therefore load-bearing rather than envelope cargo, and the
+  comment at the call site says so.
+  > A pleasant consequence: cancelling an edited panel now asks *"Discard unsaved
+  > changes?"*, which is exactly the loss that prompt is for.
+- ⚠️ **A HYDRATED head announced nothing, so every reopened voucher lost its
+  panel.** `app-ledger-picker` emits `optionChange` from `onSelection` — a person
+  clicking — and `writeValue` only pinned the id. A host that needs facts *about*
+  the chosen head therefore had none on an edit. It is CLAUDE.md §14's
+  *"why does a pre-selected picker render its placeholder?"* one step on: the
+  picker rendered its own value perfectly and the component beside it silently had
+  nothing. The picker now announces a hydrated option once it lands, at most once
+  per distinct id.
+- **A newly created ledger cannot answer its own `costCategoryIds`.**
+  `app-ledger-picker`'s `Alt+C` path *pins* the created option rather than
+  refetching (*"no search has run that would return it"*), and pinning cannot
+  carry a fact only the server computes. It now re-reads that one option when the
+  new ledger switched cost centres **on** — not `ensure()`, which skips an id it
+  has already pinned, which is exactly this id.
+- **`PUT /acc-ledgers/:id` answers no `data` key**, so the gate's construction
+  needed `allowNoData` — the same envelope note `voucher-entry.ui.spec.ts`
+  carries about a delete.
+- **One new `any` in the dialog**, removed rather than left: P7c‑2 recorded *"no
+  new one"* and a lint count that creeps is a count nobody reads.
+
+#### 🐞 And three things the gate got wrong about itself
+
+All three are the shape P7c‑2 recorded: *a harness that cannot set its own world
+up is indistinguishable from a screen that does not work.*
+
+- ⚠️ **A category default was a guess, and the gate is what proved it.** Every
+  company carries Tally's seeded `Primary Cost Category`, so a company with one
+  category of its own has **two** that apply — and `categoryIds[0]` as a default
+  opened each line already naming a category nobody chose, whose centre picker is
+  scoped to it and therefore **empty**. It is pre-filled only when the match is
+  **unique** now, which is `defaultHeadFor`'s own rule one screen across. Four
+  properties failed on it, and the fix is in the product rather than in the test.
+- ⚠️⚠️ **Coverage is per category, so *"no category has a remainder"* is the
+  wrong assertion** — the seeded category being unallocated is a true statement
+  about the books. The gate asserts the class's **own** category is covered in
+  full. This is the mistake a whole-payload Σ makes, made by the gate rather than
+  by the code.
+- **`cost_categories` is `UNIQUE(companyId, name)` including tombstones and a
+  Playwright RETRY re-runs `beforeAll`**, so a second attempt met its own first
+  attempt's category as a 400 and every property after it failed for a reason
+  that had nothing to do with the screen. The names carry a per-run token; the
+  sweep still matches the mark alone, so it clears every run's rows. The
+  construction census is scoped to this run **and to live rows** for the same
+  reason — an archived leftover reported four centres where three were built.
+- **The dialog is asserted gone with `toHaveCount(0)` at the house 20 s**, not
+  `toBeHidden` at 10: the masters gates' own convention, and the difference is
+  measurable on a dialog carrying `DialogLayoutDirective`.
+
+#### The five injections
+
+| # | Injection | Caught by |
+|---|---|---|
+| 1 | the panel refuses an INCOMPLETE split — a coverage gate | 4 fail, including (5), the property it is about |
+| 2 | the expansion rounds each line instead of largest-remainder | (3) — *"Σ is 100001 paisa where the figure is 100000"* |
+| 3 | `removeLine` stops re-keying the index-keyed maps | (7) — the allocation stays on the old position |
+| 4 | the trigger renders whether or not a category applies | (2) — and (7), which counts the switched-off line's triggers |
+| 5 | the picker stops announcing a HYDRATED head | (6) — every reopened voucher loses its panel |
+
+⚠️⚠️ **Injection 2 PASSED first time, and the property was the problem — not the
+edit.** The fixture split was ₹1,000 at 33.3333 / 33.3333 / 33.3334, and every
+exact share there ends in a fraction **below a half** (`33,333.3` paisa), so
+`Math.round` and `Math.floor` answer the same number and the two candidate
+algorithms are indistinguishable. `check-mirrors` check 13 failed on three
+vectors while this gate stayed **7/7 green** — the two instruments disagreeing is
+what exposed it.
+
+The split is **solved** now rather than picked: `33.3335 / 33.3335 / 33.3330`
+totals 100 % and lands the exact shares exactly ON a half, so
+largest-remainder gives `33334 · 33333 · 33333` (₹1,000.00) where
+round-each-line gives `33334 · 33334 · 33333` (₹1,000.01). It measures the
+**tie-break** at the same time — the first two remainders are equal, so the odd
+paisa goes to the line the class lists first. P7c‑1's *"a paisa of slack cannot
+see a paisa of error"* has a companion: **a fixture that cannot produce the error
+cannot see it either.**
+
+#### What is deliberately NOT here
+
+- ⚠️ **The item form** — the voucher's own head and each charge row. That is
+  **P7c‑3b**, and it is a re-hosting of the component this phase builds rather
+  than a second mechanism, which is P4b→P4c's own seam.
+- ⚠️⚠️ **Approval.** The gate asserts `trx_cost_allocations` — the *voucher's*
+  statement, where a draft keeps them — and does not approve. Posting them through
+  to `cost_allocations` means `ApprovalService.transition`, which commits its own
+  transaction, so a posted scratch voucher is a figure the parity harness would
+  capture with nothing behind it. That arm belongs to `qa:p7b-cost-allocations`,
+  which does it in a rolled-back transaction; the spec says so rather than
+  implying coverage, exactly as P5d's gate did about `isPaid`.
+- **`costAllocationProblems` still has no reader in the product.** P7d's
+  reconciliation report is where §3.7's *"a warning on a reconciliation report"*
+  acquires its report. Said here for the third phase running rather than implied.
+
+#### Parity
+
+The reports are untouched: the one backend change is a field on a **picker
+option**, which no report reads, and no DTO, posting rule or migration changed.
+The parity diff is empty by construction.
+
+#### Everything else, re-run
+
+`npm test` in `client-back` **2085/2085** across 133 suites (the head-option spec
+gained five cases), all five tree-scanning **guards** green (`npm run guards`),
+`npm run build` and `lint:ci` clean in `client-front` (**586** warnings, one fewer
+than P7c‑2's 587 — no new `any`), the breakpoint and token guards green, and
+`check-mirrors` **in sync** with check 13 at 134 comparisons over 49 region cases.
+No route is added, so `dump-routes` is unchanged.
+
+⚠️ And the **whole `qa:money` lane is green — 119 passed, 0 failed** in 13.7
+minutes, which is worth stating rather than assuming: this phase widened
+`app-ledger-picker` to announce a hydrated option, and that picker is on every
+voucher head field in the product. The lane's own note about being over the
+per-IP throttle still holds (six more browser tests were added to it), and P7c‑2
+recorded one unrelated failure in the full sweep; this run has none.
+
+#### What P7c‑3b inherits
+
+- **The component exists and is proven from a browser**, so hosting it on the item
+  form is a template change plus a payload field, not a second mechanism.
+- **Both rules are mirrored and compared**, and the vector table has a section for
+  each — a charge row's allocation is the same payload rule over the same shares.
+- ⚠️ **`trx_charges` are destroyed and rebuilt on every save** (`TrxWriteService`),
+  so their ids change. That is why `POST /cost-allocations/list` shipped with P7b's
+  writer rather than with a screen: a form that could not read a charge's
+  allocations back would lose them on any edit, silently. P7c‑3b is the first
+  caller that has to get that right.
+- ⚠️⚠️ **The world is still empty** — nothing was left switched on. P7c‑3b's gate
+  constructs its own dimension, as this one does.
 
 ### Verification pass — 2026-08-28
 
