@@ -699,7 +699,8 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P8a | §3.4 — the leg table becomes a dated rule table | M | **done** — [§P8a record](#p8a-record--2026-08-31) |
 | P8b‑1 | Budgets — the tables, the rules, the API, the variance report | M | **done** — [§P8b‑1 record](#p8b-1-record--2026-09-01) |
 | P8b‑2 | The budget screen, and the variance report's screen | M | **done** — [§P8b‑2 record](#p8b-2-record--2026-09-01) |
-| P8c | Interest | M | not started |
+| P8c | Interest — the rule, the parameters, the report | M | **done** — [§P8c record](#p8c-record--2026-09-01) |
+| P8c‑2 | The interest screens | S | not started |
 | P8d | Multi-currency | M | not started |
 | P8e | Scenarios | S | not started |
 
@@ -7329,6 +7330,160 @@ deleted (§6.4's rule, P3d‑1's and P4c's own note). `npm run lint` 0 errors wi
 breakpoint and token guards green · `ng build` clean · `qa:screens` 63/63 ·
 `check-mirrors` all fourteen checks green · backend `npm test` 2203/2203 unchanged.
 
+### P8c record — 2026-09-01
+
+§3.9's interest exists: a pure calculator, per-ledger parameters, and the
+**Interest Report**. And the phase's central clause is a **prohibition** —
+*"posting it is an explicit Debit Note the user accepts, **never automatic**"* —
+so the gate leads with it: the three statements captured either side of a full set
+of parameters on a real party ledger, and `journal_entries`/`journal_lines`
+counted before and after, **while ₹1,47,740.48 of interest was claimed**.
+
+**Gate `npm run qa:p8c-interest` — 28/28**, plus 47 unit tests in
+`interest.const.spec.ts`, shown to fail **six** ways, two of which passed at
+first.
+
+#### What was built
+
+| | |
+|---|---|
+| `src/const/interest.const.ts` | `InterestStyle` · `InterestBasis` · `COMPOUND_INTERVALS` · `daysBetween` · `interestStartsOn` · `interestOn` · `interestOnAll` · `describeInterestTermsBlock` |
+| `src/entities/interest-term.entity.ts` · `migrations/20260901300000-interest-terms.ts` | + the scope registry, the model list and the hard-delete edge |
+| `src/services/interest-term.service.ts` · `interest-report.service.ts` | the masters (upsert per ledger) and the report |
+| routes | `GET|PUT|DELETE /acc-ledgers/:id/interest` · `GET /acc-ledgers/interest-terms` · `GET /reports/interest` |
+| `scripts/qa-p8c-interest.ts` | the gate |
+
+#### ⚠️ The day count is a CONVENTION, and choosing wrong is invisible
+
+₹1,00,000 at 18 % for a quarter is **₹4,438.36** on actual/365 and **₹4,500.00**
+on 30/360. Both are plausible, neither is rounder, and a customer disputing an
+interest note argues from whichever convention their own contract names. So
+`InterestBasis` is explicit, `daysBetween` is the only place either is
+implemented, and the gate's property (5) asserts the two give **different**
+figures on the same bills — because without that, (3) could be passing on a build
+that ignored the basis entirely.
+
+The 30/360 arm is **30E/360**: each day-of-month capped at 30, then
+`360·Δy + 30·Δm + Δd`.
+
+#### ⚠️⚠️ Nothing posts, and nothing decides to post
+
+Interest on an overdue receivable is a **claim**, and whether a business presses
+it against a particular customer is a commercial decision taken one customer at a
+time — a ledger that quietly grew an interest charge every month would be a
+company billing its customers by accident. There is no cron, no queue job and no
+`PostingService` path that reaches `interest_terms`. The Debit Note is `POST /trx`
+like any other, raised by a person who read the figure.
+
+Property (7) is that clause as a measurement, and **injection 6** — making the
+report post a Debit Note — is caught by two properties at once.
+
+#### ⚠️ §3.9's "and over the running balance otherwise" is not implemented, and that is not an omission
+
+Since P5b **every** party line carries a bill reference — an unallocated receipt
+becomes an `advance` or `on-account` row rather than nothing — so *"otherwise"* is
+an empty case on this schema. A second code path over the running balance would
+be a derivation with no population, and the two would disagree the first time one
+of them was wrong. Interest is charged on `bill_references`, which is a
+**partition** of the journal lines a party's balance is made of (§3.6), so the
+figure it charges reconciles by construction rather than being a second derivation
+of the balance.
+
+#### ⚠️⚠️ There is no due date anywhere, so the report says which date it used
+
+`dueDate` is measured **NULL on all 11,350 `bill_references` rows and all 11,432
+`trx` rows**: P5a's backfill wrote amounts and ledgers, not terms, and no voucher
+has ever carried one. So the effective date falls back to the bill's own posting
+date, every line carries a `fromSource`, and the payload states how many lines
+used it — because a report that silently used the bill date would look like it was
+applying credit terms somebody had set. On this database that count equals the
+line count, and the gate's (1) asserts the *absence* so the day a due date appears
+this stops being true loudly.
+
+#### Its own table, not four columns on `acc_ledgers`
+
+Two reasons. **`acc_ledgers` is not widened** — every figure-bearing report
+resolves through it (P2b‑2) and P8c's claim is that it moves no figure. And
+**absence is the meaningful state**: a ledger with no row charges no interest,
+which is a *state* rather than a rate of zero, and it is what
+`describeInterestTermsBlock` tells an operator who tries to store a negative rate
+(*"a ledger that should charge nothing has no interest parameters at all"*).
+Nullable columns would make that distinction a convention instead of a shape.
+`ON DELETE CASCADE` on the ledger — the opposite of `budget_lines`' `RESTRICT`,
+because interest parameters are the ledger's own property and leave no figure
+behind to misread.
+
+#### The spec caught two defects in the rule, and the gate caught a third
+
+- **The compounding interval accepted any whole 1–12 while the refusal said
+  *"1, 3, 6 or 12"***. A stored 5 was legal and unmentionable. The set is closed
+  now (`COMPOUND_INTERVALS`) — the sentence is the contract, which is check 10's
+  own argument.
+- **An absent interval degraded to MONTHLY.** `Math.max(1, …)` looked like a
+  divide-by-zero guard and was in fact the most aggressive charge available,
+  arrived at by accident, on the one path where nobody stated an interval. It
+  degrades to **annual** now, the least aggressive of the four.
+- **`billsWithoutDueDate` counted 6 where the table showed 4** — the counter ran
+  inside the map and the fully-settled bills were filtered off afterwards, so the
+  report described rows the reader cannot see. Caught by the very property that
+  exists to make that number visible.
+
+#### ⚠️ Two of the gate's own properties could not fail, and one was pure ceremony
+
+- **Property (2) compared the gate against itself.** It checked `daysHere` — this
+  file's restatement — against this file's own literals, and never touched
+  `daysBetween`: the injection removing the 30/360 day-of-month cap **passed
+  27/27** while failing two unit tests. It is **three-way** now — literal,
+  restatement, implementation — which is the shape `check-mirrors.js` uses for
+  every rule it compares.
+- **The cap test used two 31sts, where the cap cancels.** `31 → 31` is 60 days
+  whether or not each end is capped, so the assertion was arithmetically incapable
+  of seeing the bug. Both the spec and the gate now carry the **asymmetric** cases
+  (`31 Jan → 1 Mar` is 31, `1 Jan → 31 Jan` is 29). Third instance of P3d‑1's
+  *"the fixture, not the assertion, was what could not fail"* in this phase alone.
+
+#### ⚠️⚠️ Three arms had no instance, and all three are constructed
+
+- **A settlement later than its bill.** Measured: **all 2,848** `against`
+  references are dated the same day as the bill they settle, so nothing in history
+  exercises the `asOf` bound on settlements — the difference between charging
+  interest on a bill that was open on the as-at date and quietly netting off a
+  payment made three months later. Built in a rolled-back transaction, read
+  through the report's optional read-only `Transaction` (P3c‑2's device), and
+  asserted in **both** directions: open in full the day before, reduced on the day.
+- **A live bill reference on a reversed entry.** Measured: **0** exist, because
+  P5c‑2 retires a reference by soft-deleting it and
+  `qa:p5-bill-register` (11) asserts that both ways — so `b.deletedAt IS NULL`
+  already excludes every cancelled document and removing `liveEntrySql` from this
+  service changed **nothing** (injection 5 passed 27/27 with the edit verified as
+  applied). The predicate stays, as two independent reasons not to bill a customer
+  for a cancelled invoice, and the one shape that separates them is now built.
+- **The retired-bill exclusion** ran nowhere on the fixture's ledger and printed
+  *"skipped"*. It runs **in whichever company has one**, like P8b's (4b) — an arm
+  a gate reports as skipped is an arm nobody has measured.
+
+#### Six injections
+
+| | | |
+|---|---|---|
+| 1 | the 30/360 basis divides by 365 | 7 unit tests · (4) · (5)'s direction check |
+| 2 | the 30/360 day-of-month cap removed | ⚠️ **passed 27/27 at first** — see above; now 2 unit tests · (2), naming the exact day |
+| 3 | grace stops moving the start | 2 unit tests · (6) twice |
+| 4 | the leftover period compounds instead of running simple | 2 unit tests · (4), to the paisa |
+| 5 | `liveEntrySql` removed from the report | ⚠️ **passed 27/27 at first**, edit verified — now (8)'s constructed case |
+| 6 | the report posts a Debit Note | **(7)** and **(0)** — §3.9's own prohibition |
+
+`npm test` 2250/2250 · all five guards · `lint:ci` 0 errors · `nest build` clean ·
+`dump-routes` resolves all five routes · P8a 16/16 and P8b 30/30 still green ·
+`check-mirrors` all fourteen checks green. The parity diff is **empty by
+construction**: no existing report, query or DTO changed, one new table and five
+new routes.
+
+⚠️ **No screen yet, and it is recorded rather than implied.** The Interest Report
+and the per-ledger parameters have an API and no caller — BUG-0068's *"an endpoint
+nothing calls is an endpoint nobody has run"*, with this gate as the only thing
+that has ever run them. P8c‑2 is those two screens.
+
 ### Verification pass — 2026-08-28
 
 The plan was written from a reading of the source. It has since been checked
@@ -8864,7 +9019,8 @@ that the gate written at the end covers what the author remembers.
 | **P8a** | §3.4 — `buildLegs` becomes an interpreter over a **dated rule table**; the byte-identical gate | **done** — [record](#p8a-record--2026-08-31) |
 | **P8b‑1** | Budgets — `budgets` · `budget_lines` · the rules · the API · the variance report | **done** — [record](#p8b-1-record--2026-09-01) |
 | **P8b‑2** | The masters screen, and the variance report's screen | **done** — [record](#p8b-2-record--2026-09-01) |
-| **P8c** | Interest — the pure rule, the Interest Report, the explicit Debit Note | not started |
+| **P8c** | Interest — the pure rule, the Interest Report, the explicit Debit Note | **done** — [record](#p8c-record--2026-09-01) |
+| **P8c‑2** | The Interest Report's screen, and the per-ledger parameters on the Chart of Accounts | not started |
 | **P8d** | Multi-currency — `currencies` · `exchange_rates` · the FC columns | not started |
 | **P8e** | Scenarios — optional/provisional voucher types, the `scenarioId` filter | not started |
 
