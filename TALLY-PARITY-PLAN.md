@@ -506,6 +506,26 @@ error**: ₹1,000 at 33.3333×2 + 33.3334 has every exact share below a half, so
 `round` and `floor` agree; check 13 failed on three vectors while the browser gate
 stayed green, and the two instruments disagreeing is what exposed it.
 
+**And P7c‑3b is done, which completes P7c: the ITEM form allocates too.** The
+voucher's own head and every `trx_charges` row — rendered either as the Accounting
+Invoice's body or inside the Charges chip — carry the same sub-screen, re-hosted
+rather than rewritten, with **no backend change at all**. Gate **11/11** on the
+same file. ⚠️ Here the allocations are **form controls** rather than signals beside
+the form, and that is the better shape: the payload needs no surgery, and a
+removed charge takes its split with it **structurally** — the hand re-keying
+`dropLineKey` exists for cannot arise, and only the map of head *options* still
+needs it. ⚠️⚠️ **An item LINE allocates nothing and the gate asserts it**: a
+`trx_items` row names a product, never a ledger. The head's figure is the **item
+net**, so on an Accounting Invoice it is zero and the money is allocated on the
+charge rows that hold it — which falls out of the figure rather than from a rule
+anybody wrote. ⚠️ Two things the gate corrected about itself: **a body switch
+DISCARDS**, so a split cannot follow a row across `Ctrl+H` (P4e's own ruling —
+the Charges chip is host number three, not the same row seen twice), and **a
+`mat-form-field`'s text includes its LABEL**, so a `toContain('Purchase')` check
+passed against *"Purchase Head"* while the control still held the seeded default —
+three runs spent blaming the panel for a helper that could pass without the thing
+it checked having happened.
+
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
 report whose shape is fixed?"*, and there is no longer a second derivation to
@@ -554,7 +574,7 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P7c‑1 | Cost centre classes — the tables, the expansion rule, the masters API | M | **done** — [§P7c‑1 record](#p7c-1-record--2026-09-01) |
 | P7c‑2 | The masters screen — categories · the centre tree · classes | M | **done** — [§P7c‑2 record](#p7c-2-record--2026-09-01) |
 | P7c‑3a | The Dr/Cr surface's allocation panel, the mirrored expansion, the wire | M | **done** — [§P7c‑3a record](#p7c-3a-record--2026-09-01) |
-| P7c‑3b | The item form's allocation panel — the voucher head and each charge row | S | not started |
+| P7c‑3b | The item form's allocation panel — the voucher head and each charge row | S | **done** — [§P7c‑3b record](#p7c-3b-record--2026-09-01) |
 | P7d | The four cost reports | M | not started |
 | P8 | Posting rules, budgets, interest, multi-currency, scenarios | L | not started |
 
@@ -5521,7 +5541,7 @@ re-hosting of a component the first pair builds, which is exactly P4b→P4c's se
 | | | |
 |---|---|---|
 | **P7c‑3a** | The Dr/Cr surface (a Journal's header head and its N lines), the mirrored expansion, the wire | **done** |
-| **P7c‑3b** | The item form — the voucher's own head, and each charge row | not started |
+| **P7c‑3b** | The item form — the voucher's own head, and each charge row | **done** |
 
 The order is P5's and P7's own: *the table, then the engine that maintains it,
 then the screens*, because every earlier link is what the next one's gate ties
@@ -6161,6 +6181,124 @@ recorded one unrelated failure in the full sweep; this run has none.
   caller that has to get that right.
 - ⚠️⚠️ **The world is still empty** — nothing was left switched on. P7c‑3b's gate
   constructs its own dimension, as this one does.
+
+### P7c‑3b record — 2026-09-01
+
+**The item form allocates too, and P7c is complete.** The voucher's own head and
+every `trx_charges` row carry the same sub-screen P7c‑3a built — re-hosted, not
+rewritten, which is P4b→P4c's seam one phase across.
+
+| Artefact | What it is |
+|---|---|
+| `trx-add-edit.ts` / `.html` | Three hosts: the head in the header strip, the Accounting Invoice body's rows, and the Charges chip's rows. Plus the payload and the read-back. |
+| `costAllocations` on the root form and on each charge `FormGroup` | The allocations are **form controls** here, not signals beside the form. |
+| `_voucher.scss` `.vch-hf--alloc` | The trigger's own strip item. |
+| `qa-artifacts` `voucher-allocation.ui.spec.ts` (8)–(11) | Four more properties on the same gate — **11/11**. |
+
+**No backend change at all.** P7c‑3a's `costCategoryIds` and P7b's four owner
+types were already there; `CreateUpdateTrxDto.costAllocations` and
+`CreateUpdateTrxChargeDto.costAllocations` have existed since P7b.
+
+#### A form CONTROL, not a signal — and that is a better shape than P7c‑3a's
+
+The Dr/Cr surface keeps its allocations in signals beside the form and re-keys two
+`Map<index, …>` by hand when a line is removed. Here they are `FormControl`s: one
+on the root for the head, one inside each charge's own `FormGroup`.
+
+Three things fall out, and the second is the reason:
+
+- **The payload needs no surgery.** This screen sends `transactionForm.value`
+  verbatim, so the allocations ride it.
+- ⚠️ **A removed charge takes its split with it, structurally.** The shares live
+  in the `FormGroup` that is removed, so the class of defect `dropLineKey` exists
+  to prevent cannot arise. What still needs re-keying is only the map of head
+  **options** — without it the surviving row is asked about the deleted row's head
+  and could be offered a category that does not apply to its own.
+- **An array is always sent, empty when nothing is allocated.**
+  `TrxService.saveCostAllocations` reads *absent* as "not talking about
+  allocations" and `[]` as "clear them", and this screen always states the whole
+  picture. A partial update from elsewhere still carries neither and still cannot
+  empty a voucher's panel.
+
+#### ⚠️ The trigger is its own strip item, and the arithmetic was checked
+
+§9's bases in `_voucher.scss` are *solved* so that no value is ever clipped, and
+taking 44px out of a 175px field is exactly the clipping that section is about. So
+`.vch-hf--alloc` is a separate `flex: 0 0 auto` item — it adds its own width
+rather than eating a field's — and it renders **only when a cost category applies
+to the head**, which is off on all 1,383 ledgers of all 14 companies. Every
+voucher in the product today draws a byte-identical strip.
+
+Checked against the two widths that file states: five fields at ~1090 is
+`778 + 56 = 834`, still one line; at ~678 the strip already wraps and the trigger
+joins whichever line it lands on. Gate (8) measures it in a browser at 1440
+rather than trusting the sum.
+
+#### The item LINE allocates nothing, and that is asserted
+
+A `trx_items` row names a product, never a ledger, so it has nothing to allocate —
+Tally allocates the ledger entry for the same reason, and the DTO says so in its
+own words. Gate (8) counts triggers *inside* the items grid and expects zero,
+because *"the panel is absent"* is the kind of claim that is true by accident
+until somebody checks it.
+
+⚠️ The head's figure is the **item net** (`trx.totalAmount`), which is what the
+goods leg carries — not the grand total, whose taxes and charges are legs of their
+own. On an **Accounting Invoice** the item net is zero, so the head offers nothing
+and the money is allocated on the charge rows that hold it. That falls out of the
+figure rather than being a rule anybody wrote.
+
+#### 🐞 What the gate found — and one premise of the gate's own that was wrong
+
+- ⚠️ **A body switch DISCARDS, so a split cannot follow a row across it.**
+  Property (9) was written as *"the same row, already allocated, in the Charges
+  chip after `Ctrl+H`"* and failed. `toggleInvoiceBody` confirms and clears — the
+  two bodies are different tables and there is no honest mapping between an item
+  line and a ledger allocation (P4e's own ruling). The Charges chip is therefore
+  **host number three**, measured on its own in (11), rather than the same row
+  seen twice. The gate finding out what the product actually promises.
+- ⚠️⚠️ **A `mat-form-field`'s text includes its LABEL**, and the header's label is
+  *"Purchase Head"* — which contains "Purchase", the name of the ledger being
+  picked. So a `toContain` check on the field passed while the control still held
+  the seeded default, and the missing panel looked like the panel's fault for
+  three runs. `pickHead` reads `.mat-mdc-select-value` now, and retries once.
+  **A helper that can pass without the thing it checks having happened is worse
+  than no helper**: it is the *inert assertion* this programme keeps meeting, in
+  a new place.
+- **An exact-top row count reports two rows for a strip that is plainly one**, if
+  anything on the line is vertically centred against fields that align to their
+  top. Tops are grouped into 30px bands now — well under a field's height, so a
+  genuine second line is still a second band.
+
+#### Parity
+
+Empty by construction, and this time literally: `git status` on
+`jayhind-client-back` is clean across the whole phase.
+
+#### Everything else, re-run
+
+`build` and `lint:ci` clean in `client-front` (**586** warnings, no new one), the
+breakpoint and token guards green, `check-mirrors` in sync, and the whole
+`qa:money` lane **123 passed · 0 failed** in 15 minutes with the four new
+properties in it.
+
+#### What P7d inherits
+
+- **The dimension is usable end to end**: a company can define categories,
+  centres and classes (P7c‑2), switch a ledger on, and split every figure that
+  names a head — on both entry surfaces.
+- ⚠️ **`costAllocationProblems` still has no reader in the product**, for the
+  fourth phase running. P7d's reconciliation report is where §3.7's *"a warning
+  on a reconciliation report"* finally acquires its report, and it is the last
+  thing in P7 that is written and unread.
+- **The four Tally reports** are Cost Centre Summary, Category Summary, Cost
+  Centre Breakup and Ledger Breakup (§3.7). Each rolls a subtree up by `path`
+  prefix **within one category** — `rollUpByPath`'s argument, one dimension
+  across — and the Σ is **signed**, because a credit note against a department
+  must reduce its spend.
+- ⚠️⚠️ **The world is still empty** — nothing is left switched on, and P7a/P7b's
+  gates still measure 0 allocations across 14 companies. P7d's gate constructs
+  its own, as the last four have.
 
 ### Verification pass — 2026-08-28
 
