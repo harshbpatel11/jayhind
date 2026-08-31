@@ -672,7 +672,8 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P7d‑1 | The four cost reports' API, and the reconciliation §3.7 promised | M | **done** — [§P7d‑1 record](#p7d-1-record--2026-09-01) |
 | P7d‑2 | The cost reports' screens, and the drill spine's fourth target | M | **done** — [§P7d‑2 record](#p7d-2-record--2026-08-31) |
 | P8a | §3.4 — the leg table becomes a dated rule table | M | **done** — [§P8a record](#p8a-record--2026-08-31) |
-| P8b | Budgets | M | not started |
+| P8b‑1 | Budgets — the tables, the rules, the API, the variance report | M | **done** — [§P8b‑1 record](#p8b-1-record--2026-09-01) |
+| P8b‑2 | The budget screen, and the variance report's screen | M | not started |
 | P8c | Interest | M | not started |
 | P8d | Multi-currency | M | not started |
 | P8e | Scenarios | S | not started |
@@ -7005,6 +7006,176 @@ where a snapshot compares aggregates.
 
 `npm test` 2150/2150 · all five guards · `lint:ci` 0 errors · `nest build` clean.
 
+### P8b‑1 record — 2026-09-01
+
+§3.9's budgets exist and can be read. `budgets` + `budget_lines`, the pure rules,
+the masters API, and the **Budget variance report** — every budgeted head with its
+actual and variance beside it. The phase's own promise is a **negative** one and
+that is what the gate leads with: §3.9 says *"no engine change at all"*, so a
+budget must move no figure, and the three statements are captured with a budget
+present and without it, figure by figure.
+
+**Gate `npm run qa:p8b-budgets` — 30/30**, plus 53 unit tests in
+`budget.const.spec.ts`, shown to fail **six** ways.
+
+⚠️ **P8b split into two** on the same argument as the seven splits before it: the
+tables and the report, then the screen. See the split table.
+
+#### What was built
+
+| | |
+|---|---|
+| `src/const/budget.const.ts` | `BudgetBasis` · `budgetTargetOf` · `describeBudgetLineBlock` · `describeBudgetBlock` · `describeBudgetLineSetBlock` · `compareToBudget` · `varianceDirection` · `varianceVerdict` · `budgetOverlaps` · `budgetWindow` · `describeBudgetDeleteBlock` |
+| `src/entities/budget.entity.ts` · `budget-line.entity.ts` | + the scope registry, the model list and **four** hard-delete edges |
+| `src/migrations/20260901200000-budgets.ts` | both tables + `chk_budget_lines_one_target`, idempotent both ways |
+| `src/services/budget.service.ts` | the masters, with rule 7 at one seam |
+| `src/services/budget-report.service.ts` | `GET /reports/budget-variance/:budgetId` |
+| `src/controllers/budget.controller.ts` | 10 routes, own permission key `budgets` |
+| `scripts/qa-p8b-budgets.ts` | the gate |
+
+#### ⚠️ It is a REPORT, not a column on the statements — and §3.9 says "column"
+
+Two measurements decided it, and both are on `BudgetReportService`'s own header. A
+budget's lines are **sparse**: a company budgets twenty or fifty heads out of
+1,383 ledgers, so a column on the Trial Balance is blank almost everywhere and a
+reader scanning for it finds nothing. And a budget line may target a **cost
+centre**, which appears on no statement at all — the statements are `acc_groups`
+with `acc_ledgers` leaves (P3b) and a centre is a parallel dimension with no side
+of the books (§3.7), so a column could carry two of the three target kinds and
+would **silently drop the third**. Tally shows budget variance as its own view for
+the same reason. The *column* is honoured literally: every row is budget · actual ·
+variance side by side, over exactly the heads somebody budgeted.
+
+#### ⚠️⚠️ The verdict is the one place an opinion is formed, and it refuses to guess
+
+*Is this variance good?* is available for two of the four account natures and
+genuinely not available for the other two. `varianceDirection` answers
+`lower-is-favourable` for **Expense**, `higher-is-favourable` for **Income**, and
+**`null` for Asset and Liability** — because a cash target wants to be exceeded
+and a debtors target does not, and both are Assets; a borrowing limit wants to be
+undershot and share capital overshot, and both are Liabilities. A report that
+coloured an Asset overshoot red because an Expense overshoot is red would be
+inventing an opinion about somebody's balance sheet.
+
+That is the same call `applicableCategories` makes for a group with no nature: **a
+rule that exists to inform must not invent the thing it is informing about.** A
+nil variance also has no verdict, because calling it favourable would make every
+head budgeted to zero and left alone a success story. And the direction is
+**derived from the nature**, never stored on the line, so a head re-parented
+across natures cannot leave a stale opinion behind — D-54's shape, and BUG-0034's
+warning about copying a fact off a master.
+
+⚠️ A cost centre therefore carries no nature, no direction and no verdict at all,
+and the gate asserts all three.
+
+#### ⚠️ Exactly one target, stated twice — and the CHECK is not the enforcement
+
+A line naming two heads is two answers to *what is this budget on*, and they can
+disagree. `chk_budget_lines_one_target` says so in the schema and
+`describeBudgetLineBlock` says so in a sentence, and both are needed: a `CHECK` is
+**parsed and silently ignored below MySQL 8.0.16**, so its presence in
+`information_schema` proves nothing about what a given installation refuses. That
+is P5c‑3's finding about `chk_trxprt_one_target`, and this gate follows its method
+— it asserts the database by **inserting both forbidden shapes** (rolled back)
+rather than by reading the schema.
+
+Injection 3 shows why the sentence matters even where the CHECK bites: with the
+service refusal removed the write still failed, and the message the caller got was
+*"Check constraint 'chk_budget_lines_one_target' is violated"* — raw MySQL on the
+wire, which is API-023's own defect.
+
+#### Two smaller rulings, both deliberate
+
+- **A budget of zero is allowed; a negative one is refused.** *"Budget nothing for
+  entertainment"* is a real instruction. A negative target is the account's
+  **nature** talking — which the head already states — so accepting one lets a
+  budget disagree with the side of the books its own head sits on.
+- **The period is required at both ends**, unlike a tax slab's validity (D-50)
+  where an absent bound means *"still in force"* and is a real state. Here the
+  closing-balance basis needs a last day to stand at and the nett-transactions
+  basis a window to move within, so a half-open budget compares against nothing.
+  A window that misses the budget entirely is **refused**, not answered with
+  zeros — which would report every line as 100 % under.
+- **`describeBudgetDeleteBlock` returns `null` unconditionally and exists to say
+  so** — `describeClassDeleteBlock`'s shape one phase over. Nothing in the schema
+  points at a `budgets` row: no journal line, no voucher, no allocation. If a
+  future phase ever posts from a budget, that is the function which has to grow a
+  reason.
+
+#### The gate — thirty properties, and two of them nearly could not fail
+
+Property (2) is the plan's promise: the Trial Balance, Balance Sheet and Profit &
+Loss captured with a budget present and without it, **44 figures**, with
+`rows.length > 0` beside `0 changed` so it is a claim about the budget rather than
+about nothing. (3)–(5) tie each target kind's actual to the report that already
+publishes that figure — the Ledger report, the Group Summary, and a Σ over
+`cost_allocations` taken in the gate. (7) is the two forbidden INSERTs, (8) rule 7
+from three angles, (11) the duplicate refusal, (9) the clipped window, (12) the
+totals summed here.
+
+⚠️ **Two properties were inert when first written, and the gate said so itself.**
+
+- **(6), the two bases**, passed while reporting *"THEY ARE EQUAL on this fixture,
+  so the pair above does not discriminate"* — the fixture's whole history fell
+  inside the report window, so `closing` and `nett` were the same figure and a
+  build ignoring the basis entirely would have passed. The fixture search now
+  requires a ledger with **both** an opening balance and in-window movement, and
+  (6) asserts out loud that it found one. P3d‑1's *"the fixture, not the
+  assertion, was what could not fail"*, a second time.
+- **(4b), the materialised-path trap, did not exist** and had to be added, because
+  injection 2 — matching a group's subtree with `path + '%'` instead of
+  `subtreePrefix(path)`, which is BUG-0023 exactly — **passed 30/30 against (4)
+  alone.** The fixture's group was too deep to have a colliding sibling. Only 1 of
+  the 14 companies has a primary group with a posted collision, so (4b) runs **in
+  whichever company has it** rather than in the fixture's: the trap is a property
+  of the path strings, not of a tenant, and requiring both conditions in one
+  company is how a property comes to be skipped for ever. It computes the right
+  figure and the wrong one in the gate, asserts they **differ** (₹0.00 against
+  ₹1,43,300.00), and only then asserts which the report gives.
+- ⚠️⚠️ And **(5) was being skipped entirely** — *"company 15 has no cost
+  centre"*. An arm a gate reports as skipped is an arm nobody has measured. The
+  fixture search now prefers a company that has one; and because the development
+  database's 144 allocation rows **sum to 0.00** (they are cancelled pairs, which
+  is the property a signed allocation buys), 0-against-0 would have passed on a
+  build answering zero always — so **(5c) constructs a real ₹7,777.77 allocation**
+  and reads the report inside the same transaction. That is why `budgetVariance`
+  takes an optional read-only `Transaction`: P3c‑2's own device, for P3c‑2's own
+  reason — the alternative is a gate that commits scratch figures into the books
+  the parity harness captures next.
+
+⚠️ **This gate commits, and says so.** `BudgetService` opens its own transaction —
+as it should, since a budget and its lines are one write — so an outer rollback
+cannot reach it, and driving the real service is worth more than isolation here.
+It is safe in a way P7c‑3a's posted voucher was not, for the reason
+`describeBudgetDeleteBlock` returns `null`: **a budget posts nothing and nothing
+points at one**, so the cleanup is a delete that cannot be refused. The raw-SQL
+probes that must not go through the service do roll back. Its scratch rows are
+named from an **explicit list**, never a `LIKE 'QA·P8b%'` wildcard — P7d‑1's own
+(0) went red on `QA·P8d2`, because a phase mark is a prefix of the next phase's
+mark every time — and (0) is **census-relative** (BUG-0071).
+
+#### Six injections
+
+| | | |
+|---|---|---|
+| 1 | the two bases swapped | (3) · (4) · both of (6)'s figure checks |
+| 2 | a group subtree matched with `path + '%'` | **passed 30/30 at first** — see (4b) above; now fails, naming ₹1,43,300.00 |
+| 3 | the exactly-one-target refusal removed | (7), and the message the caller gets is raw MySQL |
+| 4 | `assertTargetsAreOurs` removed | (8) twice — *"did not refuse at all"* |
+| 5 | the window clipping removed | (9) · (13) |
+| 6 | saving a budget **posts a journal line** | **(2)**, naming 5 moved figures to the rupee |
+
+#### Parity
+
+No existing report, query or DTO changed; two new tables and one new route.
+⚠️ **`check-mirrors.js` caught the one thing that was missing** —
+`MODULE_BY_PERMISSION_KEY: 'budgets' is in client-back but missing from
+client-front` — which is the check doing precisely its job across the repo
+boundary, and it is fixed in the same commit. All ten checks green.
+
+`npm test` 2203/2203 · all five guards · `lint:ci` 0 errors · `nest build` clean ·
+`dump-routes` resolves all 10 routes · P8a's gate still 16/16.
+
 ### Verification pass — 2026-08-28
 
 The plan was written from a reading of the source. It has since been checked
@@ -8538,7 +8709,8 @@ that the gate written at the end covers what the author remembers.
 | | | |
 |---|---|---|
 | **P8a** | §3.4 — `buildLegs` becomes an interpreter over a **dated rule table**; the byte-identical gate | **done** — [record](#p8a-record--2026-08-31) |
-| **P8b** | Budgets — `budgets` · `budget_lines` · the variance column · the screen | not started |
+| **P8b‑1** | Budgets — `budgets` · `budget_lines` · the rules · the API · the variance report | **done** — [record](#p8b-1-record--2026-09-01) |
+| **P8b‑2** | The masters screen, and the variance report's screen | not started |
 | **P8c** | Interest — the pure rule, the Interest Report, the explicit Debit Note | not started |
 | **P8d** | Multi-currency — `currencies` · `exchange_rates` · the FC columns | not started |
 | **P8e** | Scenarios — optional/provisional voucher types, the `scenarioId` filter | not started |
