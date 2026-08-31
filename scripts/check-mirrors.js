@@ -1037,6 +1037,219 @@ if (hubFeatureColumns && hubFeaturesDto && consoleFeatures) {
   }
 }
 
+// ── 13. the cost dimension's refusals: same verdict AND same SENTENCE ───────
+//
+// `cost-allocation.const.ts` (the centre tree) and `cost-centre-class.const.ts`
+// (the percentage template) decide what the API refuses; `cost-rules.util.ts`
+// says the same thing on the Cost Centres masters screen (P7c‑2), so an operator
+// reads the reason rather than meeting a 400 on a control that looked live.
+//
+// ⚠️ Check 10's argument, one master across: the **message text** is compared,
+// not only the verdict. Each of these sentences names the problem AND what to do
+// instead (*re-file them first*; *remove it from that class*; *it can be
+// archived, not erased*), and the class one runs on every keystroke in the class
+// editor — a wording the two sides disagreed about would put one sentence under
+// the operator's cursor and another in the toast the Save produces.
+//
+// ⚠️⚠️ One arm turns on a fact only the database has — `allocationCount`. The
+// browser passes **null** rather than a guess, and both sides must then answer
+// "allowed" so the request goes and the server refuses with this same sentence.
+// The vector table states that equivalence, because it is a rule and not an
+// accident of two signatures.
+//
+// ⚠️ Two backend files, one mirror. `describeClassLinesBlock` lives with the
+// expansion it is one statement with; the centre rules live with the allocation
+// invariant they protect. The screen is one screen, so the mirror is one file —
+// and the name check below reads both sources.
+{
+  const BACK_CA = 'jayhind-client-back/src/const/cost-allocation.const.ts';
+  const BACK_CC = 'jayhind-client-back/src/const/cost-centre-class.const.ts';
+  const FRONT_CR = 'jayhindi-client-front/src/utils/cost-rules.util.ts';
+  const vectorFile = path.join(__dirname, 'vectors/cost-rules.vectors.json');
+
+  const backCa = read(path.join(ROOT, BACK_CA));
+  const backCc = read(path.join(ROOT, BACK_CC));
+  const frontCr = read(path.join(ROOT, FRONT_CR));
+
+  let table;
+  try {
+    table = JSON.parse(fs.readFileSync(vectorFile, 'utf8'));
+  } catch (err) {
+    failures.push(`cost-rules vectors: could not read ${path.relative(ROOT, vectorFile)} — ${err.message}`);
+  }
+
+  if (table && backCa && backCc && frontCr) {
+    let backAlloc, backClass, front;
+    try {
+      backAlloc = loadTsModule(...splitRepoPath(BACK_CA));
+      backClass = loadTsModule(...splitRepoPath(BACK_CC));
+      front = loadTsModule(...splitRepoPath(FRONT_CR));
+    } catch (err) {
+      failures.push(`cost-rules vectors: ${err.message}`);
+    }
+
+    // A case's `given` holds arrays: the cross-product is expanded, so one
+    // hand-written case is a statement about a REGION. The regions are split
+    // along the singular/plural seam, because these sentences count things.
+    const expand = (given) => {
+      let rows = [{}];
+      for (const k of Object.keys(given)) {
+        const values = Array.isArray(given[k]) ? given[k] : [given[k]];
+        rows = rows.flatMap((row) => values.map((v) => ({ ...row, [k]: v })));
+      }
+      return rows;
+    };
+
+    const sentence = (id, row) => {
+      if (id === null) return null;
+      const template = table.messages[id];
+      if (template === undefined) return `«no message called '${id}' in the table»`;
+      return template.replace(/\$\{(\w+)\}/g, (_, k) => String(row[k]));
+    };
+
+    // The centre a placement/move case is about, and the parent it is aimed at.
+    // `parentKind` is a NAME rather than a set of coordinates so that "inside
+    // its own subtree" is expressed as a path relationship — which is the fact
+    // the rule actually reads, and the one a parent-walk would get right for the
+    // wrong reason.
+    const CENTRE = (row) => ({ id: 5, name: row.centreName, categoryId: row.centreCategoryId, parentId: null, path: '/5/' });
+    const PARENT = (row) => {
+      const other = row.centreCategoryId + 1;
+      switch (row.parentKind) {
+        case 'none': return null;
+        case 'self': return CENTRE(row);
+        case 'same': return { id: 9, name: row.parentName, categoryId: row.centreCategoryId, parentId: null, path: '/9/' };
+        case 'other': return { id: 9, name: row.parentName, categoryId: other, parentId: null, path: '/9/' };
+        case 'descendant': return { id: 7, name: row.parentName, categoryId: row.centreCategoryId, parentId: 5, path: '/5/7/' };
+        case 'descendant-other-category': return { id: 7, name: row.parentName, categoryId: other, parentId: 5, path: '/5/7/' };
+        default: return null;
+      }
+    };
+    const mapById = (rows) => new Map((rows ?? []).map((r) => [r.id, r]));
+
+    // How each rule's row becomes the two calls. Deliberately dumb: anything
+    // clever here could reconcile a real disagreement into agreement, which is
+    // the one failure mode a parity check cannot afford. In particular BOTH
+    // sides are handed the identical arguments — including a `null`
+    // `allocationCount`, which is what makes the "not known here" row a
+    // comparison rather than two different questions.
+    const RULES = [
+      {
+        section: 'centrePlacement', fn: 'describeCentrePlacementBlock', mod: () => backAlloc,
+        call: (m, row) => m.describeCentrePlacementBlock({ name: row.centreName, categoryId: row.centreCategoryId }, PARENT(row)),
+      },
+      {
+        section: 'centreMove', fn: 'describeCentreMoveBlock', mod: () => backAlloc,
+        call: (m, row) => m.describeCentreMoveBlock(CENTRE(row), PARENT(row)),
+      },
+      {
+        section: 'categoryDelete', fn: 'describeCategoryDeleteBlock', mod: () => backAlloc,
+        call: (m, row) => m.describeCategoryDeleteBlock({ name: row.name, isPrimary: row.isPrimary }, row.centreCount),
+      },
+      {
+        section: 'centreDelete', fn: 'describeCentreDeleteBlock', mod: () => backAlloc,
+        call: (m, row) => m.describeCentreDeleteBlock({ name: row.name }, row.childCount, row.allocationCount, row.classLineCount),
+      },
+      {
+        // Literal: the fact space is a LIST plus two maps, not a product of
+        // scalars — expanding `lines` would turn one multi-line case into N
+        // single-line ones, which is the opposite of what a total or a duplicate
+        // is about.
+        section: 'classLines', fn: 'describeClassLinesBlock', mod: () => backClass, literal: true,
+        call: (m, row) => m.describeClassLinesBlock(row.className, row.lines, mapById(row.centres), mapById(row.categories)),
+      },
+      {
+        section: 'classDelete', fn: 'describeClassDeleteBlock', mod: () => backClass, literal: true,
+        call: (m) => m.describeClassDeleteBlock(),
+      },
+    ];
+
+    // The name check, and it is not redundant: a rule that exists on one side
+    // only has no vector to fail (check 5's argument for keeping a name
+    // comparison beside a behavioural one).
+    const REFUSALS = /^describe[A-Z].*Block$/;
+    const backNames = [
+      ...parseExportedFunctions(backCa).filter((n) => REFUSALS.test(n)),
+      ...parseExportedFunctions(backCc).filter((n) => REFUSALS.test(n)),
+    ];
+    const frontNames = parseExportedFunctions(frontCr).filter((n) => REFUSALS.test(n));
+    const mirrored = new Set(RULES.map((r) => r.fn));
+    for (const n of mirrored) {
+      if (!backNames.includes(n)) failures.push(`cost-rules: '${n}' is compared here and no longer exists in client-back`);
+      if (!frontNames.includes(n)) failures.push(`cost-rules: '${n}' exists in client-back but not client-front — the screen cannot state a refusal it does not have`);
+    }
+    for (const n of frontNames) {
+      if (!backNames.includes(n)) failures.push(`cost-rules: '${n}' exists in client-front but not client-back — the screen would refuse something the server allows`);
+    }
+    // A backend refusal with no mirror is NAMED, not failed: the entry screen's
+    // own payload rule (`describeAllocationPayloadBlock`) is P7c‑3's, and a
+    // failure here would be a check demanding a phase that has not landed.
+    const unmirrored = backNames.filter((n) => !mirrored.has(n));
+    if (unmirrored.length) {
+      notes.push(
+        `⚠️  cost-rules: ${unmirrored.join(', ')} ${unmirrored.length === 1 ? 'is' : 'are'} not mirrored yet — ` +
+          'the voucher allocation panel is P7c‑3. Add a section to scripts/vectors/cost-rules.vectors.json with it.',
+      );
+    }
+
+    if (backAlloc && backClass && front) {
+      let compared = 0;
+      for (const rule of RULES) {
+        const cases = table[rule.section];
+        if (!Array.isArray(cases)) {
+          failures.push(`cost-rules vectors: no '${rule.section}' cases in the table`);
+          continue;
+        }
+        for (const vector of cases) {
+          for (const row of rule.literal ? [vector.given] : expand(vector.given)) {
+            const expected = sentence(vector.expect, row);
+            const b = rule.call(rule.mod(), row) ?? null;
+            const f = rule.call(front, row) ?? null;
+            compared++;
+
+            const shape = JSON.stringify(row);
+            // Three answers, so a failure says WHICH kind it is: drift between
+            // the two sides and a rule both sides moved away from together need
+            // different fixes.
+            if (b !== f) {
+              failures.push(
+                `cost-rules DRIFT · ${rule.section}/${vector.id} · ${shape}:\n` +
+                  `      client-back:  ${JSON.stringify(b)}\n` +
+                  `      client-front: ${JSON.stringify(f)}\n` +
+                  `      — ${vector.why}`,
+              );
+            } else if (b !== expected) {
+              failures.push(
+                `cost-rules RULE CHANGED · ${rule.section}/${vector.id} · ${shape}:\n` +
+                  `      both sides say ${JSON.stringify(b)}\n` +
+                  `      the table says ${JSON.stringify(expected)}\n` +
+                  `      — ${vector.why}\n` +
+                  '      If the rule or the wording genuinely changed, update scripts/vectors/ in the same commit.',
+              );
+            }
+          }
+        }
+      }
+
+      // The one constant both halves of the class rule are stated against. It is
+      // compared as data because the sentence PRINTS it ("each category's lines
+      // total 100%") and the expansion divides by it.
+      if (backClass.CLASS_PERCENT_TOTAL !== front.CLASS_PERCENT_TOTAL) {
+        failures.push(
+          `cost-rules: CLASS_PERCENT_TOTAL is ${backClass.CLASS_PERCENT_TOTAL} in client-back and ` +
+            `${front.CLASS_PERCENT_TOTAL} in client-front — the two would refuse different splits and say so in the same words`,
+        );
+      }
+
+      notes.push(
+        `cost-rules: ${compared} behavioural comparisons over ` +
+          `${RULES.reduce((n, r) => n + (table[r.section]?.length ?? 0), 0)} region cases, run against BOTH ` +
+          'implementations, comparing the message text (P7c‑2).',
+      );
+    }
+  }
+}
+
 // ── Report ──────────────────────────────────────────────────────────────────
 for (const n of notes) console.log(`note: ${n}`);
 

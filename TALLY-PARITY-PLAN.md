@@ -452,6 +452,32 @@ exists"*), and **a paisa of slack cannot see a paisa of error** — (3) used the
 `near` every other figure test here uses, and injection 1 passed by exactly one
 paisa.
 
+**And P7c‑2 is done: the dimension has a screen.**
+`/transaction/masters/cost-centres` — the categories beside the selected
+category's centre **tree**, and the percentage **classes** on a second tab — with
+every rule the API refuses refused there too, in the API's own sentence. Gate
+**6/6**, four injections, `check-mirrors` **check 13** comparing the wording of
+six refusals across the repo boundary (117 rows over 32 region cases), and the
+**backend is untouched**: not one file under `jayhind-client-back` changed, so the
+parity diff is empty by construction rather than by measurement. ⚠️ **Because the
+feature has no instance anywhere, construction is the FIRST property rather than
+the last** — P3d‑2 added its round trip deliberately at the end, since four
+refusal properties all pass on a screen whose Create button is broken; here
+everything the refusals are asked about is built through the dialogs by the test
+that measures it. ⚠️⚠️ Five of the six refusals are the **browser's**, with the
+requests counted so a 400 caught and toasted cannot pass for a mirrored refusal,
+and the sixth — has this centre been allocated to? — is passed **`null`**, *"not
+known here"*: P3d‑2's `hasPostings` ruling, stated in the vector table as a rule
+rather than left an accident of two signatures. What the gate measures instead is
+the direction available to it — after the class refusal's own alternative is
+carried out, the delete **goes**, which a browser guessing at that count would
+have pre-empted. ⚠️ The class editor refuses **while somebody types**, because a
+split is incomplete for most of the time it is being edited and a refusal that
+only arrived on Save would fire once for every keystroke nobody has typed yet.
+⚠️⚠️ Injection 4 **passed the first time and the property was not the problem** —
+the dev server had not rebuilt, so the browser was running the code the edit had
+replaced. P5c‑1's own note a second time, with a different cause.
+
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
 report whose shape is fixed?"*, and there is no longer a second derivation to
@@ -498,7 +524,7 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P7a | The cost dimension's masters (`cost_categories`, `cost_centres`) and its invariant | M | **done** — [§P7a record](#p7a-record--2026-08-31) |
 | P7b | `cost_allocations`, written from `persistLines` | M | **done** — [§P7b record](#p7b-record--2026-09-01) |
 | P7c‑1 | Cost centre classes — the tables, the expansion rule, the masters API | M | **done** — [§P7c‑1 record](#p7c-1-record--2026-09-01) |
-| P7c‑2 | The masters screen — categories · the centre tree · classes | M | not started |
+| P7c‑2 | The masters screen — categories · the centre tree · classes | M | **done** — [§P7c‑2 record](#p7c-2-record--2026-09-01) |
 | P7c‑3 | The entry screen's allocation panel, and the mirrored expansion | M | not started |
 | P7d | The four cost reports | M | not started |
 | P8 | Posting rules, budgets, interest, multi-currency, scenarios | L | not started |
@@ -5451,7 +5477,7 @@ author remembers.
 | | | |
 |---|---|---|
 | **P7c‑1** | Cost centre classes: the tables, the expansion rule, the masters API | **done** |
-| **P7c‑2** | The masters screen — categories · the centre tree · classes | not started |
+| **P7c‑2** | The masters screen — categories · the centre tree · classes | **done** |
 | **P7c‑3** | The entry screen's allocation panel, the mirrored expansion, `check-mirrors` check 13 | not started |
 
 The order is P5's and P7's own: *the table, then the engine that maintains it,
@@ -5651,6 +5677,197 @@ frozen after D3.
 - ⚠️⚠️ **The warning still has no reader.** `costAllocationProblems` is called by
   nothing in the product; P7d's reconciliation report is where §3.7's *"a warning
   on a reconciliation report"* becomes one.
+
+### P7c‑2 record — 2026-09-01
+
+**The cost dimension has a screen.** `/transaction/masters/cost-centres` — the
+categories beside the selected category's centre **tree**, and the percentage
+**classes** on a second tab — and every rule the API refuses is refused there
+too, in the API's own sentence. P3d‑2's gate, one master across.
+
+| Artefact | What it is |
+|---|---|
+| `client-front` `components/admin/transaction/cost-centres/` | The screen and its four dialogs: `category-add-edit`, `centre-add-edit`, `centre-move-dialog`, `class-add-edit`, plus `centre-options.ts` (the tree as a picker). |
+| `client-front/src/utils/cost-rules.util.ts` | The six `describe*Block` refusals, mirrored. The **wording** is the mirrored thing. |
+| `scripts/vectors/cost-rules.vectors.json` + `check-mirrors.js` **check 13** | The shared table and the check that runs both implementations against it — **117 comparisons over 32 region cases**, message text compared. |
+| `client-front` `api-call.ts` · `trx-interfaces.ts` · `navigation.config.ts` · `masters.routes.ts` · `masters-layout.ts` | Twelve calls, three interfaces, the nav leaf, the route, the Masters sub-nav tab. |
+| `styles/custom/_master-dialog.scss` | Was `_coa-dialog.scss`. Renamed, not copied — see below. |
+| `qa-artifacts/tests/ui/masters/cost-centres.ui.spec.ts` + `cost-rules.ts` | The gate, and the sentences restated a third time. **6/6**, shown to fail **four** ways. |
+
+**The backend is untouched.** Not one file under `jayhind-client-back` changed:
+P7c‑1 had already shipped the nine routes and both `describe*Block` families, and
+every count the screen's refusals name was already on a payload it reads.
+
+#### ⚠️ The feature has no instance, so CONSTRUCTION is the first property
+
+P7a, P7b and P7c‑1 each recorded the same measurement — `costCentresApplicable`
+is `0` on all 1,383 ledgers of all 14 companies, `cost_centres` is empty,
+`cost_centre_classes` is empty, and even the real Tally backup has no centre at
+all. There is nothing here to read.
+
+That inverts the Chart of Accounts gate's shape. P3d‑2 added its round trip
+**last**, deliberately, because four refusal properties all pass on a screen whose
+Create button is broken (BUG-0068 had just shown that is not hypothetical). Here
+the round trip is **first and load-bearing**: everything the five refusal
+properties are asked about — a category, a two-level tree, a class — is built
+through the dialogs in the test that measures it, so a broken Create fails all
+six.
+
+#### Five refusals are the browser's, one is the server's, and the split is stated as a rule
+
+The browser has every fact for five of the six: a centre's category and `path`
+come from `GET /cost-centres/tree`, its `childCount` rides on the node (P7a put it
+there for this rule by name), a category's centre count is that same tree counted,
+and **the number of classes naming a centre is exact** because
+`GET /cost-centre-classes/list` returns every class *with its split*. Those five
+are refused with **no request leaving the page**, and the gate counts the requests
+— a 400 caught and toasted looks identical on screen.
+
+⚠️ `allocationCount` is the server's, and the mirror passes **`null`** for it:
+*"not known here"*. P3d‑2's `hasPostings` ruling, unchanged — a *"this has
+allocations"* refusal that is sometimes wrong teaches an operator to ignore
+refusals. The vector table states that equivalence with a `null` row of its own,
+because *both sides answer "allowed" when the fact is absent* is a rule rather
+than an accident of two signatures, and injecting the "helpful" guess
+(`allocationCount ?? 1`) fails check 13.
+
+⚠️⚠️ **The gate measures that arm in the only direction available to it**: after
+the class refusal is met and its own alternative carried out (*"remove it from
+that class first"*), the delete **goes** — one request, counted. A browser
+guessing at an unknown allocation count would have pre-empted it. Reaching the
+refusal itself needs a posted allocation, which is `qa:p7a-cost-masters` (10) and
+`qa:p7b-cost-allocations`' job; the spec says so rather than implying coverage.
+
+#### The class editor refuses while somebody types, which is why the WORDING is mirrored
+
+A split is built a row at a time and is **incomplete for most of the time it is
+being edited**, so a refusal that only arrived on Save would fire once for every
+keystroke nobody has typed yet. `describeClassLinesBlock` runs on every change and
+the sentence sits under the rows it is about.
+
+⚠️ A line whose two pickers are still empty is deliberately **not** put to the
+rule: an unfinished row is not a wrong one, and *"Cost centre #0 is not one of
+this company's"* about a row somebody is halfway through is the dialog shouting at
+its own operator. What disables Save there is the form being invalid, which is
+what an unfinished row actually is.
+
+⚠️⚠️ The centre picker is **scoped to the line's own category**, and changing the
+category clears the centre. That is the one place this screen narrows a picker
+rather than showing a refusal, and the reason is that the other categories' trees
+are a different *question* rather than a refused answer to this one — the same
+call `centre-move-dialog` makes. The subtree of a centre being moved, by contrast,
+**is** listed: an operator who cannot find the node they were aiming at concludes
+the picker is broken and learns nothing.
+
+#### `.coa-dialog` became `.master-dialog`
+
+Those rules — the hint, the refusal box, the warning box, the full-width field —
+are about **a master dialog that states a refusal**, not about the chart of
+accounts, and this is the second screen to need them. A second copy under a second
+prefix is the duplication that partial's own header warns about (§14's
+`.jwd__full`, from the other side), so the file was renamed and the three Chart of
+Accounts dialogs moved with it. Global, for the reason its header already gives.
+
+#### 🐞 What the build caught, and what it did not
+
+- **The breakpoint guard bit**, correctly: the class editor's split grid was
+  written with `@container (max-width: 620px)`, copied from the route-templates
+  dialog's own off-scale value. It is **720** now — and the container moved with
+  it, from `:host` to `.cls__lines`, because §9's measured trap is exactly the
+  48px of `mat-dialog-content` padding between the pane you sized and the row the
+  query is about. The dialog opens at 60vw so the rows get ~816px at 1440: 96px of
+  headroom above the threshold, rather than the one pixel P3d‑2 measured itself
+  sitting on.
+- **`(ngModelChange)` on a `formControlName` control fires nothing.**
+  `app-select` emits `(change)`, after writing the control — which is the order the
+  category→centre clearing depends on.
+- ⚠️ **A `mat-form-field` wrapping a custom `MatFormFieldControl` resolves
+  `getByLabel('Category')` to TWO elements** once its panel is open — the combobox
+  and the listbox — and Playwright's strict mode refuses it. The spec addresses
+  `app-select` directly and says why.
+
+#### The four injections
+
+| # | Injection | Caught by |
+|---|---|---|
+| 1 | `deleteCentre` stops consulting the mirrored rule and just sends | (4) — no sentence on screen, and `deletes` is 1 where the property expects 0 |
+| 2 | the class refusal is computed and **never rendered** | (5) — *"a split is incomplete for most of the time it is edited, so the sentence is live"* |
+| 3 | the move picker hides the centre's own subtree — the tidier screen | (2) — the destination cannot be chosen, so the refusal cannot be shown |
+| 4 | the 100 % total taken over the whole class rather than per category | (5) — the two-category class, correct at 200, is refused |
+
+⚠️ **Injection 4 passed the first time it was run, and the property was not the
+problem**: the dev server had not finished rebuilding, so the browser was still
+running the code the edit had replaced. P5c‑1's own note a second time — **a
+passing injection is a claim about the edit before it is a claim about the
+property** — with a different cause. Re-run after the rebuild, it fails on the
+figure.
+
+#### 🐞 What building the gate found — three defects, all in the harness
+
+None of them in the screen, and all three are the same family: a cleanup that
+cannot finish is indistinguishable from a screen that does not work.
+
+- **`framework/db` is read-only**, by design, so the sweep goes through the API.
+- **The two-stage delete and the archived view.** `BaseCrudService.remove`
+  archives on the first call and erases on the second, and the `…/list` feeds are
+  paranoid — so an archived leftover is invisible to them and
+  `cost_categories`' `UNIQUE(companyId, name)` **includes** tombstones. The next
+  run's first create is then a 409 on a screen that is working perfectly.
+  Measured, twice, before the cause was clear.
+- ⚠️ **`GET /cost-centres/list` is not the centres' feed** — it lands on
+  `@Get(':id')` → `ParseIntPipe` → 400. The tree's is `GET /cost-centres/tree`.
+  Silent: the sweep enumerated nothing, the centres survived, the category delete
+  was then refused *because it still held them*, and the failure surfaced two
+  tests later.
+- ⚠️⚠️ And a sweep **per test** was a third of the request budget: the ERP
+  throttles 100/min per IP, and the lane is documented as over it already
+  (CLAUDE.md §11's `problems` row — *"a new suite spends a budget that is already
+  gone"*). One `beforeAll` plus one `afterEach`.
+
+  ⚠️ **And the screen itself was two thirds of the rest**, which turned out to be
+  a real find rather than a test problem: `loadAll` re-read all three feeds after
+  **every** write. All three on arrival is right — each tab states a refusal about
+  the other's rows — but after a write the interlock is unchanged, because a write
+  touches one master: creating a category moves no centre, creating a centre names
+  no class, and a centre a class names cannot be deleted in the first place. It
+  refreshes the one that changed. Three requests where one is the answer, on a
+  screen whose every action is a write.
+
+  ⚠️⚠️ The full lane is **56 passed · 1 failed**, and the failure is
+  `user-form.ui.spec.ts`' *already-a-member* — which **passes in isolation**.
+  Recorded rather than explained away: six more browser tests in a lane already
+  over the per-IP throttle is a cost this phase added, and the two reductions
+  above are what was done about it.
+
+#### Parity
+
+**Empty by construction, and this time that is a statement about a diff nobody
+needs to run**: `git status` on `jayhind-client-back` is clean across the whole
+phase — no endpoint, no DTO, no rule, no migration. The parity harness captures
+API responses; a phase that changes none of them cannot move one.
+
+#### Everything else, re-run
+
+`npm run build` and `lint:ci` clean in `client-front` (586 warnings, all
+pre-existing `any`s; **no new one**), the breakpoint and token guards green,
+`check-mirrors` **in sync** with check 13's 117 comparisons noted, and
+`qa:screens` green over the 30-route sweep with the new screen in the census.
+
+⚠️ `cost-rules.util.ts` mirrors five of the six cost `describe*Block` rules;
+`describeAllocationPayloadBlock` is **P7c‑3's**, and check 13 **names it in a
+note** rather than failing — a check that demanded a phase which has not landed
+is a check somebody switches off.
+
+#### What P7c‑3 inherits
+
+- **The mirror file exists and is checked**, so `expandCostCentreClass` and
+  `describeAllocationPayloadBlock` join it rather than starting a new one. Check
+  13's `RULES` list is where they are declared; its note already names the second.
+- **The three feeds the allocation panel needs are proven from a browser**:
+  `GET /cost-categories/list`, `/cost-centres/tree`, `/cost-centre-classes/list`
+  (with the split). `POST /cost-allocations/list` still has no caller.
+- ⚠️ **The world is still empty.** P7c‑3's gate will have to construct a switched-on
+  ledger and a voucher as well as the masters — P5b's `advance` arm a seventh time.
 
 ### Verification pass — 2026-08-28
 
@@ -7155,7 +7372,7 @@ because every earlier link is what the next one's gate ties to.
 | **P7a** | `cost_categories` · `cost_centres` · the per-category invariant · the masters API | **done** — [record](#p7a-record--2026-08-31) |
 | **P7b** | `cost_allocations`, written from `persistLines`; the voucher's allocation payload | **done** — [record](#p7b-record--2026-09-01) |
 | **P7c‑1** | Cost centre classes — `cost_centre_classes` · `_lines` · the expansion rule · the masters API | **done** — [record](#p7c-1-record--2026-09-01) |
-| **P7c‑2** | The masters screen — categories · the centre tree · classes | not started |
+| **P7c‑2** | The masters screen — categories · the centre tree · classes | **done** — [record](#p7c-2-record--2026-09-01) |
 | **P7c‑3** | The entry screen's allocation panel, and `expandCostCentreClass` mirrored | not started |
 | **P7d** | Cost Centre Summary · Category Summary · Cost Centre Breakup · Ledger Breakup | not started |
 
