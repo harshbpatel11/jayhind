@@ -402,6 +402,32 @@ property it was aimed at and once by a refusal asserted against its own
 sentence, *"still holds 2 cost centres"*, which counted 3. That is the argument
 for matching the message rather than the throw, made by accident.
 
+**And P7b is done: the dimension has figures, and the general ledger still does
+not know.** `cost_allocations` hangs off `journal_lines.id`, `trx_cost_allocations`
+holds what a document *says*, and `persistLines` — the one writer of journal lines
+— turns the second into the first, beside the bill register and for the same
+reason. §5's own gate sentence (*"every Trial Balance figure is unchanged by the
+presence of allocations"*) only became falsifiable here, and it is asked as a
+**deletion**: the three statements are captured with the rows present, the rows are
+deleted inside the same transaction, and all three are captured again — so
+`0 changed` is a statement about the allocations rather than about the voucher.
+Gate **139/139**, six injections, parity diff **empty**. ⚠️ **The sign is the
+leg's, never the operator's**: the wire carries a magnitude, `buildLegs` decides
+the side, and that one decision buys the credit-side head, the flipped negative
+charge and — the part worth carrying — the **reversal**, which *negates* where a
+bill reference *retires*. An allocation is signed, so the cancelled pair cancels
+itself and a gross Σ that forgot `liveEntrySql` is **still right**: BUG-0044's
+lesson applied in a new dimension before it could be repeated there. ⚠️⚠️ Two
+tables, because a **draft has no journal line** — a voucher posts at approval and
+an edit reverses and supersedes it, so an allocation typed during entry has to
+survive three states in which no line for it exists; that is `trx_payment_receipt_trxs`
+beside `bill_references`, exactly. ⚠️ Building it found the raw-SQL guard passing
+on an **allow-list entry that described nothing**: P7a's `information_schema` probe
+was deleted when P7b's tables arrived and its justification stayed behind. The
+guard now fails a stale key, which is `judge()`'s own argument — *an allowance
+matching nothing describes a migration that did not happen* — moved one file
+across.
+
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
 report whose shape is fixed?"*, and there is no longer a second derivation to
@@ -446,7 +472,7 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P5d | Bills Receivable/Payable; the annexure moves onto refs | M | **done** — [§P5d record](#p5d-record--2026-08-31) |
 | P6 | Trading Account and Gross Profit | M | **done** — [§P6 record](#p6-record--2026-08-31) |
 | P7a | The cost dimension's masters (`cost_categories`, `cost_centres`) and its invariant | M | **done** — [§P7a record](#p7a-record--2026-08-31) |
-| P7b | `cost_allocations`, written from `persistLines` | M | not started |
+| P7b | `cost_allocations`, written from `persistLines` | M | **done** — [§P7b record](#p7b-record--2026-09-01) |
 | P7c | The masters screen, the entry panel, and cost centre classes | M | not started |
 | P7d | The four cost reports | M | not started |
 | P8 | Posting rules, budgets, interest, multi-currency, scenarios | L | not started |
@@ -5076,6 +5102,301 @@ there. `party_ledger_plan` is deliberately frozen after D3, so that population
 keeps drifting past it; whether the property is still asking an answerable
 question belongs to whoever owns D9.
 
+### P7b record — 2026-09-01
+
+**The parallel dimension has figures, and the general ledger still does not know
+it exists.** §2.4's design consequence survived contact with the writer, which is
+the only thing P7b was ever really being asked:
+
+> Allocations must **not** be extra journal lines. That would double GL volume and
+> put a second, weaker balancing rule into the engine.
+
+`journal_lines` gained no column, no entry was re-posted, and the parity diff
+across the whole phase is `PARITY HELD — the diff is empty`, with nothing
+re-based and nothing declared.
+
+| Artefact | What it is |
+|---|---|
+| `src/const/cost-allocation.const.ts` (+16 tests, 45 total) | P7a's rule, plus P7b's four: `CostAllocationOwnerType`, `signAllocationsForLeg`, `reverseAllocations`, `describeAllocationPayloadBlock`. Still dependency-free, still throws nothing. |
+| `src/entities/cost-allocation.entity.ts` | The **posting's record** — signed, hanging off `journal_lines.id`. |
+| `src/entities/trx-cost-allocation.entity.ts` | The **document's statement** — a positive share, keyed `(ownerType, ownerId)` over D6's four ledger holders. |
+| Migration `20260901000000-cost-allocations` | Both tables. No backfill: nothing has ever been allocated. |
+| `CostAllocationService` | `replaceForOwner` (the voucher's, with §4.3 rule 7 at the seam), `sharesForOwners` (the batch load), `writeForEntry` (the GL's). |
+| `PostingService.writeCostAllocations` | The seam, called from `persistLines` beside the bill register. |
+| `POST /cost-allocations/list` | The read-back. One new route (754 → **755**). |
+| `scripts/qa-p7b-cost-allocations.ts` · `npm run qa:p7b-cost-allocations` | The gate. **139/139** over 14 companies, shown to fail **six** ways. |
+
+**Measured before the phase started**, as every phase since P2b‑3c has, and it is
+P7a's measurement unchanged — which is the point rather than an oversight:
+
+- `costCentresApplicable` is still **`0` on all 1,383 ledgers of all 14
+  companies**, `cost_centres` still holds **zero** rows, and both new tables start
+  and end empty. P7b changes none of that on purpose: switching a ledger on is an
+  operator's decision and **P7c is the screen where they make it**.
+- So the writer runs over `applicableCategories` returning empty for every line in
+  the world — a correct no-op — and the gate **constructs everything it
+  measures**. P5b's `advance` arm, P5c‑3's mixed voucher, P6's closing stock and
+  P7a's whole gate, a fifth time.
+
+#### Two tables, because a draft has no journal line
+
+§3.7 puts `cost_allocations` on `journal_lines.id` and that is not negotiable —
+§2.4 is why. But a voucher **posts at approval**, and editing an approved voucher
+reverses the GL and supersedes the row with a draft that has to be re-approved
+(§4.9, BUG-0028). An allocation typed during entry therefore has to survive three
+states in which no journal line for it exists.
+
+So the pair is exactly the pair P5 already ships, for the identical reason:
+
+| | The document's statement | The posting's record |
+|---|---|---|
+| bills | `trx_payment_receipt_trxs` | `bill_references` |
+| cost | `trx_cost_allocations` | `cost_allocations` |
+
+The first is what a person edits; the second is what a report reads;
+`persistLines` is the one place the first becomes the second.
+
+#### The owner set is a RULE, not a list somebody wrote down
+
+`trx_cost_allocations` is keyed `(ownerType, ownerId)` over **D6's four
+`ledgerId` holders** — `trx`, `trx_charges`, `trx_payment_receipts`,
+`trx_payment_receipt_lines` — and the set is derived from a question rather than
+enumerated: *an allocation is a statement about a ledger's amount on a document,
+so a row that names no ledger has nothing to allocate.* A fifth holder added later
+inherits the surface by being asked the same question.
+
+Two consequences worth carrying:
+
+- **The allocation is on the voucher's HEAD, never on its item lines.** A
+  `trx_items` row names a product and never a ledger — P4c measured that, and it
+  is why an Accounting Invoice needed `trx_charges` rather than the item grid
+  (P4e‑1). Tally allocates the ledger entry for the same reason.
+- ⚠️ **`ownerId` carries no foreign key**, because its owner is one of four
+  tables. That is `journal_entries.sourceType`/`sourceId`'s own idiom, and the
+  cost is real: nothing at the database level clears an orphan, so the owner's own
+  writer replaces the rows and `company-hard-delete-order.const.ts` carries the
+  table before all four owners. It also makes the tenant column **load-bearing in
+  a way it usually is not** — with no FK, `companyId` is the only thing standing
+  between one company's owner id and another's rows, which is why
+  `sharesForOwners` binds it and filters the `IN × IN` cross product back down to
+  the pairs actually asked for.
+
+#### ⚠️ The sign is the LEG's, and that is what makes a reversal free
+
+The wire carries a **magnitude**: a voucher says *"₹6,000 of this ₹10,000 belongs
+to North"*, and which side that lands on is `buildLegs`' answer, not a person's.
+`signAllocationsForLeg` applies it in `persistLines`.
+
+Three things fall out of one decision, which is the argument for it:
+
+- A **sales** head is a credit leg, so the same positive share posts `−500` —
+  gate property (5), which drives a real sales voucher through the whole path
+  rather than asserting the pure rule twice.
+- A **negative charge** (a data-import rounding adjustment) is flipped to the
+  opposite side by `resolveLegs`; its allocation flips with it, because the side
+  is read off the leg that was actually built.
+- A **reversal** is the opposite side of the same figure, so negating the
+  original's rows is the whole rule. No second derivation, and no `describe*` of
+  its own.
+
+#### ⚠️⚠️ A reversal NEGATES; it does not retire — and that is the opposite of P5b
+
+This is the one place the cost dimension deliberately parts company with the bill
+register, and the difference is the sign.
+
+A bill reference carries a **magnitude**, so a reference left on a cancelled
+entry breaks `Σ|ref| = |line|` on a dead line — it has to be **retired**
+(P5b, and `qa-p5-bill-register` (2) refuses the alternative). An allocation is
+**signed**, so the reversal's own negated rows cancel the original's. Which buys
+something the retiring version does not:
+
+> **A gross Σ over `cost_allocations` that forgot `liveEntrySql` is still right.**
+
+That is BUG-0044's lesson — *the rule only bites on a GROSS figure; a signed sum
+cancels the pair by itself* — applied in a new dimension **before** it can be
+repeated there. Gate property (7) is that sentence as a test: it sums by centre
+over both entries with no live-entry filter at all and asserts exactly zero.
+
+The negated rows are **copied from the original line**, never re-derived from the
+voucher — `journal_lines.ledgerId`'s own ruling (*"a reversal has to cancel where
+the original landed"*), because re-deriving answers differently the moment
+somebody edits the allocation panel after cancelling.
+
+#### The two entries' lines are paired by position, and the assumption is CHECKED
+
+`reverseSource` builds one opposite leg per line of the original and
+`persistLines` inserts them in leg order in one statement, so the two entries'
+lines correspond position by position. P7b makes that a fact rather than a hope in
+two places: `reverseSource`'s include is now **ordered by id** (it was unordered,
+and nothing had depended on it before), and the pairing additionally requires the
+two lines' `ledgerId` to match — a reversal carries its original's ledger verbatim
+(D6), so a pair that disagrees is a pair that did not line up, and the row is
+**skipped rather than written against somebody else's cost centre**. Silence beats
+a confident wrong figure in a dimension nothing else reconciles.
+
+#### It still warns. It still does not refuse. But a malformed payload is refused.
+
+§3.7's ruling is unchanged and P7b had to draw the line it implies, because the
+two halves look alike:
+
+| | | |
+|---|---|---|
+| the **books** are incomplete | a partial or missing allocation | `costAllocationProblems` — a **warning**, read by P7d |
+| the **payload** is malformed | a centre in another category, another company's centre, a negative share | `describeAllocationPayloadBlock` — **refused**, in a sentence |
+
+A partial allocation is a fact about the books and refusing it punishes an
+operator for one. A row naming a real centre under the wrong category is a
+mistake, and storing it in silence puts a figure into every P7d report under a
+partition it does not belong to, reconciling against nothing — BUG-0040's shape,
+which this programme keeps closing. `describeAllocationPayloadBlock`'s spec
+asserts that a ₹1 allocation of a ₹10,000 row goes straight through, so the
+distinction cannot be collapsed by accident.
+
+⚠️ **The foreign key is a backstop and its sentence is not one a person reads.**
+Injection 4 removed the check and the *database* refused a stranger's centre —
+with *"Cannot add or update a child row: a foreign key constraint fails
+(`jayhind_client_development`.`trx_cost_allocations`, CONSTRAINT
+`fk_trx_cost_allocations_centre` …)"*. That is API-023's exact shape. The guard is
+what turns it into *"Cost centre #N is not one of this company's."*
+
+#### ⚠️ There is deliberately NO unique index on (line, category, centre)
+
+`CostAllocationProblemKind.Duplicate` is one of the three arms
+`costAllocationProblems` reports. A unique index would make that arm
+**unreachable** — a rule carrying a branch nothing can produce, which is §6.4's
+*"a mirror rule that cannot fail reads as coverage"* inverted — and it would also
+reverse §3.7's ruling in the one place nobody would look. Two rows summing to the
+right figure are untidy, not wrong; the report says so and P7c is where a person
+tidies it.
+
+#### 🐞 The raw-SQL guard was passing on an exemption that described nothing
+
+P7a wired `describeCentreDeleteBlock`'s allocation count a phase early, behind an
+`information_schema` probe for a table that did not exist yet, and allow-listed
+that probe as `cost-centre.service.ts:266`. P7b deleted the probe — the table is
+here — and **the guard went on passing**, with a justification naming no query at
+all.
+
+CLAUDE.md §14 already records the first half of this trap (*"a new query can land
+on an allow-listed line and inherit a justification written for a different
+statement"*). This is the second half, and it is the same defect: the allow-list
+is keyed `path:line`, which is a **coordinate rather than a statement**.
+
+`findStaleAllowlistKeys` now fails `npm run guards` on any key that names no raw
+SQL call — a file that is gone, a line that is not a call, an entry that drifted
+off its own query. It is the argument this programme already makes elsewhere in
+its own words: the parity harness's `judge()` **fails an unmet allowance**,
+because a list claiming a movement that did not happen describes a migration that
+did not happen. An allow-list nobody prunes is one whose keys have stopped meaning
+what they say, and it degrades silently into cover for the next query to land on
+one of those lines. Five tests, one of which runs the check over the **real**
+allow-list so it cannot pass by seeing an empty one.
+
+#### The delete guard now counts BOTH tables, and the second is the one that bites
+
+`describeCentreDeleteBlock`'s allocation count spans `cost_allocations` **and**
+`trx_cost_allocations`. A centre named only by an unapproved draft has moved no
+figure and is still a centre somebody is using: erasing it would leave that draft
+pointing at nothing and surface the failure as a foreign-key error at approval,
+weeks later, on a screen that has no idea what a cost centre is. Gate property
+(11) constructs exactly that case.
+
+#### The read-back is not P7c's, and leaving it out would have lost data
+
+`POST /cost-allocations/list` ships here rather than with the screen, because
+`TrxWriteService` **destroys and rebuilds a voucher's `trx_charges` rows on every
+save**. Their ids change; a form that could not read a charge's allocations back
+would send none, and the charge's cost centres would vanish on any edit with
+nothing saying so. That is P5c‑2's own find (a bill ticked before a search was
+silently dropped from the payload) one phase across, and gate property (10) is it.
+
+`@SharedRead({ parties: false })`, not the `cost-centres` key: the entry screen is
+not the masters screen, and gating it there would make a company grant the masters
+to everyone who types an invoice. A **trading party** is refused — what a
+supplier's invoice was allocated to is this company's cost structure, which is
+D-46's question answered no.
+
+#### The gate, and the six injections
+
+**139/139** over 14 companies (4 of them have no purchase voucher to model one on
+and say so rather than reporting green over nothing). Twelve properties; (3) is
+the plan's own gate sentence, and it is the one that could only become falsifiable
+here — P7a could ask it of the *masters*, where creating a category moving nothing
+is barely a claim.
+
+⚠️ **(3) is written as a deletion, not as a comparison across the posting.** The
+voucher itself moves figures, obviously and correctly; what must move nothing is
+the **allocations**. So the three statements are captured with the allocation rows
+present, the rows are deleted inside the same transaction, and all three are
+captured again — `0 changed` is then a statement about the allocations alone. And
+it asserts `allocRows.length > 0` beside it, so it cannot pass by there having
+been nothing to delete.
+
+⚠️⚠️ **Every Σ is taken in the gate**, never by calling the rule. P6's first
+injection passed because its oracle imported the constant it was checking — §13's
+standing shape in P2b‑3c's variant, *a check that restates the code by copying the
+code cannot fail*. (6) adds the rows up per category here, from what the engine
+actually wrote.
+
+| # | Injection | Caught by |
+|---|---|---|
+| 1 | the sign is the operator's, not the leg's (`sign = 1`) | (5) |
+| 2 | a reversal records nothing, like a bill reference | (7) — `#185=600.00×1 · #186=400.00×1 · #187=1,200.00×2` |
+| 3 | the head's allocations ride **every** leg, not just Main | (5) and (8) |
+| 4 | the payload check removed | (9a) as a raw MySQL FK message, (9b) and (9c) *"did not refuse at all"* |
+| 5 | `persistLines` does not call the seam | (3), (5), (6), (7), (8) — five at once |
+| 6 | **the Trial Balance reads `cost_allocations`** — §2.4's actual violation | (3), naming three moved figures to the paisa |
+
+Injection 6 is the one that matters: it is the defect the whole phase is a
+promise about, and (3) named `tb/148[0] 5,09,70,684.08→5,09,70,484.08` rather
+than reporting a total that still balanced.
+
+#### Parity
+
+`capture p7b-before` on `main`, `capture p7b-after` on the branch, `diff`:
+**`PARITY HELD — the diff is empty`**. Nothing re-based, nothing declared. P7b
+adds a table, a route and a writer that does nothing on any existing row.
+
+#### Everything else, re-run
+
+`npm test` **2052/2052** (132 suites, was 2031); all five guards green — including
+the new stale-allow-list check; `npm run build` and `lint:ci` clean;
+`check-mirrors` in sync (no new key: `cost-centres` is P7a's and already mirrored);
+`dump-routes` boots the real `AppModule` and lists **755** routes, one of them new.
+Earlier gates: `qa:p1-group-tree` 56, `qa:p2c-import-tree` 227,
+`qa:p3-ledger-report` 140, `qa:p3b-statements` 323, `qa:p5-bill-register` 157,
+`qa:p5b` 9, `qa:p5c` 9, `qa:p5c3` 18, `qa:p5d-annexure` 16, `qa:p6-trading` 154,
+`qa:p7a-cost-masters` 264.
+
+⚠️ **The one pre-existing failure is unchanged and at identical numbers**:
+`qa:p2-ledgers` (2) on company 28 — *"449 in population, 422 planned"* —
+reproduced on `main` at P6 and recorded at P7a. `party_ledger_plan` is frozen
+after D3, so that population keeps drifting past it; whether the property is still
+asking an answerable question belongs to whoever owns D9.
+
+#### What P7c inherits
+
+- **Everything is switched off, and P7c is where that changes.** A company's first
+  cost centre and its first `costCentresApplicable = 1` are both an operator's
+  decision. Until one is made, every property P7b built runs over an empty set —
+  correctly, and invisibly.
+- **The panel's two calls already exist**: `GET /cost-categories/list` +
+  `GET /cost-centres/tree` to populate it, `POST /cost-allocations/list` to
+  rehydrate a saved voucher. What P7c adds is the surface and the **cost centre
+  class** (Tally's percentage template), which is a third table and a rule that
+  expands a name into shares — and which must expand into the same
+  `CostAllocationShare[]` the wire already carries, not into a second payload
+  shape.
+- ⚠️ **The warning has no reader yet.** `costAllocationProblems` is called by
+  nothing in the product: P7d's reconciliation report is where §3.7's *"a warning
+  on a reconciliation report"* actually becomes a report. Until then an incomplete
+  allocation is stored, correct, and silent — which is the ruling working as
+  written, not a gap.
+- ⚠️⚠️ **A per-item split would need its own owner type.** The allocation is on the
+  voucher's head; `trx_items` names a product and no ledger. If that is ever
+  wanted it is a fifth `CostAllocationOwnerType` and a different question about
+  what is being partitioned — not a widening of this one.
+
 ### Verification pass — 2026-08-28
 
 The plan was written from a reading of the source. It has since been checked
@@ -6574,7 +6895,7 @@ because every earlier link is what the next one's gate ties to.
 | | | |
 |---|---|---|
 | **P7a** | `cost_categories` · `cost_centres` · the per-category invariant · the masters API | **done** — [record](#p7a-record--2026-08-31) |
-| **P7b** | `cost_allocations`, written from `persistLines`; the voucher's allocation payload | not started |
+| **P7b** | `cost_allocations`, written from `persistLines`; the voucher's allocation payload | **done** — [record](#p7b-record--2026-09-01) |
 | **P7c** | The masters screen, the entry screen's allocation panel, and cost centre classes | not started |
 | **P7d** | Cost Centre Summary · Category Summary · Cost Centre Breakup · Ledger Breakup | not started |
 
