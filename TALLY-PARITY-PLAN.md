@@ -350,6 +350,35 @@ two coincide only until a note enters. Neither existing gate could see it: one
 reads history, which contains no approved voucher of the shape, and the other
 builds only the cases somebody named.
 
+**And P6 is done: the P&L is two statements, and Net Profit did not move.** A
+**Trading Account** — Sales · Direct Incomes against Purchases · Direct Expenses
+— closing at a **Gross Profit** carried down into a **Profit & Loss Account** met
+by the indirect halves. §3.8's own opening sentence turned out to be the whole
+design: the split *arrives free with the group hierarchy* P1 seeded, so it is
+four `systemKey`s and no new column, no per-company setting and one migration.
+Gate **154/154** over 14 companies and 66 period-reports; the parity diff is
+**0 changed, 0 removed**, with the three new payload fields declared `--rebased`.
+⚠️ **The plan's gate is not enough on its own, and that was measured**: filing
+Purchase Accounts below the line moves ₹5.6 crore and takes company 28's Gross
+Profit from −₹2.15 crore to +₹3.47 crore while Net Profit stays right to the
+paisa and six of the ten properties stay green — they are invariants of *a*
+partition, and a wrong partition is still a partition. ⚠️⚠️ **The first injection
+PASSED, and the gate was the defect**: (5)'s oracle *imported* the four trading
+keys, so it moved with the rule it was checking — §13's standing shape in
+P2b‑3c's variant, third occurrence. ⚠️ `CLOSING_STOCK_INCOME` **could not be
+retired the way §3.2 imagined**: §3.10 derives the Balance Sheet from
+`journal_lines` alone, so `Dr Stock-in-Hand` must be posted and its credit exists
+whatever it is called — what P6 changes is that the credit prints *inside* the
+Trading Account (`Direct Incomes`) instead of below the gross-profit line, where
+`fallbackGroupForNature` had put it. It moves no figure — not one closing-stock
+entry exists in 14 companies — which is why the gate **constructs** one. And open
+question 2 closed with nothing built: Direct ↔ Indirect is a **within-nature**
+move, so the re-parenting P3d‑2 shipped already permits it on a posted ledger.
+⚠️⚠️ Building it found the statements' tree drawing **every** figure left-aligned
+in the body font on all three statements since P3b — `app-statement-tree` shares
+`reports.shared.scss` to prevent exactly that, and an ancestor-qualified rule
+cannot reach it, because Angular stamps every compound of a descendant chain.
+
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
 report whose shape is fixed?"*, and there is no longer a second derivation to
@@ -392,7 +421,7 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P5c‑2 | The entry screen's reference grid | M | **done** — [§P5c‑2 record](#p5c-2-record--2026-08-30) |
 | P5c‑3 | A voucher may name a document-less bill (`billRefId` on the allocation) | M | **done** — [§P5c‑3 record](#p5c-3-record--2026-08-31) |
 | P5d | Bills Receivable/Payable; the annexure moves onto refs | M | **done** — [§P5d record](#p5d-record--2026-08-31) |
-| P6 | Trading Account and Gross Profit | M | not started |
+| P6 | Trading Account and Gross Profit | M | **done** — [§P6 record](#p6-record--2026-08-31) |
 | P7 | Cost centres | L | not started |
 | P8 | Posting rules, budgets, interest, multi-currency, scenarios | L | not started |
 
@@ -4596,6 +4625,196 @@ mechanism is a change of restatement:
   later invoice be settled against one; that is a settlement-engine change, not a
   reporting one, and nothing in P5 promised it.
 
+### P6 record — 2026-08-31
+
+**The P&L became two statements, and Net Profit did not move by a paisa.** §3.8's
+opening sentence turned out to be exactly right — *"Direct/Indirect is the split
+that makes a Gross Profit line possible, and it arrives free with the group
+hierarchy"* — and it is the whole of the phase's design. P1 seeded Tally's six
+P&L primaries into all 14 companies in August; P6 is four `systemKey`s saying
+which of the six sit above the line, and a report that draws the consequence.
+
+| Artefact | What it is |
+|---|---|
+| `src/const/trading-account.const.ts` (+ 16 tests) | The rule. `TRADING_ACCOUNT_GROUP_KEYS` (four), `tradingPlacementFor`, `grossProfitLine` (the c/d and b/d columns, always opposite) and `netProfitFrom`. Dependency-free, no new column, no per-company setting. |
+| `ReportsService.profitAndLoss` | Returns `tradingAccount`, `profitAndLossAccount` and `grossProfit` **beside** the fields it already returned, which are untouched. The books are filled in the one pass that builds the sections, so a section cannot land in a column and in neither book. |
+| `TRX_GROUP_TARGET['CLOSING_STOCK_INCOME']` + migration `20260831000000` | `null` → `Direct Incomes`. 14 ledgers moved off the wrong side of the gross-profit line. |
+| `client-front` `reports/profit-and-loss/` | Two stacked statements, each an ordinary `.report-columns` pair, with the carry-down and the result as **real rows** — so each statement adds up on the page. |
+| `scripts/qa-p6-trading.ts` · `npm run qa:p6-trading` | The gate. **154/154** over 14 companies and 66 period-reports, shown to fail four ways. |
+
+**Measured before the phase started**, as every phase since P2b‑3c has: 70 Direct
+Expenses ledgers against 84 Indirect, 28 Sales and 28 Purchase, **0 Direct
+Incomes** and **0 postings anywhere in Indirect Incomes**. So on this database
+almost the entire book is the trade, and the second statement holds one figure —
+which is worth knowing before reading a Trading Account that is nearly the whole
+P&L.
+
+#### The gate is the plan's own sentence, and it is not enough on its own
+
+*"Net Profit after the split equals Net Profit before it, on every company and
+every period."* That invariant is cheap to state and total in what it catches —
+a section counted twice, a section counted in neither book, a gross profit that
+does not feed the net — because the line is drawn **through** the same rows, so
+the total cannot move.
+
+What it cannot see is a section in the **wrong** book. Measured, not argued:
+filing Purchase Accounts below the line moves ₹5.6 crore of company 28 and takes
+its Gross Profit from **−₹2,15,93,857.04 to +₹3,46,60,542.68**, while Net Profit
+stays right to the paisa and (1), (2), (3), (4), (6) and (7) all stay green. They
+are invariants of *a* partition, and a wrong partition is still a partition.
+Property (5a) — *the trading book holds exactly the four trading sections* — is
+what fails.
+
+#### 🐞 The first injection PASSED, and the gate was the defect
+
+(5)'s oracle **imported `TRADING_ACCOUNT_GROUP_KEYS`**. So when the injection
+removed Purchase Accounts from that constant, the oracle moved with it and
+agreed. The aggregation had been restated in SQL; the *rule* had not, and the
+rule was the thing under test.
+
+That is §13's standing shape in the variant P2b‑3c filed — *a check that restates
+the code by copying the code cannot fail* — and it is the third time this
+programme has hit it (`qa-p2-ledgers` reading `trx_natures.name`, `return-rules.ts`
+reading `trx_items` alone). The four are **restated by name** in the gate now,
+because Tally's names are the stable thing: `tallyGroupKey` derives the
+`systemKey` from them and nothing renames them.
+
+⚠️ Worth separating two lessons that look alike. P5c‑1's is *"a passing injection
+is a claim about the edit before it is a claim about the property"* — so the edit
+was verified to have applied, and it had: the report really did move Purchase
+Accounts below the line and print a ₹3.47 crore gross profit. The edit was fine;
+the **oracle** was the problem.
+
+#### The closing-stock head could not die, and finding that out is the ruling
+
+§3.2 mapped `CLOSING_STOCK_INCOME` to `null` — *"dies with the Trading Account
+(§3.8)"* — so D2's seed had nothing to parent its ledger by and fell through
+`fallbackGroupForNature`, which for an Income nature answers **`Indirect
+Incomes`**: the second statement, below the line.
+
+Tally can retire it because its Balance Sheet reads the inventory subsystem
+directly and shows closing stock on both statements with no voucher at all.
+§3.10 commits this report layer to `journal_lines` **and nothing else**, so
+`Dr Stock-in-Hand` has to be a posted leg for the sheet to show stock — and a
+journal entry balances, so the credit exists whatever it is named. Deriving it
+instead would also move Net Profit by the whole stock movement, which is the one
+thing this phase's gate forbids. So P6 rules on **where the credit prints**, not
+on whether it exists: `Direct Incomes`, inside the Trading Account, on its credit
+side.
+
+⚠️ **A line of its own — Tally's actual shape — was refused**, and the reason
+generalises past this row: a figure inside a statement that is not the sum of a
+group's subtree breaks the invariant `qa:p3b-statements` (5) exists to hold, and
+a 29th group breaks §3.2's premise that the tree is Tally's 28.
+
+⚠️⚠️ **It moved no figure, and that is why it was fixed now rather than later.**
+`sourceType = 'closing-stock'` has **zero rows across all 14 companies** — the
+mechanism has never been exercised once — so both closing-stock ledgers carry no
+journal lines and every report answers identically either side of the migration.
+The first company to run a close would have got an understated Gross Profit and a
+correct Net Profit, found by a customer reading a Trading Account rather than by
+a gate. Same reasoning as `20260828500000-ledger-nature-fallback-repair`, whose
+33 misplaced ledgers were also all at `0.00`.
+
+Which is exactly why property (10) **constructs** the case: a real close posted
+in a rolled-back transaction, with Gross Profit *and* Net Profit each rising by
+the valuation and the credit landing in the trading column. Put the ledger back
+in Indirect Incomes and it reports the defect in full — *gross unchanged, net
+rose, `indInc 0.00 → 1,23,456.78`*. A census over rows that do not exist asserts
+nothing; this is P5b's `advance` arm and P5c‑3's mixed voucher a third time.
+
+#### ✅ Open question 2 is closed, and nothing was built for it
+
+*"Direct vs Indirect assignment (P6). A per-company review step with a guided
+screen, or a defaulted mapping they can re-parent afterwards?"* — **defaults plus
+re-parenting**, as the plan assumed, and both halves already existed.
+
+What makes it work is a fact rather than a feature: **Direct ↔ Indirect is a
+within-nature move.** Direct and Indirect Expenses are both Expense, Direct and
+Indirect Incomes both Income — so `describeLedgerMoveBlock`, which refuses to
+move a *posted* ledger across an account nature, permits every move this split
+invites, postings and all, on the Chart of Accounts screen P3d‑2 built. Property
+(9) asserts that instead of the plan claiming it, and asserts the cross-nature
+refusal beside it so the permission is not vacuous.
+
+#### 🐞 The statements' tree drew its figures left-aligned, on all three, since P3b
+
+Found by reading the rendered page, which is where P4e‑2's second print defect
+came from too. Every figure `app-statement-tree` draws — on the Trial Balance,
+the Balance Sheet and the Profit & Loss — computed `text-align: start` in the
+**body font**, sitting in the same column as the screens' own right-aligned mono
+totals.
+
+`app-statement-tree` lists `reports.shared.scss` among its `styleUrls` precisely
+to avoid this, and its decorator says so. It cannot work, because Angular's
+emulated encapsulation stamps **every** compound of a descendant chain rather
+than only the last:
+
+```
+.report-table[_ngcontent-TREE]   .num[_ngcontent-TREE]     ← table is the caller's → ancestor misses
+.report-table[_ngcontent-CALLER] .num[_ngcontent-CALLER]   ← cell is the tree's   → descendant misses
+```
+
+Neither copy can match a tree cell. It looked *nearly* right because
+`statement-tree.scss` happens to re-declare the row weights and padding, which is
+what kept it unnoticed for three phases — and it is a Trading Account that found
+it, because a statement people add up by eye is where a mis-aligned column stops
+being cosmetic. Hoisting `.num` and `td.num` **out of `.report-table`** leaves one
+compound, which both copies stamp onto the element that carries the class: one
+definition, reaching both. Measured after: 105 tree cells across the three
+statements, 0 not right-aligned mono. ⚠️ This is the **second** encapsulation trap
+in that file; the first, fifteen lines above, is about specificity.
+
+#### The parity diff is empty, and the additions are declared
+
+Captured before and after across all 14 companies: **0 changed, 0 removed, 6006
+added** — every added path under `profitAndLoss.tradingAccount` (3780),
+`profitAndLoss.profitAndLossAccount` (1932) or `profitAndLoss.grossProfit` (294),
+and nothing else. Declared with `diff --rebased` on those three prefixes, which is
+the honest instrument: an allowance is a statement about the **books** and no
+figure moved; three new fields on a payload are a statement about the **tape
+measure**. `PARITY HELD — the diff is empty.`
+
+Every earlier gate re-run green: `qa:p1-group-tree` 56, `qa:p2c-import-tree` 227,
+`qa:p3-ledger-report` 140, `qa:p3b-statements` 323, `qa:p5-bill-register` 157,
+`qa:p5b` 9, `qa:p5c` 9, `qa:p5c3` 18, `qa:p5d-annexure` 16; `npm test` 2002/2002,
+all five guards, `check-mirrors` in sync, `qa:money`'s report sweep 15/15 and axe
+clean on all three statements.
+
+#### ⚠️ One pre-existing failure, reproduced on `main` and left alone
+
+`qa:p2-ledgers` (2) fails on company 28 — *"449 in population, 422 planned"*.
+Reproduced with P6 stashed, so it is not this phase: 27 parties have acquired
+ledgers on that QA scratch tenant since `party_ledger_plan` was written, and that
+table is **deliberately frozen after D3** ([§P2a](#p2a-record--2026-08-28)), so
+the population will keep drifting past it. Whether that property is still asking
+an answerable question belongs to whoever owns D9, not to a Trading Account.
+
+#### Two things P6 deliberately did NOT do
+
+- **A negative section amount still prints negative.** Company 28's Direct
+  Expenses reads `−73,150.00` on the Trading Account's debit side. It is the same
+  figure the one-statement P&L printed, computed the same way, and moving it to
+  the other column would change `totalExpense` and break the parity gate — so it
+  is inherited, not introduced. Tally shows a net-credit expense group the same
+  way. Worth a decision of its own; it is not this one.
+- **No mirrored split on the frontend.** Nothing on the screen is disabled or
+  refused by the rule and the payload arrives already partitioned, so a second
+  copy could only drift. That is the opposite call from `voucher-lifecycle` and
+  the ledger rules, where the mirror exists because a button's state has to match
+  what the API will do.
+
+#### What P7 inherits
+
+- **Opening Stock has no line.** Tally's Trading Account opens with `Dr Opening
+  Stock`; here the opening balance of Stock-in-Hand is a Balance Sheet figure and
+  the Trading Account is a **period** report, so the two statements reconcile
+  without it. Adding it means deciding whether the Trading Account gains an
+  opening column at all — a shape question, not an arithmetic one.
+- **`Direct Incomes` holds the closing-stock credit and nothing else** on all 14
+  companies. The first company to run a close is the first reader of that row,
+  and it will sit beside whatever direct income they book.
+
 ### Verification pass — 2026-08-28
 
 The plan was written from a reading of the source. It has since been checked
@@ -5059,7 +5278,7 @@ after migration equals the old "Customer Dues" line exactly.
 | Salaries Payable | Provisions | Under Current Liabilities. |
 | Employee Advances | Loans & Advances (Asset) | |
 | Closing Stock | Stock-in-Hand | |
-| Closing Stock (P&L) | **retired** | Dies with the Trading Account ([§3.8](#38-trading-account-and-gross-profit)). Historic lines keep pointing at the migrated ledger; only new postings stop using it. |
+| Closing Stock (P&L) | **Direct Incomes** | ⚠️ Said *retired — dies with the Trading Account* until **P6 built one and found it cannot** ([§3.8](#38-trading-account-and-gross-profit)): §3.10 derives the Balance Sheet from `journal_lines` alone, so `Dr Stock-in-Hand` must be posted and its balancing credit exists whatever it is called. It is re-filed **above** the gross-profit line instead of below it, which is where `fallbackGroupForNature` had put it. Migration `20260831000000`. |
 | Opening Balance Equity | Capital Account | Plus a new system ledger **Difference in Opening Balances** under Suspense A/c (F9). |
 | Sales · Sales Return | Sales Accounts | |
 | Purchase · Purchase Return | Purchase Accounts | |
@@ -5386,6 +5605,23 @@ reads it from Stock-in-Hand. The change is **forward-only** — the same doctrin
 D-19 and BUG-0034 set. Vouchers already posted keep their legs; the *statement* is
 what changes, and it changes for history too because the statement is derived.
 
+> ⚠️ **Corrected while building P6 (2026-08-31): the head cannot be retired, only
+> re-filed.** Tally shows closing stock on both statements with no voucher because
+> its Balance Sheet reads the inventory subsystem directly; §3.10 commits this
+> report layer to `journal_lines` **and nothing else**, so `Dr Stock-in-Hand` has
+> to be a posted leg for the sheet to show stock at all — and a journal entry
+> balances, so the credit exists whatever it is named. Deriving it instead would
+> move Net Profit by the whole stock movement, which is the one thing P6's gate
+> forbids.
+>
+> So the credit stays posted and moves **above** the line: `TRX_GROUP_TARGET`
+> maps `CLOSING_STOCK_INCOME` to `Direct Incomes` rather than to `null`, which is
+> inside the Trading Account on its credit side. A line of its own — Tally's
+> actual shape — was refused, because a figure inside a statement that is not the
+> sum of a group's subtree breaks the invariant `qa:p3b-statements` (5) exists to
+> hold, and a 29th group breaks §3.2's premise that the tree is Tally's 28. See
+> [§P6 record](#p6-record--2026-08-31).
+
 ### 3.9 Budgets · Interest · Multi-currency · Scenarios
 
 **Budgets.** `budgets` (name, period) + `budget_lines` (groupId *or* ledgerId *or*
@@ -5419,7 +5655,7 @@ caches deliberately not consulted — and gains a hierarchy and a spine.
 |---|---|
 | **Trial Balance** | ✅ **Landed in P3b.** Rows are **groups**, collapsed by default, expanding to sub-groups then ledgers — Tally's own default; `?view=ledger` is the "Ledger-wise" toggle. Closing-only vs opening/movement/closing columns are still a shape rather than a config. |
 | **Balance Sheet** | ✅ **Landed in P3b.** Liabilities \| Assets in Tally's section order (from `acc_groups.sortOrder`, not a second list), Profit & Loss A/c as two lines — brought forward and this period. ⚠️ A **loss** appears under Assets, which is Tally's placement and a visible change from the flat sheet. |
-| **Profit & Loss** | ✅ Grouped in **P3b**. The Trading Account and the Gross Profit line are §3.8 and land in **P6** — half a Trading Account would print a gross profit with no direct/indirect split behind it. |
+| **Profit & Loss** | ✅ Grouped in **P3b**; **two stacked statements since P6**. A Trading Account closing at a Gross Profit carried down into a Profit & Loss Account (§3.8), each an ordinary two-column block over the same tree. The whole statement's `income`/`expense`/`totalIncome`/`totalExpense`/`netProfit` are unchanged — the line is drawn *through* the same rows — and the net is computed **through** the gross. ⚠️ No Opening Stock line: it is a period report, and the opening balance of Stock-in-Hand is a Balance Sheet figure. |
 | **Ledger** *(new)* | ✅ **Landed in P3a**, and its **screen in P3d‑1**. One ledger, monthly summary rows, each expanding to its vouchers, each opening the voucher — `GET /reports/ledger/:ledgerId` and `…/vouchers`. This is what a Tally user means by "open the ledger". Reads `acc_ledgers` directly; the Particulars column is the contra **ledger's** name, or `(as per details)`. ⚠️ A voucher number is a link only where there is a screen behind it — seven of the ten `sourceType` values have none. |
 | **Group Summary** *(new)* | ✅ **Landed in P3a.** A group's children with closing balances — sub-groups carrying their whole subtree, ledgers carrying their own — `GET /reports/group-summary/:groupId`. The intermediate step of every drill-down, and the report whose totals property (8) of the gate ties to its own breakdown. |
 | **Bills Receivable / Payable** *(new)* | ✅ **Landed in P5d.** Derived from `bill_references`, with ageing — party rows carrying the total the two Outstanding screens showed, expanding to the bills behind it. `GET /reports/bills-receivable` and `…/bills-payable`; the two Outstanding tabs render them and every old path still redirects. ⚠️ A party appears under **exactly one** side (their ledger hangs under one control group, D3), so a dual-role party's contra bills travel with them as *owed back* rather than being reported twice. |
@@ -6043,13 +6279,22 @@ at which the gate means anything.
 does `costCentresApplicable` (P7) and the reserved `registrationId` (X1). P5a
 adds a table, not a column to `acc_ledgers`.
 
-### P6 · Trading Account and Gross Profit `[M]`
+### P6 · Trading Account and Gross Profit `[M]` — ✅ done, [record](#p6-record--2026-08-31)
 
 §3.8. Direct/Indirect assignment reviewed per company, the two-statement P&L, and
 `CLOSING_STOCK_INCOME` retired from new postings.
 
 **Gate:** Net Profit after the split equals Net Profit before it, on every company
-and every period.
+and every period. — `npm run qa:p6-trading`, **154/154**, four injections.
+
+⚠️ Two of the three items above came out differently from this line, and both are
+in the record: the *review step* needed nothing built (Direct ↔ Indirect is a
+within-nature move, so P3d‑2's re-parenting already covers it), and
+`CLOSING_STOCK_INCOME` could not be **retired** — only re-filed above the line,
+because the Balance Sheet is derived from `journal_lines` alone. ⚠️⚠️ The gate
+sentence is also not sufficient on its own: it holds under *any* partition, so a
+section on the wrong side of the line passes it. Property (5a) is the one that
+does not.
 
 ### P7 · Cost centres `[L]`
 
@@ -6158,9 +6403,14 @@ of it describes a ledger layer that will no longer exist.
    to Tally's names, or keep their current names as ledgers under Tally-named
    groups? *This plan assumes the latter* — an operator's own head names survive,
    only the tree above them is new.
-2. **Direct vs Indirect assignment (P6).** A per-company review step with a guided
-   screen, or a defaulted mapping they can re-parent afterwards? *This plan assumes
-   defaults plus re-parenting.*
+2. ~~**Direct vs Indirect assignment (P6).**~~ → **closed 2026-08-31: defaults plus
+   re-parenting, and nothing had to be built.** What makes it work is a fact
+   rather than a feature — Direct ↔ Indirect is a **within-nature** move (both
+   Expense, or both Income), so `describeLedgerMoveBlock`, which refuses to move
+   a *posted* ledger across an account nature, permits every move this split
+   invites — on the Chart of Accounts screen P3d‑2 shipped. `qa:p6-trading` (9)
+   asserts the permission *and* the cross-nature refusal beside it, so it is not
+   a vacuous claim. See [§P6 record](#p6-record--2026-08-31).
 3. **Old voucher routes.** Permanent redirect at P4, or kept live behind a setting
    for one release? *This plan assumes permanent redirect.* Note the count is
    **fourteen** routes, not six (F6).
