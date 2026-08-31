@@ -599,6 +599,27 @@ orphans across 12 categories, fixed at the two erase seams, repaired by a script
 and both gates' (0) made **census-relative** so they can no longer inherit
 another suite's leak.
 
+**P8 split into five, and P8a is done: the leg table is DATA.** `buildLegs` was
+a `switch` over fourteen voucher kinds; it is thirty-eight dated rows and an
+interpreter now, and **13,461 posted journal entries reproduce exactly** — 5,040
+comparisons against the deleted switch transcribed into the gate, then tied to
+money nobody in this phase wrote, because a restated switch that shares the rule
+table's mistake agrees with it. Two of the plan's own claims moved on
+measurement: `voucher_types` already exists as **`transaction_configurations`**
+(196 rows, 14 companies × 14 types), and **`statutory_heads` retires before it is
+built** — `acc_ledgers.systemKey` already holds exactly one row per key per
+company, and what varies by date is the leg set, not the head. ⚠️ §3.4's sketch
+had **no condition column**, and reverse charge needs one: the flag adds a leg
+*and* changes the party leg's amount, and the sketch's own `'net+charges'` is the
+tell that it had met the problem and hard-coded one instance of it. ⚠️⚠️ The gate
+failed first run on **15 vouchers**, and they were not a defect — BUG-0069's
+population, posted before D-52 shipped. **Dating the RCM rows to our deploy day
+makes the gate greener and is wrong**: a rule's `effectiveFrom` is the date the
+*law* changed, and §9(3) has applied since 2017, so it would make a back-dated
+RCM purchase post the very shape D-52 was filed to fix — inside the rule table,
+where it would read as deliberate. They are a declared exception **held to a
+shape**, and injection 7 measures the wrong answer being refused four ways.
+
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
 report whose shape is fixed?"*, and there is no longer a second derivation to
@@ -650,7 +671,11 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P7c‑3b | The item form's allocation panel — the voucher head and each charge row | S | **done** — [§P7c‑3b record](#p7c-3b-record--2026-09-01) |
 | P7d‑1 | The four cost reports' API, and the reconciliation §3.7 promised | M | **done** — [§P7d‑1 record](#p7d-1-record--2026-09-01) |
 | P7d‑2 | The cost reports' screens, and the drill spine's fourth target | M | **done** — [§P7d‑2 record](#p7d-2-record--2026-08-31) |
-| P8 | Posting rules, budgets, interest, multi-currency, scenarios | L | not started |
+| P8a | §3.4 — the leg table becomes a dated rule table | M | **done** — [§P8a record](#p8a-record--2026-08-31) |
+| P8b | Budgets | M | not started |
+| P8c | Interest | M | not started |
+| P8d | Multi-currency | M | not started |
+| P8e | Scenarios | S | not started |
 
 Sizes are relative, not calendar.
 
@@ -6768,6 +6793,218 @@ list that changed while it ran.
   `liveEntrySql` drops both — but it is not free, and a gate that ran on every
   commit would want a scratch company rather than company 28.
 
+### P8a record — 2026-08-31
+
+§3.4's leg table is data. `buildLegs` was a `switch` over fourteen voucher kinds
+collapsing onto eight leg shapes; it is now **thirty-eight rows** in
+`src/const/posting-rules.const.ts` and an interpreter over them, with an inclusive
+validity window on every row. Same signature (plus an optional `onDate`), same
+purity, same answers — **13,461 posted journal entries reproduced exactly**, and
+the fifteen that are not are a declared exception with a name.
+
+**Gate `npm run qa:p8a-posting-rules` — 16/16**, plus 54 unit tests in
+`posting-rules.const.spec.ts`, shown to fail **seven** ways.
+
+#### What was built
+
+| | |
+|---|---|
+| `src/const/posting-rules.const.ts` | `PostingRule` · `POSTING_RULES` (38 rows) · `POSTING_EFFECT` · `AmountExpr` · `RuleWhen` · `evalAmount` · `ruleApplies` · `rulesFor` · `buildLegsFromRules` · `buildLegs` |
+| `src/const/posting-rules.const.spec.ts` | 54 tests — the eight shapes restated by hand, all fourteen kinds, the dating, both throws |
+| `scripts/qa-p8a-posting-rules.ts` | the gate — the plan's own sentence, plus four ties to the existing books |
+| `src/const/posting.const.ts` | `buildLegs` removed; the vocabulary stays, with a note on why there is no re-export |
+| `src/services/posting.service.ts` | one line — `post()` threads the voucher's own `date` into `buildLegs` |
+
+#### ⚠️ Three things §3.4's own sketch got wrong, all measured
+
+The sketch is
+`legRole · side · amountExpr · headCode · effectiveFrom/effectiveTo`, with
+`amountExpr` drawn from `'net' | 'tax' | 'grandTotal' | 'charge' | 'net+charges'`.
+
+1. **It has no condition column, and reverse charge needs one.** D-52's RCM
+   purchase is not a different voucher *kind* — it is the same kind with a boolean
+   on the document, and that boolean does two things at once: it adds the
+   `RcmPayable` leg **and** changes the party leg's amount from `grand` to
+   `grand − taxTotal`. Neither is expressible by rows keyed on the kind alone. The
+   tell is inside the sketch: `'net+charges'` is in that `amountExpr` list for no
+   reason other than the RCM party leg, so the sketch had already met the problem
+   and answered it by hard-coding one instance. `RuleWhen` is the general answer,
+   and the party leg appears **twice** in the table at the same `seq`, exactly one
+   of the two applying to any voucher.
+2. **`headCode` belongs to role resolution, not to the leg table.** Which ledger a
+   role lands on is `resolveRole`'s question and already goes through one seam
+   (`resolveStatutoryLedger`, P2b‑3b). A `headCode` column here would be a second
+   place deciding it — for the seven roles that are statutory and for none of the
+   six that are not.
+3. **`side: 'signed'` describes no leg this engine builds.** A negative charge
+   does flip sides, but in `resolveLegs`, when the aggregate leg is expanded per
+   charge row — the sign is per row and the aggregate has one side.
+
+#### ⚠️⚠️ The dating belongs on the RULES, not on the heads — so `statutory_heads` retires before it is built
+
+`resolveStatutoryLedger`'s own doc comment asks P8 for a dated head so *"a new
+levy or a changed head is a seed row"*, and holds back its `onDate` parameter
+until the `statutory_heads` table **"P8 introduces"**. Answered rather than
+honoured, on two measurements:
+
+- `acc_ledgers.systemKey` already **is** that table — **23 keys × 14 companies,
+  exactly one row per key per company, maximum one everywhere.**
+- A genuinely *new levy* needs a new `SystemGroupKey` **and** a rule that emits a
+  leg for it. That is a code change whatever the head table looks like, so dating
+  the head buys nothing the rule's own date does not.
+
+A second table mapping code + date → ledger would be a second definition of a
+fact `systemKey` already holds. So the signature stays narrow — which is that
+comment's own rule (*"a half-wired signature is worse than a narrow one"*) — and
+what carries a date is the leg set.
+
+#### ⚠️ And the attractive way to use that dating is WRONG, which the gate measures
+
+The gate's first run failed on **15 vouchers**: the interpreter builds the
+post-D-52 shape (party `Cr 800`, `RcmPayable Cr 144`, five lines) where the books
+hold `party Cr 944` in four lines. Measured: BUG-0069's own population — **15 RCM
+purchases dated 2026-08-22 posted before D-52 landed, and 4 dated 2026-08-29
+after it.** The books legitimately hold two shapes for one voucher kind under one
+flag, because D-52 was ruled forward-only.
+
+The fix that presents itself is to date the RCM rows to the day D-52 shipped.
+Then all nineteen reproduce and the gate goes green. **It is wrong, and it is
+wrong in a way this table makes newly dangerous:** a posting rule's
+`effectiveFrom` is the date the **law** changed, not the date we implemented it.
+§9(3) and §9(4) have applied since 2017, so dating those rows to our own
+deployment would make a genuinely back-dated RCM purchase — a September invoice
+entered in October — post the pre-D-52 shape. That is precisely the defect D-52
+was filed to fix, restored *inside the rule table*, where it would read as
+deliberate rather than as an omission.
+
+So the fifteen are a **declared exception, held to a shape**: recognised by what
+the books hold (party credited exactly `grandTotal` **and** no RCM leg at all,
+one leg short of the interpreter's answer), never by a date or an id list. An
+interpreter defect cannot pass through it, because it would not land on that
+shape exactly — injection 3 proves it, failing (4b) as well as (1), (2) and (3).
+And it is a **list**, so an allowance matching nothing fails as loudly as a
+difference nobody allowed: `judge()`'s rule in `parity-snapshot.const.ts`, applied
+one gate over.
+
+Injection 7 is the demonstration. Dating the RCM rows by deployment day makes the
+totals and the line counts **greener**, and is caught four ways — by (1), by (5),
+by (4b)'s empty allowance, and first of all by (8)'s *"no shipped rule is dated"*,
+the property that reads like a tautology and is in fact the guard against exactly
+this.
+
+#### ⚠️ The interpreter and the vocabulary cannot be one file, and the reason is a load order
+
+`posting-rules.const.ts` imports `PostingVoucherKind`, `LegRole` and `round2` from
+`posting.const.ts`, and `POSTING_RULES` is built **at module-evaluation time** out
+of those enums. So a re-export of `buildLegs` from `posting.const.ts` — the
+convenient thing, which would have left all four importers untouched — makes the
+pair a **cycle**, and it is not a theoretical one: loaded one way round,
+`posting.const.ts` evaluates first, its hoisted `require` of the rules runs before
+its own enums are assigned, and `LegRole.Main` is a property of `undefined`;
+loaded the other way round it works perfectly. §14's job-work provider cycle, one
+layer down. `buildLegs` therefore lives with the rules it interprets and the four
+importers were repointed.
+
+#### ⚠️⚠️ §3.4 asked for a spec that does not exist
+
+*"`posting.const.spec.ts` keeps testing it the same way"*. There is no
+`posting.const.spec.ts`. `buildLegs` **is** tested — 21 tests in
+`services/posting.service.spec.ts`, misfiled beside the service rather than beside
+the rule, which is why the gap was invisible — and it covers Purchase, Sales,
+Payment, Contra and reverse charge in real depth. **Receipt, Journal, Debit Note
+and Credit Note have no assertion at all**, and the six no-GL kinds only as a
+group. Testing the replacement *"the same way"* would have carried that hole into
+the thing that replaces the switch, so `posting-rules.const.spec.ts` is exhaustive
+over all fourteen kinds instead. The 21 existing tests were left where they are
+and still pass unchanged, which is its own small parity statement.
+
+#### The gate — sixteen properties
+
+Property (1) is the plan's sentence: **5,040 comparisons** — 14 kinds × 24 amount
+shapes × 3 flag states × 5 document dates — between the interpreter and
+`legacySwitch`, the pre-P8a `buildLegs` **transcribed into the gate**, leg for
+leg, role, side and paisa.
+
+⚠️ **A restated switch is not enough on its own**, and this is the phase's
+sharpest methodological point. Property (1) proves the interpreter equals a switch
+*as transcribed by the person who deleted it* — and if that transcription is wrong
+in the same way the rule table is wrong, both agree and the gate is green. That is
+§13's P2b‑3c variant exactly. So properties (2)–(5) tie the interpreter to money
+**nobody in this phase wrote**: the journal entries already in the books, every
+one of them posted by the switch itself, months before this refactor. Those stored
+lines *are* the switch's output and cannot inherit a transcription mistake.
+
+- **(2)** Σ debit and Σ credit against `journal_entries.totalDebit`/`totalCredit`,
+  9,761 entries.
+- **(2b)** the same for the **3,700** payment, receipt, journal and contra
+  entries. Left out of the first cut and put back deliberately: one debit, one
+  credit, one amount is the simplest shape in the engine and therefore the easiest
+  to omit — and an `amountExpr` naming the wrong field there produces a perfectly
+  balanced two-leg entry for the wrong money.
+- **(3)** the **line count**, with the aggregate charges leg expanded per
+  `trx_charges` row the way `resolveLegs` expands it. This is the property that
+  sees a leg dropped or added at a total that still balances — and it is what
+  caught the RCM population, which (2) could not, because `grand − taxTotal` and
+  `taxTotal` sum back to `grand` however wrongly they are split.
+- **(4)** the reverse-charge party leg against the books' own party credit; **(4b)**
+  the declared exception, held to its shape and required to be non-empty.
+- **(5)** every entry re-posted with its own document date and with no date,
+  compared — the threading is real and changes nothing today.
+- **(6)** the dating **constructed**: a rule set where a journal's credit leg moves
+  head on a date, asserted the day before, the day itself and later. Every shipped
+  rule is open-ended, so this capability has no instance — P5b built `advance`,
+  P5c‑3 the mixed voucher, P6 the closing stock, P7a the whole cost dimension, and
+  a capability nobody exercises is one nobody has measured.
+- **(7)** a `gl` kind with **no rule in force throws**, naming the kind and the
+  day. This is the failure the switch's `default:` gave for free and a rule table
+  loses: an empty leg set reads to `post()` as *"zero-value voucher, post
+  nothing"* and approves a voucher that is numbered, printed and in no ledger.
+  `POSTING_EFFECT` exists only to keep that distinction, and (8) ties it to the
+  rules in both directions so it cannot become a stale list beside them.
+- **(0)** the gate is **read-only** — stated because every gate since P5b
+  constructs, and a reader is entitled to know which kind this one is.
+
+⚠️ Building it found two defects in the gate itself, both of the shape this
+programme keeps recording. It excluded **archived** vouchers (`t.deletedAt IS
+NULL`, and a paranoid `findByPk`) — but §4.9 rule 2 is that a voucher which ever
+posted *archives* rather than being erased, and its journal entry stays in the
+books, so the exclusion silently skipped **470 of company 28's entries**, exactly
+the rows that rule exists to keep. BUG-0038's shape, one file over. And injection
+4 originally **crashed** the gate instead of failing a property, because a throw
+from one kind abandoned the sweep over the other thirteen; a throw is drift now,
+and is compared as a value.
+
+#### Seven injections
+
+| | | |
+|---|---|---|
+| 1 | the outward party leg flipped to `Cr` | 5 unit tests · (1) · (2), 5,613 entries adrift |
+| 2 | the inward party leg credits `net` instead of `grand` | 3 unit tests · (1) · (2), 3,091 adrift |
+| 3 | the `RcmPayable` rule removed | 2 unit tests · (1) · (2) · (3) · **(4b)** |
+| 4 | `POSTING_EFFECT` marks a workflow document `gl` | 7 unit tests · (1), quoting the refusal |
+| 5 | the tax legs reordered, `sgst` before `cgst` | 4 unit tests · **(1) alone** — (2) and (3) are blind to order, which is why (1) exists |
+| 6 | the *"no rule in force"* throw removed | 1 unit test · (7) |
+| 7 | the RCM rows dated by our deployment day | (1) · (5) · (8) · **(4b)** — and the totals get *greener* |
+
+#### Cross-repo
+
+`check-mirrors.js` **check 11 is a third, independent confirmation**, and it did
+not need changing: it bundles `voucher-entry.const.ts` out of this repo and *runs*
+`accountingRowPlan` — which calls `buildLegs` — against the frontend's restated
+table, comparing **14 row plans**. It passes, from the other side of the repo
+boundary, over the interpreter rather than the switch. All ten checks green.
+
+#### Parity
+
+No report, no query, no DTO and no service behaviour changed: the one edit in
+`posting.service.ts` threads a date into a function whose answers are identical
+over the whole population. The parity diff is empty **by construction**, and
+properties (2)–(5) are a stronger statement than a report snapshot would be — they
+compare 13,461 entries figure by figure against what the switch actually wrote,
+where a snapshot compares aggregates.
+
+`npm test` 2150/2150 · all five guards · `lint:ci` 0 errors · `nest build` clean.
+
 ### Verification pass — 2026-08-28
 
 The plan was written from a reading of the source. It has since been checked
@@ -8283,7 +8520,7 @@ unfalsifiable before then. P7a's version of it is the same claim about the
 ledger, all constructed inside a rolled-back transaction, with the Trial Balance
 captured either side of them.
 
-### P8 · Posting rules, budgets, interest, multi-currency, scenarios `[L]`
+### P8 · Posting rules, budgets, interest, multi-currency, scenarios `[L]` — split into five
 
 §3.4's rule table and §3.9's four features. Sequenced last **deliberately**: the
 rule table is only worth extracting once the leg set has stopped moving, and doing
@@ -8291,6 +8528,57 @@ it earlier would mean rewriting it twice.
 
 **Gate:** re-posting every QA voucher through the rule interpreter produces
 byte-identical journal lines to the switch it replaced.
+
+⚠️ **Split on the same argument as the five splits before it** (P2, P3, P4, P5,
+P7): an `[L]` here is five separable claims — one of them the accounting core's
+own leg table and four of them additive features that share nothing but a plan
+section — and the one thing this programme has learned about a large phase is
+that the gate written at the end covers what the author remembers.
+
+| | | |
+|---|---|---|
+| **P8a** | §3.4 — `buildLegs` becomes an interpreter over a **dated rule table**; the byte-identical gate | **done** — [record](#p8a-record--2026-08-31) |
+| **P8b** | Budgets — `budgets` · `budget_lines` · the variance column · the screen | not started |
+| **P8c** | Interest — the pure rule, the Interest Report, the explicit Debit Note | not started |
+| **P8d** | Multi-currency — `currencies` · `exchange_rates` · the FC columns | not started |
+| **P8e** | Scenarios — optional/provisional voucher types, the `scenarioId` filter | not started |
+
+Four measurements taken before P8a started, two of which move the phase's own
+scope:
+
+- ⚠️ **`voucher_types` already exists, under another name.**
+  §3.4 keys `posting_rules` by `voucherTypeId` and §3.9 calls Scenarios *"genuinely
+  cheap once `voucher_types` exists"* — implying a table to build.
+  `transaction_configurations` **is** that table: one row per voucher kind per
+  company, **196 of them (14 companies × 14 types)**, seeded and never
+  created/deleted from the API, already carrying per-type numbering, approval,
+  validation and inventory behaviour, and already reachable on `F12`. A rule
+  references the `trxType` string every other config in this app is keyed by;
+  nothing new is needed for either claim.
+- ⚠️ **The dating belongs on the RULES, not on the heads**, which retires
+  `statutory_heads` before it is built. `resolveStatutoryLedger`'s own handover
+  note asks P8 for a dated head so *"a new levy or a changed head is a seed row"*,
+  and reserves the `onDate` parameter for it. Measured: `acc_ledgers.systemKey`
+  already **is** that table — **23 keys × 14 companies, exactly one row per key
+  per company, maximum one everywhere** — and a *new levy* needs a new
+  `SystemGroupKey` and a leg that emits it, which is a code change whatever the
+  head table looks like. What genuinely changes on a date is the **leg set**, and
+  that is what P8a dates. A second table mapping code + date → ledger would be a
+  second definition of a fact `systemKey` already holds — §14's own warning — so
+  `resolveStatutoryLedger` keeps its narrow signature and the note that reserved
+  `onDate` is answered rather than honoured.
+- **`buildLegs` is 14 kinds → 8 leg shapes**, and its only caller is
+  `PostingService.post`. 15,474 posted entries across five `sourceType`s, 45,460
+  lines, 2–7 lines an entry; **19 reverse-charge purchases** against 3,292
+  ordinary ones. So the interpreter has one seam to replace and a real population
+  to be held byte-identical against.
+- ⚠️ **There is no `posting.const.spec.ts`**, and §3.4 says *"`posting.const.spec.ts`
+  keeps testing it the same way"*. `buildLegs` is tested — 21 tests in
+  `services/posting.service.spec.ts`, misfiled beside the service rather than the
+  rule — and it covers four of the eight shapes plus reverse charge in depth.
+  Receipt, Journal, the two notes and the six no-GL kinds have **no assertion at
+  all**, so *"the same way"* would inherit that gap into the thing that replaces
+  the switch.
 
 > **If the programme has to be cut.** P0–P4 is the coherent unit — it delivers the
 > ledger model, the reports and the entry screen, which is what "work like Tally"
