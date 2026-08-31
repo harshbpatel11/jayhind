@@ -1346,6 +1346,202 @@ if (hubFeatureColumns && hubFeaturesDto && consoleFeatures) {
   }
 }
 
+// ── 14. the budget refusals and the variance VERDICT ────────────────────────
+//
+// `budget.const.ts` decides what the API refuses; `budget-rules.util.ts` says the
+// same thing in the budget dialog (P8b‑2), so an operator reads the reason rather
+// than meeting a 400 on a control that looked live.
+//
+// ⚠️ Check 10's and check 13's argument again: the **message text** is compared,
+// not only the verdict. Each of these names the problem AND what decides it
+// (*which side of the books it falls on is decided by the head*; *there is no
+// single figure to compare it against*), the backwards-period one **quotes both
+// days** because the operator has two date pickers open, and the duplicate one
+// renders `cost-centre` as *cost centre* — a wording the two sides disagreed
+// about would put one sentence under the cursor and another in the toast.
+//
+// ⚠️⚠️ **Unlike check 13, no arm here is the server's.** `cost-rules.util.ts`
+// passes `allocationCount: null` because whether a centre has been allocated to
+// is a fact only the database has. Every budget rule is about the payload the
+// form is holding — how many targets a line names, whether its amount is
+// negative, whether the period runs backwards, whether two lines name one head —
+// so the dialog can refuse *everything* the server would with no request leaving
+// the page, and P8b‑2's gate counts the requests to prove it. The one thing the
+// browser cannot decide is whether a target id is this company's (§4.3 rule 7),
+// which is not mirrorable in principle: the screen only ever offers ids it was
+// given.
+//
+// ⚠️ **The variance VERDICT is deliberately NOT compared here, and it was.**
+// P8b‑2's first cut mirrored `varianceDirection`/`varianceVerdict` into the
+// browser and had this check compare them over every nature. The browser copy had
+// **no reader** — the report renders the `verdict` the API already sends — so the
+// UI gate's injection *"the screen invents a verdict for Asset and Liability"*,
+// applied to that copy, **passed 6/6**. Two implementations were being held in
+// step and only one of them could ever reach a screen.
+//
+// A mirror exists so a screen does not offer what the server will refuse. A
+// verdict is not an offer; it is a figure's label, computed once server-side. What
+// checks it is `qa-artifacts/tests/ui/masters/budget-rules.ts`, a third copy typed
+// by hand and compared against what the screen actually shows. **A mirror with no
+// reader is not a mirror** — §6.4's rule one layer up.
+{
+  const BACK_B = 'jayhind-client-back/src/const/budget.const.ts';
+  const FRONT_B = 'jayhindi-client-front/src/utils/budget-rules.util.ts';
+  const vectorFile = path.join(__dirname, 'vectors/budget-rules.vectors.json');
+
+  const backSrc = read(path.join(ROOT, BACK_B));
+  const frontSrc = read(path.join(ROOT, FRONT_B));
+
+  let table;
+  try {
+    table = JSON.parse(fs.readFileSync(vectorFile, 'utf8'));
+  } catch (err) {
+    failures.push(`budget-rules vectors: could not read ${path.relative(ROOT, vectorFile)} — ${err.message}`);
+  }
+
+  if (table && backSrc && frontSrc) {
+    let back, front;
+    try {
+      back = loadTsModule(...splitRepoPath(BACK_B));
+      front = loadTsModule(...splitRepoPath(FRONT_B));
+    } catch (err) {
+      failures.push(`budget-rules vectors: ${err.message}`);
+    }
+
+    // A case's `given` holds arrays: the cross-product is expanded, so one
+    // hand-written case is a statement about a REGION. Split along the three
+    // target kinds, because the duplicate sentence names the kind.
+    const expand = (given) => {
+      let rows = [{}];
+      for (const k of Object.keys(given)) {
+        const values = Array.isArray(given[k]) ? given[k] : [given[k]];
+        rows = rows.flatMap((row) => values.map((v) => ({ ...row, [k]: v })));
+      }
+      return rows;
+    };
+
+    // `${name}` interpolation against the row, so the table states the sentence
+    // rather than a key both sides could agree to render wrongly.
+    const sentence = (key, row) => {
+      if (key === null || key === undefined) return null;
+      const template = table.messages[key];
+      if (template === undefined) {
+        failures.push(`budget-rules vectors: no message named '${key}'`);
+        return null;
+      }
+      return template.replace(/\$\{(\w+)\}/g, (_m, k) => String(row[k]));
+    };
+
+    // The refusals: same signature on both sides, so one `call` serves each.
+    const RULES = [
+      {
+        section: 'line',
+        fn: 'describeBudgetLineBlock',
+        call: (mod, row) => mod.describeBudgetLineBlock(row),
+      },
+      {
+        section: 'header',
+        fn: 'describeBudgetBlock',
+        call: (mod, row) => mod.describeBudgetBlock(row),
+      },
+      {
+        // ⚠️ `literal`: its fact space is a LIST of lines, not a product of
+        // scalars, and expanding an array of lines would turn one multi-line
+        // case into N single-line ones — the opposite of what a
+        // duplicate-detection vector is about. Check 13's call for `classLines`.
+        section: 'lineSet',
+        fn: 'describeBudgetLineSetBlock',
+        literal: true,
+        call: (mod, row) => mod.describeBudgetLineSetBlock(row.lines),
+      },
+      {
+        // ⚠️ It takes no argument and returns `null` unconditionally, so this
+        // vector looks like ceremony and is not: the rule exists to SAY that
+        // nothing points at a budget, and the day a future phase posts from one
+        // it has to grow a reason on BOTH sides. A rule with no vector has
+        // nothing to fail when only one side grows it.
+        section: 'delete',
+        fn: 'describeBudgetDeleteBlock',
+        call: (mod) => mod.describeBudgetDeleteBlock(),
+      },
+    ];
+
+
+    // The name check, and it is not redundant: a rule that exists on one side
+    // only has no vector to fail (check 5's argument for keeping a name
+    // comparison beside a behavioural one).
+    const REFUSALS = /^describe[A-Z].*Block$/;
+    const backNames = parseExportedFunctions(backSrc).filter((n) => REFUSALS.test(n));
+    const frontNames = parseExportedFunctions(frontSrc).filter((n) => REFUSALS.test(n));
+    const mirrored = new Set(RULES.map((r) => r.fn));
+    for (const n of mirrored) {
+      if (!backNames.includes(n)) failures.push(`budget-rules: '${n}' is compared here and no longer exists in client-back`);
+      if (!frontNames.includes(n)) failures.push(`budget-rules: '${n}' exists in client-back but not client-front — the screen cannot state a refusal it does not have`);
+    }
+    for (const n of frontNames) {
+      if (!backNames.includes(n)) failures.push(`budget-rules: '${n}' exists in client-front but not client-back — the screen would refuse something the server allows`);
+    }
+    // A backend refusal with no mirror is NAMED, not failed — check 13's own
+    // reasoning: a check that FAILED on that gap would be demanding a screen
+    // nobody has built yet, which is a check somebody switches off.
+    const unmirrored = backNames.filter((n) => !mirrored.has(n));
+    if (unmirrored.length) {
+      notes.push(
+        `⚠️  budget-rules: ${unmirrored.join(', ')} ${unmirrored.length === 1 ? 'is' : 'are'} not mirrored in ` +
+          'budget-rules.util.ts — add the mirror and a section in scripts/vectors/budget-rules.vectors.json ' +
+          'with the screen that needs it.',
+      );
+    }
+
+    if (back && front) {
+      let compared = 0;
+      for (const rule of RULES) {
+        const cases = table[rule.section];
+        if (!Array.isArray(cases)) {
+          failures.push(`budget-rules vectors: no '${rule.section}' cases in the table`);
+          continue;
+        }
+        for (const vector of cases) {
+          for (const row of rule.literal ? [vector.given] : expand(vector.given)) {
+            const expected = sentence(vector.expect, row);
+            const b = rule.call(back, row) ?? null;
+            const f = rule.call(front, row) ?? null;
+            compared++;
+
+            const shape = JSON.stringify(row);
+            // Three answers, so a failure says WHICH kind it is: drift between
+            // the two sides and a rule both sides moved away from together need
+            // different fixes.
+            if (b !== f) {
+              failures.push(
+                `budget-rules DRIFT · ${rule.section}/${vector.id} · ${shape}:\n` +
+                  `      client-back:  ${JSON.stringify(b)}\n` +
+                  `      client-front: ${JSON.stringify(f)}\n` +
+                  `      — ${vector.why}`,
+              );
+            } else if (b !== expected) {
+              failures.push(
+                `budget-rules RULE CHANGED · ${rule.section}/${vector.id} · ${shape}:\n` +
+                  `      both sides say ${JSON.stringify(b)}\n` +
+                  `      the table says ${JSON.stringify(expected)}\n` +
+                  `      — ${vector.why}\n` +
+                  '      If the rule or the wording genuinely changed, update scripts/vectors/ in the same commit.',
+              );
+            }
+          }
+        }
+      }
+
+      notes.push(
+        `budget-rules: ${compared} behavioural comparisons over ` +
+          `${RULES.reduce((n, r) => n + (table[r.section]?.length ?? 0), 0)} region cases, ` +
+          'run against BOTH implementations, comparing the message text for the four refusals (P8b‑2). ' +
+          'The variance verdict is deliberately not here — see this check\'s own note.',
+      );
+    }
+  }
+}
+
 // ── Report ──────────────────────────────────────────────────────────────────
 for (const n of notes) console.log(`note: ${n}`);
 

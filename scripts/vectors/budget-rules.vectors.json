@@ -1,0 +1,696 @@
+{
+ "_": "Shared behavioural table for the budget refusals and the variance verdict — see scripts/check-mirrors.js check 14. `jayhind-client-back/src/const/budget.const.ts` enforces them; `jayhindi-client-front/src/utils/budget-rules.util.ts` states them on the budget dialog so an operator reads the reason instead of meeting a 400. Both must answer every expanded row with the SAME SENTENCE, and both must match the sentence stated here — so a wording one side quietly improved, and a rule both sides forgot together, are different failures.",
+ "__regions": "A case's `given` holds ARRAYS: every combination is expanded and compared, so a case is a statement about a REGION of the fact space rather than one row. The line rules are split along the three TARGET KINDS, because the duplicate sentence names the kind and `cost-centre` is rendered as `cost centre` — a table that dodged that would stop comparing the wording that reaches the screen.",
+ "__literal": "`lineSet` is declared `literal` in check 14: its fact space is a LIST of lines, not a product of scalars, and expanding an array of lines would silently turn one multi-line case into N single-line ones — which is the opposite of what a duplicate-detection vector is about. The same call check 13 makes for `classLines`.",
+ "__verdict": "The `direction` and `verdict` sections are KEPT as documentation of the rule and are no longer compared by check 14 — see that check's own note. P8b-2 mirrored them into the browser, the copy had no reader (the report renders the verdict the API sends), and the UI gate proved it by injecting a wrong verdict into that copy and passing 6/6. What checks the rendering is qa-artifacts/tests/ui/masters/budget-rules.ts, a third copy compared against what the screen shows. A mirror with no reader is not a mirror.",
+ "messages": {
+  "line-no-target": "A budget line has to be set on something — choose an account group, a ledger or a cost centre.",
+  "line-many-targets": "A budget line is set on exactly one of an account group, a ledger or a cost centre, not several at once — otherwise there is no single figure to compare it against.",
+  "line-no-amount": "A budget line needs an amount.",
+  "line-negative": "A budget amount is a target figure, so it cannot be negative — which side of the books it falls on is decided by the head it is set on, not by its sign.",
+  "line-bad-basis": "\"${basis}\" is not a budget basis — it is either a closing balance or nett transactions.",
+  "budget-no-name": "A budget needs a name.",
+  "budget-half-open": "A budget covers a period, so it needs both a start and an end date — there is nothing to compare a target against without them.",
+  "budget-backwards": "A budget's period cannot end (${periodTo}) before it starts (${periodFrom}).",
+  "set-dup-group": "This budget already has a line on that group — one target per budget, or there are two answers to what it is.",
+  "set-dup-ledger": "This budget already has a line on that ledger — one target per budget, or there are two answers to what it is.",
+  "set-dup-centre": "This budget already has a line on that cost centre — one target per budget, or there are two answers to what it is."
+ },
+ "line": [
+  {
+   "id": "line-ok-ledger",
+   "given": {
+    "ledgerId": [
+     7
+    ],
+    "amount": [
+     0,
+     1,
+     60000,
+     999999.99
+    ],
+    "basis": [
+     null,
+     "nett-transactions",
+     "closing-balance"
+    ]
+   },
+   "expect": null,
+   "why": "A well-formed ledger line, and a ZERO amount is deliberately among them: 'budget nothing for entertainment' is a real instruction. An absent basis is fine because the COLUMN carries the default, never the DTO (BUG-0020)."
+  },
+  {
+   "id": "line-ok-group",
+   "given": {
+    "groupId": [
+     11
+    ],
+    "amount": [
+     500000
+    ],
+    "basis": [
+     null,
+     "closing-balance"
+    ]
+   },
+   "expect": null,
+   "why": "A group target — a whole subtree of the chart of accounts."
+  },
+  {
+   "id": "line-ok-centre",
+   "given": {
+    "costCentreId": [
+     3663
+    ],
+    "amount": [
+     25000
+    ],
+    "basis": [
+     null,
+     "nett-transactions"
+    ]
+   },
+   "expect": null,
+   "why": "A cost-centre target — one part of the business, across every head it spends on."
+  },
+  {
+   "id": "line-ok-explicit-nulls",
+   "given": {
+    "ledgerId": [
+     7
+    ],
+    "groupId": [
+     null
+    ],
+    "costCentreId": [
+     null
+    ],
+    "amount": [
+     1
+    ],
+    "basis": [
+     null
+    ]
+   },
+   "expect": null,
+   "why": "An explicit `null` is unset, which is what the COLUMNS hold — a rule reading it as 'named' would refuse every line a form submits."
+  },
+  {
+   "id": "line-no-target",
+   "given": {
+    "groupId": [
+     null
+    ],
+    "ledgerId": [
+     null
+    ],
+    "costCentreId": [
+     null
+    ],
+    "amount": [
+     0,
+     1,
+     60000
+    ],
+    "basis": [
+     null,
+     "nett-transactions"
+    ]
+   },
+   "expect": "line-no-target",
+   "why": "Nothing named. ⚠️ This is checked BEFORE the amount, so an empty new row says what it needs rather than complaining about a figure the operator has not reached yet."
+  },
+  {
+   "id": "line-two-targets-gl",
+   "given": {
+    "groupId": [
+     11
+    ],
+    "ledgerId": [
+     7
+    ],
+    "amount": [
+     1,
+     60000
+    ],
+    "basis": [
+     null
+    ]
+   },
+   "expect": "line-many-targets",
+   "why": "A group AND a ledger — two answers to what the budget is on, and they can disagree."
+  },
+  {
+   "id": "line-two-targets-gc",
+   "given": {
+    "groupId": [
+     11
+    ],
+    "costCentreId": [
+     3663
+    ],
+    "amount": [
+     1
+    ],
+    "basis": [
+     null
+    ]
+   },
+   "expect": "line-many-targets",
+   "why": "A group AND a cost centre. The second is not even on a statement, so the pair is not merely redundant."
+  },
+  {
+   "id": "line-two-targets-lc",
+   "given": {
+    "ledgerId": [
+     7
+    ],
+    "costCentreId": [
+     3663
+    ],
+    "amount": [
+     1
+    ],
+    "basis": [
+     null
+    ]
+   },
+   "expect": "line-many-targets",
+   "why": "A ledger AND a cost centre."
+  },
+  {
+   "id": "line-three-targets",
+   "given": {
+    "groupId": [
+     11
+    ],
+    "ledgerId": [
+     7
+    ],
+    "costCentreId": [
+     3663
+    ],
+    "amount": [
+     1
+    ],
+    "basis": [
+     null
+    ]
+   },
+   "expect": "line-many-targets",
+   "why": "All three. One sentence covers every over-named shape, so the count does not leak into the wording."
+  },
+  {
+   "id": "line-no-amount-ledger",
+   "given": {
+    "ledgerId": [
+     7
+    ],
+    "amount": [
+     null
+    ],
+    "basis": [
+     null,
+     "closing-balance"
+    ]
+   },
+   "expect": "line-no-amount",
+   "why": "A target with no figure is not a target."
+  },
+  {
+   "id": "line-no-amount-group",
+   "given": {
+    "groupId": [
+     11
+    ],
+    "amount": [
+     null
+    ],
+    "basis": [
+     null
+    ]
+   },
+   "expect": "line-no-amount",
+   "why": "⚠️ Checked AFTER the target rule, so a line with one target and no amount says which of the two it is missing."
+  },
+  {
+   "id": "line-negative-ledger",
+   "given": {
+    "ledgerId": [
+     7
+    ],
+    "amount": [
+     -0.01,
+     -1,
+     -999999
+    ],
+    "basis": [
+     null
+    ]
+   },
+   "expect": "line-negative",
+   "why": "⚠️ The sentence names what DECIDES the side — the head, not the sign — because an operator who typed a minus was reasoning about a credit balance and needs telling that the head already says so."
+  },
+  {
+   "id": "line-negative-group",
+   "given": {
+    "groupId": [
+     11
+    ],
+    "amount": [
+     -1
+    ],
+    "basis": [
+     null,
+     "closing-balance"
+    ]
+   },
+   "expect": "line-negative",
+   "why": "The same on a group target: the rule is about the amount, not about which kind of head it is on."
+  },
+  {
+   "id": "line-bad-basis",
+   "given": {
+    "ledgerId": [
+     7
+    ],
+    "amount": [
+     1
+    ],
+    "basis": [
+     "monthly",
+     "opening-balance",
+     "CLOSING-BALANCE",
+     ""
+    ]
+   },
+   "expect": "line-bad-basis",
+   "why": "⚠️ An empty string is among them: it is not `null`, so it is a stated basis and a wrong one. A rule that treated it as absent would silently store the column default under a value the caller chose."
+  }
+ ],
+ "header": [
+  {
+   "id": "header-ok",
+   "given": {
+    "name": [
+     "FY26-27",
+     "  Q1  "
+    ],
+    "periodFrom": [
+     "2026-04-01"
+    ],
+    "periodTo": [
+     "2027-03-31",
+     "2026-04-01"
+    ]
+   },
+   "expect": null,
+   "why": "A named, bounded period — and a SINGLE-DAY one, because both ends are inclusive."
+  },
+  {
+   "id": "header-no-name",
+   "given": {
+    "name": [
+     null,
+     "",
+     "   "
+    ],
+    "periodFrom": [
+     "2026-04-01"
+    ],
+    "periodTo": [
+     "2027-03-31"
+    ]
+   },
+   "expect": "budget-no-name",
+   "why": "Whitespace is not a name — both sides trim before deciding, or a screen accepts a budget nobody can find in a picker."
+  },
+  {
+   "id": "header-half-open",
+   "given": {
+    "name": [
+     "FY26-27"
+    ],
+    "periodFrom": [
+     "2026-04-01",
+     null
+    ],
+    "periodTo": [
+     null
+    ]
+   },
+   "expect": "budget-half-open",
+   "why": "⚠️ Both ends required, UNLIKE a tax slab's validity (D-50) where an absent bound means 'still in force' and is a real state. Here the closing-balance basis needs a last day to stand at and the nett basis a window to move within."
+  },
+  {
+   "id": "header-no-start",
+   "given": {
+    "name": [
+     "FY26-27"
+    ],
+    "periodFrom": [
+     null
+    ],
+    "periodTo": [
+     "2027-03-31"
+    ]
+   },
+   "expect": "budget-half-open",
+   "why": "The other half-open shape. One sentence covers both, so the wording does not leak which end is missing."
+  },
+  {
+   "id": "header-backwards",
+   "given": {
+    "name": [
+     "FY26-27"
+    ],
+    "periodFrom": [
+     "2027-03-31",
+     "2026-12-31"
+    ],
+    "periodTo": [
+     "2026-04-01"
+    ]
+   },
+   "expect": "budget-backwards",
+   "why": "⚠️ The sentence QUOTES BOTH DAYS, because the operator has two date pickers open and needs to know which one to move."
+  }
+ ],
+ "lineSet": [
+  {
+   "id": "set-ok-distinct",
+   "given": {
+    "lines": [
+     {
+      "ledgerId": 7,
+      "amount": 1
+     },
+     {
+      "groupId": 11,
+      "amount": 2
+     },
+     {
+      "costCentreId": 3663,
+      "amount": 3
+     }
+    ]
+   },
+   "expect": null,
+   "why": "Three distinct targets."
+  },
+  {
+   "id": "set-ok-same-id-different-kinds",
+   "given": {
+    "lines": [
+     {
+      "groupId": 5,
+      "amount": 1
+     },
+     {
+      "ledgerId": 5,
+      "amount": 2
+     },
+     {
+      "costCentreId": 5,
+      "amount": 3
+     }
+    ]
+   },
+   "expect": null,
+   "why": "⚠️ Group 5, ledger 5 and centre 5 are three DIFFERENT things. Only the pair (kind, id) identifies a target, and a rule keyed on the id alone would refuse a perfectly ordinary budget."
+  },
+  {
+   "id": "set-ok-empty",
+   "given": {
+    "lines": []
+   },
+   "expect": null,
+   "why": "A budget with no lines yet is a real and common state — it is what every budget is one second after it is created."
+  },
+  {
+   "id": "set-dup-ledger",
+   "given": {
+    "lines": [
+     {
+      "ledgerId": 7,
+      "amount": 1
+     },
+     {
+      "ledgerId": 7,
+      "amount": 2
+     }
+    ]
+   },
+   "expect": "set-dup-ledger",
+   "why": "Two answers to what that ledger's target is, and every report below would pick whichever the sort produced."
+  },
+  {
+   "id": "set-dup-group",
+   "given": {
+    "lines": [
+     {
+      "groupId": 11,
+      "amount": 1
+     },
+     {
+      "ledgerId": 7,
+      "amount": 2
+     },
+     {
+      "groupId": 11,
+      "amount": 3
+     }
+    ]
+   },
+   "expect": "set-dup-group",
+   "why": "A duplicate that is not adjacent — the rule carries a seen-set rather than comparing neighbours."
+  },
+  {
+   "id": "set-dup-centre",
+   "given": {
+    "lines": [
+     {
+      "costCentreId": 3663,
+      "amount": 1
+     },
+     {
+      "costCentreId": 3663,
+      "amount": 2
+     }
+    ]
+   },
+   "expect": "set-dup-centre",
+   "why": "⚠️ The sentence renders `cost-centre` as `cost centre`. A table that only covered the other two kinds would stop comparing this wording."
+  },
+  {
+   "id": "set-dup-different-bases",
+   "given": {
+    "lines": [
+     {
+      "ledgerId": 7,
+      "amount": 1,
+      "basis": "closing-balance"
+     },
+     {
+      "ledgerId": 7,
+      "amount": 2,
+      "basis": "nett-transactions"
+     }
+    ]
+   },
+   "expect": "set-dup-ledger",
+   "why": "⚠️ Two bases on one head is still TWO, not a richer statement: the report reads one figure per head."
+  },
+  {
+   "id": "set-malformed-left-alone",
+   "given": {
+    "lines": [
+     {
+      "amount": 1
+     },
+     {
+      "amount": 2
+     }
+    ]
+   },
+   "expect": null,
+   "why": "⚠️ A line naming NOTHING is left to the per-line rule rather than double-reported here. Two malformed lines are not 'a duplicate', and a set rule that claimed them would put the wrong sentence under the operator's cursor."
+  },
+  {
+   "id": "set-malformed-and-dup",
+   "given": {
+    "lines": [
+     {
+      "amount": 1
+     },
+     {
+      "ledgerId": 7,
+      "amount": 2
+     },
+     {
+      "ledgerId": 7,
+      "amount": 3
+     }
+    ]
+   },
+   "expect": "set-dup-ledger",
+   "why": "A malformed line does not mask a real duplicate elsewhere in the set."
+  }
+ ],
+ "direction": [
+  {
+   "id": "dir-expense",
+   "given": {
+    "nature": [
+     "Expense"
+    ]
+   },
+   "expect": "lower-is-favourable",
+   "why": "Coming in under an expense budget is the thing a budget is usually for."
+  },
+  {
+   "id": "dir-income",
+   "given": {
+    "nature": [
+     "Income"
+    ]
+   },
+   "expect": "higher-is-favourable",
+   "why": "Beating a revenue target is good."
+  },
+  {
+   "id": "dir-balance-sheet",
+   "given": {
+    "nature": [
+     "Asset",
+     "Liability"
+    ]
+   },
+   "expect": null,
+   "why": "⚠️ THE ROW THAT MATTERS. A cash target wants to be exceeded and a debtors target does not, and both are Assets; a borrowing limit wants to be undershot and share capital overshot, and both are Liabilities. A screen that coloured an Asset overshoot red because an Expense overshoot is red would be inventing an opinion about somebody's balance sheet."
+  },
+  {
+   "id": "dir-none",
+   "given": {
+    "nature": [
+     null,
+     "",
+     "Suspense",
+     "expense",
+     "EXPENSE"
+    ]
+   },
+   "expect": null,
+   "why": "⚠️ No nature at all — `Suspense A/c` and `Branch / Divisions` have no side of the books. The lower-case and upper-case spellings are here because the two sides read this value from DIFFERENT places (a TS enum and a JSON string), and a case-insensitive match on one side only is exactly the drift check 14 exists to catch."
+  }
+ ],
+ "verdict": [
+  {
+   "id": "vd-expense-over",
+   "given": {
+    "variance": [
+     0.01,
+     200,
+     999999
+    ],
+    "nature": [
+     "Expense"
+    ]
+   },
+   "expect": "adverse",
+   "why": "Overspending an expense budget."
+  },
+  {
+   "id": "vd-expense-under",
+   "given": {
+    "variance": [
+     -0.01,
+     -200
+    ],
+    "nature": [
+     "Expense"
+    ]
+   },
+   "expect": "favourable",
+   "why": "Underspending it."
+  },
+  {
+   "id": "vd-income-over",
+   "given": {
+    "variance": [
+     0.01,
+     200
+    ],
+    "nature": [
+     "Income"
+    ]
+   },
+   "expect": "favourable",
+   "why": "Beating a revenue target."
+  },
+  {
+   "id": "vd-income-under",
+   "given": {
+    "variance": [
+     -0.01,
+     -200
+    ],
+    "nature": [
+     "Income"
+    ]
+   },
+   "expect": "adverse",
+   "why": "Missing it."
+  },
+  {
+   "id": "vd-no-direction",
+   "given": {
+    "variance": [
+     -200,
+     -0.01,
+     0,
+     0.01,
+     200
+    ],
+    "nature": [
+     "Asset",
+     "Liability",
+     null
+    ]
+   },
+   "expect": null,
+   "why": "No direction means no verdict, whichever way the figure went."
+  },
+  {
+   "id": "vd-nil",
+   "given": {
+    "variance": [
+     0,
+     0.004,
+     -0.004
+    ],
+    "nature": [
+     "Expense",
+     "Income",
+     "Asset",
+     null
+    ]
+   },
+   "expect": null,
+   "why": "⚠️ A figure that HIT its target is neither favourable nor adverse — and the tolerance matters: both sides round to the paisa first, so 0.004 is nil. Calling nil favourable would make every head budgeted to zero and left alone a success story, which is most heads in most budgets."
+  }
+ ],
+ "__interp": "The message templates interpolate the ROW keys, so a backwards period names ${periodFrom}/${periodTo} rather than ${from}/${to}. The sentence the code builds normalises through toIsoDay first, which is identity for the ISO strings this table uses — a Date-valued vector would need the table to state the normalised day.",
+ "__oneTarget": "⚠️ Every `line` region names EXACTLY ONE target, and the arrays vary only the other fields. The first cut of this table varied `ledgerId: [7, null]` alongside a null `groupId`, so the cross-product quietly included a row with NO target and another with two — and the `line-negative` region then met the 'exactly one' refusal instead of the negative-amount one. A region has to be a statement about the part of the fact space it claims, or the expansion invents rows the case was never about.",
+ "delete": [
+  {
+   "id": "delete-never-blocked",
+   "given": {
+    "unused": [
+     0
+    ]
+   },
+   "expect": null,
+   "why": "⚠️ It returns `null` unconditionally and exists to SAY SO — `describeClassDeleteBlock`'s shape one phase over. Nothing in the schema points at a `budgets` row: no journal line, no voucher, no allocation, so §4.9 rule 2's 'a record that ever posted archives' has nothing to bite on. If a future phase ever posts from a budget — a provision, say — this is the function that has to grow a reason, and this vector is what will notice both sides growing it differently."
+  }
+ ]
+}

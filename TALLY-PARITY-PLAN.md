@@ -620,6 +620,31 @@ RCM purchase post the very shape D-52 was filed to fix — inside the rule table
 where it would read as deliberate. They are a declared exception **held to a
 shape**, and injection 7 measures the wrong answer being refused four ways.
 
+**And P8b is done: budgets exist, and a person can read one against the
+actuals.** `budgets` + `budget_lines`, the pure rules, the masters API, the
+**Budget variance report**, and both screens. §3.9's promise is a **negative**
+one — *"no engine change at all"* — so the gate leads with it: the three
+statements captured with a budget present and without it, **44 figures, nothing
+moved**, with `rows.length > 0` beside `0 changed` so it is a claim about the
+budget rather than about nothing. ⚠️ It is a **report and not a column on the
+statements**, and §3.9 says *"column"*: a budget's lines are **sparse** (fifty
+heads out of 1,383 ledgers) and one of its three target kinds — a cost centre —
+appears on no statement at all, so a column could carry two of them and would
+silently drop the third. ⚠️⚠️ **The verdict refuses to guess**: favourable/adverse
+is derivable for Expense and Income and genuinely *not* for Asset and Liability —
+a cash target wants to be exceeded and a debtors target does not, and both are
+Assets — so it answers `null` there and the screen prints a plain signed figure.
+⚠️ And this phase shipped **a mirror with no reader** for an hour: the browser copy
+of that verdict was consulted by nothing, and the UI gate proved it by injecting a
+wrong verdict into it and **passing 6/6**. Deleted, with the reasoning in check
+14's own note. ⚠️⚠️ Three of the gate's own assertions could not fail when first
+written — the verdict property budgeted four balance-sheet groups so its rendering
+half never ran, the window property asserted the budget's own period rather than
+the clipped one, and a fixture named *"Compare"* made four buttons match one
+selector. All three are P3d‑1's *"the fixture, not the assertion, was what could
+not fail"*. And the file's first version cost **another file's passing test** by
+spending a request budget §11 already records as gone.
+
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
 report whose shape is fixed?"*, and there is no longer a second derivation to
@@ -673,7 +698,7 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P7d‑2 | The cost reports' screens, and the drill spine's fourth target | M | **done** — [§P7d‑2 record](#p7d-2-record--2026-08-31) |
 | P8a | §3.4 — the leg table becomes a dated rule table | M | **done** — [§P8a record](#p8a-record--2026-08-31) |
 | P8b‑1 | Budgets — the tables, the rules, the API, the variance report | M | **done** — [§P8b‑1 record](#p8b-1-record--2026-09-01) |
-| P8b‑2 | The budget screen, and the variance report's screen | M | not started |
+| P8b‑2 | The budget screen, and the variance report's screen | M | **done** — [§P8b‑2 record](#p8b-2-record--2026-09-01) |
 | P8c | Interest | M | not started |
 | P8d | Multi-currency | M | not started |
 | P8e | Scenarios | S | not started |
@@ -7176,6 +7201,134 @@ boundary, and it is fixed in the same commit. All ten checks green.
 `npm test` 2203/2203 · all five guards · `lint:ci` 0 errors · `nest build` clean ·
 `dump-routes` resolves all 10 routes · P8a's gate still 16/16.
 
+### P8b‑2 record — 2026-09-01
+
+**P8b is complete: a person can set a budget and read it against the actuals.**
+`/transaction/masters/budgets` is the plan — a list of budgets, each expanding to
+its target figures, with *Compare* beside it — and
+`/transaction/reports/budget-variance` is §3.9's *"Budget variance column"* on the
+budget's own rows. Every refusal the API makes is made in the browser first, in
+the API's own words, **with no request leaving the page**.
+
+**Gate `qa-artifacts/tests/ui/masters/budgets.ui.spec.ts` — 6/6**, shown to fail
+**five** ways, two of which passed at first. `check-mirrors.js` gained **check 14**
+(62 comparisons over 29 region cases, message text). Full `qa:screens` lane
+**63/63**.
+
+#### What was built
+
+| | |
+|---|---|
+| `utils/budget-rules.util.ts` | the mirror of `budget.const.ts` — four refusals |
+| `components/admin/transaction/budgets/` | the list, and `budget-add-edit/` (the header, the target grid, the two bases) |
+| `components/admin/transaction/reports/budget-variance/` | the report |
+| `core/navigation/navigation.config.ts` | Masters ▸ **Budgets** (`budgets`) and Reports ▸ **Budget Variance** (`reports`) |
+| `scripts/check-mirrors.js` + `scripts/vectors/budget-rules.vectors.json` | check 14 |
+| `qa-artifacts/tests/ui/masters/budgets.ui.spec.ts` · `budget-rules.ts` | the gate, and the rules restated a third time |
+
+#### ⚠️ The mirror has no server-only arm, so *"no request went"* is the property
+
+`cost-rules.util.ts` deliberately passes `allocationCount: null` — whether a
+centre has been allocated to is a fact only the database has — so P7c‑2's gate had
+to split its refusals into *the browser can decide this* and *leave it to the
+server*. **Budgets have no such split.** Every budget rule is about the payload the
+form is holding: how many targets a row names, whether its amount is negative,
+whether the period runs backwards, whether two rows name one head. So the dialog
+refuses all four with nothing on the wire, and the gate **counts the requests** —
+because a 400 caught and toasted renders the same sentence in the same place, so
+the sentence alone proves nothing about where the rule ran (P3d‑2's method).
+
+The one rule that is genuinely the server's is §4.3 rule 7, and it is not
+mirrorable in principle: the screen only ever offers ids it was given.
+
+#### ⚠️⚠️ A mirror with no reader is not a mirror — and this phase shipped one for an hour
+
+The first cut mirrored `varianceDirection`/`varianceVerdict` into the browser and
+had check 14 compare them over every nature. They had **no reader**: the report
+renders the `verdict` the API already sends on each row, and the browser copy was
+consulted by one method (`verdictAgrees`) that nothing called.
+
+**The gate found it by injection.** *"The screen invents a verdict for Asset and
+Liability"*, applied to the browser copy, **passed 6/6** — two implementations
+being held in step by a mirror check, only one of which could ever reach a screen.
+That is §6.4's *"a mirror rule that cannot fail reads as coverage"* one layer up.
+
+Both are deleted. A mirror exists so a screen does not offer what the server will
+refuse; a verdict is not an offer, it is a figure's label computed once
+server-side. What checks the rendering is `budget-rules.ts` in the harness — a
+third copy typed by hand, compared against the `data-verdict` the screen actually
+puts on each row — which is where a presentation rule belongs. Re-aimed at the
+**server's** rule, the same injection fails the gate.
+
+#### ⚠️ Three of the gate's own assertions could not fail, and it said so twice
+
+- **The verdict property never exercised its own rendering half.** It budgeted the
+  first four groups the picker offered, and Tally's tree starts Capital Account ·
+  Loans · Current Liabilities · Fixed Assets — every one a balance-sheet nature,
+  so `withVerdict` was **0** while the test passed its other assertion. The heads
+  are now looked up **by nature** and selected by name: two that can be judged and
+  two that cannot, so both halves are exercised on purpose rather than by luck.
+  P3d‑1's *"the fixture, not the assertion, was what could not fail"*, a third
+  time in this programme.
+- **The window property asserted the budget's own period**, which the first half
+  of the same sentence prints — so an injection deleting the *"compared over …"*
+  half entirely passed 6/6. It now asks with a report window **narrower** than the
+  budget, a date only the clipping can produce.
+- **A fixture named "Compare" made four buttons match one selector.** Every button
+  in a row carries the budget's name in its `aria-label` (*"Compare X with
+  actuals"*, *"Alter X"*, *"Delete X"*, *"Show the target figures of X"*) — right
+  for a screen reader, and fatal to a loose `getByRole('button', { name: /Compare/
+  })` the moment the name contains that word. The selectors are exact now and the
+  fixtures avoid the words they use.
+
+#### The gate found two real defects in the screen, both a11y-shaped
+
+- **A `mat-form-field` in a table cell has no width of its own.** `mat-form-field`
+  is `display: inline-flex`, so inside a grid cell it shrinks to its content — and
+  a label long enough to wrap then put its notched outline over the **trigger's
+  centre**, which is the point a click lands on. The select was genuinely
+  unclickable. §14's `.jwd__full` note is the same trap one module across.
+- **The Add-a-line button's accessible name did not contain its visible text.**
+  `aria-label="Add a budget line"` over a button reading *"Add a line"* fails WCAG
+  **2.5.3 (Label in Name)**: a speech-input user saying what they can see cannot
+  reach it, and a screen-reader user hears a different label from the one on
+  screen. Found because the gate looked for the visible name — which is what a
+  person would do.
+
+#### ⚠️ It also cost another file's passing test, which is the honest way to learn §11
+
+`qa:screens` is 68 serial browser tests sharing one 100-request-per-minute
+per-IP bucket, and this file's first version did **two full SPA boots** in one
+test. The lane went red — in `user-form.ui.spec.ts`, a file this phase never
+touched, on a test that passed in isolation; and on the next run the casualty
+**moved**, which is what tells a throttle flake from a defect. Cutting the second
+boot (the clipped-window check now *replaces* the plain visit rather than
+following it) put the lane back to **63/63**. §11's *"a new suite spends a budget
+that is already gone — measure the lane, not only your own file"*, measured.
+
+#### Five injections
+
+| | | |
+|---|---|---|
+| 1 | the dialog stops refusing locally and lets the server 400 | (2) — the sentence arrives, from the wrong place |
+| 2 | the **server** invents a verdict for Asset and Liability | (4). ⚠️ Aimed at the *browser* copy first, where it passed 6/6 — which is how the reader-less mirror was found |
+| 3 | the report stops stating the window it used | (3). ⚠️ Passed at first; see above |
+| 4 | the caption explaining the plain rows is removed | (4) — without it the absence of a colour reads as a rendering bug |
+| 5 | the screen guesses a budget *might* be part of the books | (5) — the delete never leaves the page |
+
+Plus `check-mirrors` check 14 shown to fail both ways: **DRIFT** when the browser
+"improves" a wording, and **RULE CHANGED** when both sides drop the
+Asset/Liability `null` together — the case a two-way parity check cannot see, and
+§13.4's whole argument for a restated table.
+
+#### Parity
+
+No endpoint, no query, no DTO and no rule changed on the server: the parity diff
+is **empty by construction**, and would be identical if the whole phase had been
+deleted (§6.4's rule, P3d‑1's and P4c's own note). `npm run lint` 0 errors with the
+breakpoint and token guards green · `ng build` clean · `qa:screens` 63/63 ·
+`check-mirrors` all fourteen checks green · backend `npm test` 2203/2203 unchanged.
+
 ### Verification pass — 2026-08-28
 
 The plan was written from a reading of the source. It has since been checked
@@ -8710,7 +8863,7 @@ that the gate written at the end covers what the author remembers.
 |---|---|---|
 | **P8a** | §3.4 — `buildLegs` becomes an interpreter over a **dated rule table**; the byte-identical gate | **done** — [record](#p8a-record--2026-08-31) |
 | **P8b‑1** | Budgets — `budgets` · `budget_lines` · the rules · the API · the variance report | **done** — [record](#p8b-1-record--2026-09-01) |
-| **P8b‑2** | The masters screen, and the variance report's screen | not started |
+| **P8b‑2** | The masters screen, and the variance report's screen | **done** — [record](#p8b-2-record--2026-09-01) |
 | **P8c** | Interest — the pure rule, the Interest Report, the explicit Debit Note | not started |
 | **P8d** | Multi-currency — `currencies` · `exchange_rates` · the FC columns | not started |
 | **P8e** | Scenarios — optional/provisional voucher types, the `scenarioId` filter | not started |
