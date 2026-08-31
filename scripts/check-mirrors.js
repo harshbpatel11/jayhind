@@ -1542,6 +1542,123 @@ if (hubFeatureColumns && hubFeaturesDto && consoleFeatures) {
   }
 }
 
+// ── 15. the interest-parameter refusals ─────────────────────────────────────
+//
+// `interest.const.ts` decides what the API refuses; `interest-rules.util.ts`
+// says the same thing in the per-ledger interest dialog (P8c‑2), so an operator
+// reads the reason rather than meeting a 400 on a control that looked live.
+//
+// ⚠️ Checks 10, 13 and 14's argument: the **message text** is compared. Two of
+// these sentences do work no verdict could: the negative-rate one has to say what
+// to do INSTEAD (remove the parameters, because *"charge nothing"* has a
+// different expression), and the implausible-rate one has to name the actual
+// mistake (18 meaning 18 % a **month**) rather than implying a statutory ceiling.
+//
+// ⚠️⚠️ **Only the refusal is mirrored, never the calculator.** `interestOn`,
+// `daysBetween` and the two day-count conventions live server-side alone: the
+// Interest Report renders figures the server computed and the browser never
+// recomputes one, so a second copy would be a rule with **no reader** — which
+// P8b‑2 shipped, and whose own UI gate proved it by injecting a wrong verdict
+// into the browser copy and passing 6/6. A mirror exists so a screen does not
+// OFFER what the server will refuse; a computed figure is not an offer.
+{
+  const BACK_I = 'jayhind-client-back/src/const/interest.const.ts';
+  const FRONT_I = 'jayhindi-client-front/src/utils/interest-rules.util.ts';
+  const vectorFile = path.join(__dirname, 'vectors/interest-rules.vectors.json');
+
+  const backSrc = read(path.join(ROOT, BACK_I));
+  const frontSrc = read(path.join(ROOT, FRONT_I));
+
+  let table;
+  try {
+    table = JSON.parse(fs.readFileSync(vectorFile, 'utf8'));
+  } catch (err) {
+    failures.push(`interest-rules vectors: could not read ${path.relative(ROOT, vectorFile)} — ${err.message}`);
+  }
+
+  if (table && backSrc && frontSrc) {
+    let back, front;
+    try {
+      back = loadTsModule(...splitRepoPath(BACK_I));
+      front = loadTsModule(...splitRepoPath(FRONT_I));
+    } catch (err) {
+      failures.push(`interest-rules vectors: ${err.message}`);
+    }
+
+    const expand = (given) => {
+      let rows = [{}];
+      for (const k of Object.keys(given)) {
+        const values = Array.isArray(given[k]) ? given[k] : [given[k]];
+        rows = rows.flatMap((row) => values.map((v) => ({ ...row, [k]: v })));
+      }
+      return rows;
+    };
+
+    const sentence = (key, row) => {
+      if (key === null || key === undefined) return null;
+      const template = table.messages[key];
+      if (template === undefined) {
+        failures.push(`interest-rules vectors: no message named '${key}'`);
+        return null;
+      }
+      return template.replace(/\$\{(\w+)\}/g, (_m, k) => String(row[k]));
+    };
+
+    // The compounding intervals are compared as DATA, because the sentence names
+    // them: a side that accepted a fifth would refuse nothing while telling the
+    // operator there are four.
+    if (back && front) {
+      const asList = (v) => JSON.stringify([...(v ?? [])]);
+      if (asList(back.COMPOUND_INTERVALS) !== asList(front.COMPOUND_INTERVALS)) {
+        failures.push(
+          `interest-rules: COMPOUND_INTERVALS is ${asList(back.COMPOUND_INTERVALS)} in client-back and ` +
+            `${asList(front.COMPOUND_INTERVALS)} in client-front — the two would accept different splits ` +
+            'while printing the same four in the refusal',
+        );
+      }
+
+      let compared = 0;
+      const cases = table.terms;
+      if (!Array.isArray(cases)) {
+        failures.push("interest-rules vectors: no 'terms' cases in the table");
+      } else {
+        for (const vector of cases) {
+          for (const row of expand(vector.given)) {
+            const expected = sentence(vector.expect, row);
+            const b = back.describeInterestTermsBlock(row) ?? null;
+            const f = front.describeInterestTermsBlock(row) ?? null;
+            compared++;
+
+            const shape = JSON.stringify(row);
+            if (b !== f) {
+              failures.push(
+                `interest-rules DRIFT · terms/${vector.id} · ${shape}:\n` +
+                  `      client-back:  ${JSON.stringify(b)}\n` +
+                  `      client-front: ${JSON.stringify(f)}\n` +
+                  `      — ${vector.why}`,
+              );
+            } else if (b !== expected) {
+              failures.push(
+                `interest-rules RULE CHANGED · terms/${vector.id} · ${shape}:\n` +
+                  `      both sides say ${JSON.stringify(b)}\n` +
+                  `      the table says ${JSON.stringify(expected)}\n` +
+                  `      — ${vector.why}\n` +
+                  '      If the rule or the wording genuinely changed, update scripts/vectors/ in the same commit.',
+              );
+            }
+          }
+        }
+      }
+
+      notes.push(
+        `interest-rules: ${compared} behavioural comparisons over ${(table.terms ?? []).length} region cases, ` +
+          'run against BOTH implementations, comparing the message text (P8c‑2). ' +
+          'The calculator is deliberately not mirrored — see this check\'s own note.',
+      );
+    }
+  }
+}
+
 // ── Report ──────────────────────────────────────────────────────────────────
 for (const n of notes) console.log(`note: ${n}`);
 

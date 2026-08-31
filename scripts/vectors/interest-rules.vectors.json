@@ -1,0 +1,232 @@
+{
+ "_": "Shared behavioural table for the interest-parameter refusals — see scripts/check-mirrors.js check 15. `jayhind-client-back/src/const/interest.const.ts` enforces them; `jayhindi-client-front/src/utils/interest-rules.util.ts` states them in the per-ledger interest dialog so an operator reads the reason instead of meeting a 400. Both must answer every expanded row with the SAME SENTENCE, and both must match the sentence stated here — so a wording one side quietly improved, and a rule both sides forgot together, are different failures.",
+ "__notMirrored": "⚠️ Only the REFUSAL is mirrored, never the calculator. `interestOn`, `daysBetween` and the two day-count conventions live server-side alone: the Interest Report renders figures the server computed and the browser never recomputes one, so a second copy would be a rule with no reader. P8b-2 shipped exactly that (a `varianceVerdict` copy nothing called) and its own UI gate proved it by injecting a wrong verdict there and passing 6/6. A mirror exists so a screen does not OFFER what the server will refuse; a computed figure is not an offer.",
+ "__closedSet": "The compounding interval is a CLOSED set of four, and it is closed because the refusal names them. The rule's first cut accepted any whole 1-12 while printing '1, 3, 6 or 12', so a stored 5 was legal and unmentionable — caught by the backend spec, and the vectors below keep it closed on both sides.",
+ "messages": {
+  "need-rate": "Interest parameters need a rate.",
+  "negative": "An interest rate cannot be negative — a ledger that should charge nothing has no interest parameters at all, rather than a rate below zero.",
+  "typo": "${ratePercent}% a year is almost certainly a typo — interest is stated per annum, so 18 means 18% a year and not 18% a month.",
+  "bad-style": "\"${style}\" is not an interest style — it is either simple or compound.",
+  "bad-basis": "\"${basis}\" is not a day-count basis — it is either actual days over 365 or the 30-day-month convention.",
+  "bad-grace": "A grace period is a whole number of days, and cannot be negative.",
+  "bad-interval": "Compounding happens monthly, quarterly, half-yearly or yearly — 1, 3, 6 or 12 months apart."
+ },
+ "terms": [
+  {
+   "id": "ok",
+   "given": {
+    "ratePercent": [
+     0,
+     0.5,
+     13.75,
+     18,
+     100
+    ],
+    "style": [
+     "simple",
+     null
+    ],
+    "basis": [
+     "actual-365",
+     "days-30-360",
+     null
+    ],
+    "graceDays": [
+     0,
+     7,
+     30,
+     null
+    ]
+   },
+   "expect": null,
+   "why": "Well-formed, including a ZERO rate (a ledger that charges nothing but keeps its parameters) and the boundary 100."
+  },
+  {
+   "id": "ok-compound",
+   "given": {
+    "ratePercent": [
+     18
+    ],
+    "style": [
+     "compound"
+    ],
+    "compoundMonths": [
+     1,
+     3,
+     6,
+     12
+    ],
+    "basis": [
+     null
+    ],
+    "graceDays": [
+     0
+    ]
+   },
+   "expect": null,
+   "why": "All four intervals of the closed set."
+  },
+  {
+   "id": "ok-simple-ignores-interval",
+   "given": {
+    "ratePercent": [
+     18
+    ],
+    "style": [
+     "simple"
+    ],
+    "compoundMonths": [
+     7,
+     0,
+     null
+    ],
+    "basis": [
+     null
+    ],
+    "graceDays": [
+     0
+    ]
+   },
+   "expect": null,
+   "why": "⚠️ A stored interval a SIMPLE ledger does not use must not refuse the save — an operator switching compound → simple would otherwise be stuck with a value they cannot see."
+  },
+  {
+   "id": "need-rate",
+   "given": {
+    "ratePercent": [
+     null
+    ],
+    "style": [
+     "simple",
+     null
+    ],
+    "basis": [
+     null
+    ]
+   },
+   "expect": "need-rate",
+   "why": "No rate at all."
+  },
+  {
+   "id": "negative",
+   "given": {
+    "ratePercent": [
+     -0.0001,
+     -1,
+     -18
+    ],
+    "style": [
+     null
+    ],
+    "basis": [
+     null
+    ]
+   },
+   "expect": "negative",
+   "why": "⚠️ The sentence must say what to do INSTEAD — remove the parameters — because the operator's intent (charge nothing) has a different expression, and 'cannot be negative' alone leaves them looking for one."
+  },
+  {
+   "id": "typo",
+   "given": {
+    "ratePercent": [
+     100.0001,
+     216,
+     1800
+    ],
+    "style": [
+     null
+    ],
+    "basis": [
+     null
+    ]
+   },
+   "expect": "typo",
+   "why": "⚠️ A TYPO GUARD that names the actual mistake — 18 meaning 18% a MONTH gives 216% a year — rather than implying a statutory ceiling exists."
+  },
+  {
+   "id": "bad-style",
+   "given": {
+    "ratePercent": [
+     18
+    ],
+    "style": [
+     "daily",
+     "SIMPLE",
+     ""
+    ],
+    "basis": [
+     null
+    ]
+   },
+   "expect": "bad-style",
+   "why": "An unknown style. The empty string is included because it is a STATED value, not an absent one."
+  },
+  {
+   "id": "bad-basis",
+   "given": {
+    "ratePercent": [
+     18
+    ],
+    "style": [
+     null
+    ],
+    "basis": [
+     "actual-actual",
+     "365",
+     "ACTUAL-365"
+    ]
+   },
+   "expect": "bad-basis",
+   "why": "An unknown basis. `actual-actual` and `30/360` are real finance conventions this app deliberately does not offer."
+  },
+  {
+   "id": "bad-grace",
+   "given": {
+    "ratePercent": [
+     18
+    ],
+    "style": [
+     null
+    ],
+    "basis": [
+     null
+    ],
+    "graceDays": [
+     -1,
+     1.5,
+     -0.5
+    ]
+   },
+   "expect": "bad-grace",
+   "why": "Whole days, never negative — grace moves the START, so a fractional or negative one has no meaning."
+  },
+  {
+   "id": "bad-interval",
+   "given": {
+    "ratePercent": [
+     18
+    ],
+    "style": [
+     "compound"
+    ],
+    "compoundMonths": [
+     0,
+     2,
+     5,
+     7,
+     13,
+     2.5,
+     -3
+    ],
+    "basis": [
+     null
+    ],
+    "graceDays": [
+     0
+    ]
+   },
+   "expect": "bad-interval",
+   "why": "⚠️ A CLOSED set: 2, 5 and 7 are whole numbers of months and are still refused, because the sentence names four and the rule has to mean what it says."
+  }
+ ]
+}

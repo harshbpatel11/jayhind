@@ -645,6 +645,26 @@ selector. All three are P3d‑1's *"the fixture, not the assertion, was what cou
 not fail"*. And the file's first version cost **another file's passing test** by
 spending a request budget §11 already records as gone.
 
+**And P8c is done: interest exists, and it claims rather than charges.** A pure
+calculator, per-ledger parameters, the **Interest Report**, and both screens.
+§3.9's central clause is a **prohibition** — *"posting it is an explicit Debit
+Note the user accepts, never automatic"* — so the gate leads with it: the three
+statements captured either side of a full set of parameters, and the entry and
+line counts, **while ₹1,47,740.48 of interest was claimed**. ⚠️ The day count is
+a **convention**, and choosing wrong is invisible: ₹1,00,000 at 18 % for a
+quarter is ₹4,438.36 on actual/365 and ₹4,500.00 on 30/360, so the gate asserts
+the two give **different** figures on the same bills. ⚠️⚠️ §3.9's *"and over the
+running balance otherwise"* is deliberately **not** implemented — since P5b every
+party line carries a bill reference, so *"otherwise"* is an empty case and a
+second path would be a derivation with no population. ⚠️ Two of the gate's own
+properties **could not fail**: one compared its own restatement against its own
+literals and never touched `daysBetween`, and the 30/360 cap test used two 31sts,
+where the cap cancels. Three arms have no instance in the data — all 2,848
+settlements are same-day, no due date exists anywhere, and no live bill reference
+sits on a dead entry — and all three are constructed. ⚠️⚠️ Only the **refusal** is
+mirrored to the browser, never the calculator: P8b‑2's reader-less mirror is why,
+and check 15 carries the argument.
+
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
 report whose shape is fixed?"*, and there is no longer a second derivation to
@@ -700,7 +720,7 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P8b‑1 | Budgets — the tables, the rules, the API, the variance report | M | **done** — [§P8b‑1 record](#p8b-1-record--2026-09-01) |
 | P8b‑2 | The budget screen, and the variance report's screen | M | **done** — [§P8b‑2 record](#p8b-2-record--2026-09-01) |
 | P8c | Interest — the rule, the parameters, the report | M | **done** — [§P8c record](#p8c-record--2026-09-01) |
-| P8c‑2 | The interest screens | S | not started |
+| P8c‑2 | The interest screens | S | **done** — [§P8c‑2 record](#p8c-2-record--2026-09-01) |
 | P8d | Multi-currency | M | not started |
 | P8e | Scenarios | S | not started |
 
@@ -7484,6 +7504,123 @@ and the per-ledger parameters have an API and no caller — BUG-0068's *"an endp
 nothing calls is an endpoint nobody has run"*, with this gate as the only thing
 that has ever run them. P8c‑2 is those two screens.
 
+### P8c‑2 record — 2026-09-01
+
+**P8c is complete: a person can set a rate and read what it claims.** A ledger's
+interest parameters open from its own row on the Chart of Accounts, and
+`/transaction/reports/interest` is the Interest Report — which says **in words**
+that it claims rather than charges, because the absence of a *Post* button is not
+a statement.
+
+**Gate `qa-artifacts/tests/ui/masters/interest.ui.spec.ts` — 3/3**, three
+injections. `check-mirrors.js` gained **check 15** (151 comparisons over 10 region
+cases). Full `qa:screens` lane **66/66**.
+
+#### What was built
+
+| | |
+|---|---|
+| `utils/interest-rules.util.ts` | the mirror — the **refusal only**, see below |
+| `components/admin/transaction/ledgers/interest-dialog/` | the parameters, opened from the ledger row |
+| `components/admin/transaction/reports/interest/` | the report |
+| `core/navigation/navigation.config.ts` | Reports ▸ **Interest** (`reports`) |
+| `scripts/check-mirrors.js` + `scripts/vectors/interest-rules.vectors.json` | check 15 |
+
+#### ⚠️ Two permission keys, on purpose
+
+The rate is `acc-ledgers` — a ledger's own property — and the report is `reports`.
+**A role that may read what is owed must not be able to quietly change what is
+charged**, which is why the dialog opens from the ledger grid rather than from the
+report it feeds.
+
+#### ⚠️⚠️ Only the REFUSAL is mirrored, and P8b‑2 is why
+
+`interestOn`, `daysBetween` and the two day-count conventions live server-side
+alone. The Interest Report renders figures the server computed and the browser
+never recomputes one, so a second copy would be a rule with **no reader** — which
+P8b‑2 shipped (a `varianceVerdict` copy nothing called) and whose own gate proved
+by injecting a wrong verdict into it and passing 6/6. **A mirror exists so a
+screen does not OFFER what the server will refuse; a computed figure is not an
+offer.** `describeInterestTermsBlock` *is* mirrored, because the dialog genuinely
+uses it to refuse a rate before the request leaves the page — counted, not
+assumed.
+
+Check 15's own note carries the argument, and the vector table's `__notMirrored`
+key repeats it where somebody adding a rule would look.
+
+#### The screen states what the design refuses to do
+
+- **The caption**, not the missing button: *"Interest here is calculated and
+  claimed, never charged."* §3.9's *"an explicit Debit Note the user accepts,
+  never automatic"* is a design decision, and a reader who cannot find a Post
+  button learns nothing from its absence.
+- **The action is *Raise a debit note***, and it **navigates to a blank one**
+  rather than creating it. A button that posted would be the automatic charge
+  this whole design refuses.
+- **Every line names the date it ran from**, and the report says how many used
+  the bill's own date — which on this database is all of them, because no due
+  date exists anywhere. A report that used it silently would look like it was
+  applying credit terms somebody had set.
+- **No grand total across ledgers**, with a caption saying why: interest on a
+  customer is owed *to* you and on a supplier *by* you. The same pair the
+  Category Summary carries (P7d‑2) — the API says it by having no field, the
+  screen says it in words.
+- ***Charge no interest*** is a first-class action beside *Save*, because
+  **absence is the meaningful state**. A screen expecting an operator to express
+  *"never"* as `0` would leave a ledger that looks configured and charges
+  nothing — the shape the negative-rate refusal exists to prevent.
+
+#### ⚠️ The gate found a real defect: `computed()` over a reactive form is not reactive
+
+`isCompound` was a `computed(() => this.form.getRawValue().style === 'compound')`.
+A reactive form's value is **not a signal**, so the computed had nothing to track:
+it evaluated once, cached, and never recomputed — the compounding-interval field
+simply never appeared when the style was switched, on a screen that looked
+entirely correct. It is a `signal` set in `judge()` now, which already runs on
+`valueChanges`. **A `computed()` is only as reactive as its narrowest source.**
+
+#### And two selector traps the harness had already written down
+
+- **`<mat-table>` has no `<tbody>`.** `parity.ts`'s own header records it —
+  *"a `table tbody tr` selector matches nothing even while the grid is on
+  screen"* — and this file's first version used exactly that, which reads like a
+  broken screen. `rowContaining` is the shared handle, and `toolbar.search` is
+  `input[aria-label="Search records"]`.
+- **`td.num` is not only the figures.** The Actions cell was right-aligned too,
+  so `last()` read the button's own text (*"post_add Raise a debit note"*) and the
+  en-IN shape assertion failed on a perfectly correct screen. The cell carries
+  `.int__action` now — it is not a figure.
+
+#### ⚠️⚠️ And a test that failed for the wrong reason
+
+Test 1 asserted the **column defaults** (`style: 'simple'`, `basis: 'actual-365'`)
+after saving a rate — a real property, since a DTO initialiser would supply them
+on every `PUT` (BUG-0020). A leftover from an earlier failed run made the dialog
+load somebody else's `compound`, and the test failed four assertions later on a
+message about a column default that said nothing about what went wrong. It now
+asserts its **precondition** — that this ledger opens with no parameters and no
+*Charge no interest* button — so a leftover fails at the point it actually
+matters.
+
+#### Three injections
+
+| | | |
+|---|---|---|
+| 1 | the dialog lets a refused rate through to the server | (1) — Save is live where it must be dead |
+| 2 | the report stops saying it claims rather than charges | (2) |
+| 3 | *Charge no interest* zeroes the rate instead of removing the row | (3) — a row survives where there must be none |
+
+Plus check 15 shown to fail both ways: **DRIFT** when the browser shortens a
+sentence, and **RULE CHANGED** when both sides open the closed compounding set
+together — the case a two-way parity check cannot see.
+
+#### Parity
+
+No endpoint, no query, no DTO and no server rule changed: the parity diff is
+**empty by construction**. `npm run lint` 0 errors with the breakpoint and token
+guards green · `ng build` clean · `qa:screens` **66/66** · `check-mirrors` all
+fifteen checks green · `qa:p8c-interest` still 28/28.
+
 ### Verification pass — 2026-08-28
 
 The plan was written from a reading of the source. It has since been checked
@@ -9020,7 +9157,7 @@ that the gate written at the end covers what the author remembers.
 | **P8b‑1** | Budgets — `budgets` · `budget_lines` · the rules · the API · the variance report | **done** — [record](#p8b-1-record--2026-09-01) |
 | **P8b‑2** | The masters screen, and the variance report's screen | **done** — [record](#p8b-2-record--2026-09-01) |
 | **P8c** | Interest — the pure rule, the Interest Report, the explicit Debit Note | **done** — [record](#p8c-record--2026-09-01) |
-| **P8c‑2** | The Interest Report's screen, and the per-ledger parameters on the Chart of Accounts | not started |
+| **P8c‑2** | The Interest Report's screen, and the per-ledger parameters on the Chart of Accounts | **done** — [record](#p8c-2-record--2026-09-01) |
 | **P8d** | Multi-currency — `currencies` · `exchange_rates` · the FC columns | not started |
 | **P8e** | Scenarios — optional/provisional voucher types, the `scenarioId` filter | not started |
 
