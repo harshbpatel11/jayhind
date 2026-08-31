@@ -665,6 +665,26 @@ sits on a dead entry — and all three are constructed. ⚠️⚠️ Only the **
 mirrored to the browser, never the calculator: P8b‑2's reader-less mirror is why,
 and check 15 carries the argument.
 
+**And P8d and P8e are done, which closes the programme's last phase.**
+Multi-currency is `currencies` + `exchange_rates` + three **nullable, unbackfilled**
+annotation columns on `journal_lines`, and scenarios are a `scenarioId` on
+`journal_entries` that `liveEntrySql` excludes **by default for all 57 of its
+callers**. Both phases make §3.9's *"every existing report is unaffected by
+construction"* a property of the **schema**: nothing was backfilled, so the census
+— 45,460 lines with 0 annotated, 15,474 entries with 0 in a scenario, `Σ Dr` and
+`Σ Cr` unchanged at ₹6,21,920,688,281.08 — *is* the proof, and each gate's first
+property is that census. ⚠️ §3.9's own mechanism for scenarios (*a flag on
+`voucher_types`*) does not fit: Tally's voucher types are user-definable and this
+app's are a fixed enum of fourteen, so the flag would mean *"every sale is
+provisional"* — it is on the **document**, which is what Tally's `Ctrl+L` marks
+anyway. ⚠️⚠️ **P8d's injection 6 passed and the code was wrong**: the
+base-currency rule was on `update` alone, so creating a *new* currency as base was
+an unguarded second door — §13's standing shape, found by an injection rather than
+by review. ⚠️ And five of the four gates' properties could not fail as first
+written — a fixture out of the report window that made a lenient `!row ||` check
+pass vacuously, a `ledgerTrialBalance` with no transaction parameter comparing two
+identical results, and a soft-deleted row that a `COUNT(*)` census still counted.
+
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
 report whose shape is fixed?"*, and there is no longer a second derivation to
@@ -723,7 +743,8 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P8c‑2 | The interest screens | S | **done** — [§P8c‑2 record](#p8c-2-record--2026-09-01) |
 | P8d | Multi-currency — the tables, the annotation, the revaluation report | M | **done** — [§P8d record](#p8d-record--2026-09-01) |
 | P8d‑2 | The currency screens | S | not started |
-| P8e | Scenarios | S | not started |
+| P8e | Scenarios — the table, the flag, the report filter | S | **done** — [§P8e record](#p8e-record--2026-09-01) |
+| P8e‑2 | The scenario picker and masters screen | S | not started |
 
 Sizes are relative, not calendar.
 
@@ -7766,6 +7787,114 @@ endpoint nothing calls is an endpoint nobody has run"*, with this gate as the on
 thing that has run them. P8d‑2 is those screens, and until it lands the feature is
 reachable only through the API.
 
+### P8e record — 2026-09-01
+
+**P8 is complete.** §3.9's scenarios exist: a named set of postings that are
+*"includable in a report without being in the books"*. That phrase is two claims
+and the gate is built round both — a real, balanced, provisional entry is
+**invisible** to the three statements, and the same statements **move by exactly
+that figure** when the scenario is asked for. A gate that only checked the first
+would pass on a scenario that does nothing.
+
+**Gate `npm run qa:p8e-scenarios` — 21/21**, plus 17 unit tests in
+`scenario.const.spec.ts`, shown to fail **five** ways.
+
+#### What was built
+
+| | |
+|---|---|
+| `src/const/scenario.const.ts` | `ScenarioKind` · `scenarioSql` · `describeScenarioBlock` · `describeScenarioDeleteBlock` · `describeScenarioMoveBlock` |
+| `src/entities/scenario.entity.ts` · `migrations/20260901500000-scenarios.ts` | the table, and `journal_entries.scenarioId` |
+| `src/const/posting.const.ts` | **`liveEntrySql` gained the exclusion** — one edit, 57 callers |
+| `src/services/scenario.service.ts` · `controllers/scenario.controller.ts` | the masters, and `resolveForReport` |
+| `src/services/reports.service.ts` | `scenarioId` threaded through `statementTree`, the seam all three statements share |
+| `scripts/qa-p8e-scenarios.ts` | the gate |
+
+#### ⚠️ §3.9 puts the flag on the voucher TYPE, and this schema cannot
+
+Tally's voucher types are **user-definable** — a company creates a *Memorandum* or
+*Provisional Sales* type and marks it optional, so *"the type is optional"* names a
+set somebody chose. This application's are a **fixed enum of fourteen system
+kinds**, with `transaction_configurations` holding one row per kind per company
+(196 rows, none user-created). A flag there would mean *"every sale is
+provisional"*, which is not a feature anybody wants.
+
+So the flag is on the **document**: `journal_entries.scenarioId`. That is also
+what Tally's own `Ctrl+L` marks — the type-level flag exists there because Tally
+has no per-voucher scenario link, and this schema does. Same finding as §3.4's
+sketch (P8a) and P4e‑1's *"the plan said it was not representable"*: the
+measurement stands, the mechanism does not.
+
+#### ⚠️⚠️ The exclusion is inside `liveEntrySql`, and that is the whole design
+
+`liveEntrySql` is the single most load-bearing fragment in the reporting layer —
+its own doc says so — and it is inlined by **57** callers. Putting the scenario
+predicate inside it means **every** report, dashboard and register excludes
+provisional figures **without being told**, which is the only safe default: a
+report that had to remember would eventually be a report that forgot. That is
+BUG-0065's rule again — *the safe behaviour has to be the one you get for free*.
+
+And it moved nothing: `scenarioId` is `NULL` on all **15,474** existing entries,
+so the widened predicate answers exactly what it answered before. P8d's *"by
+construction"* proof, one sub-phase later, and the gate's (1) is that census.
+
+#### A scenario is never a second set of books
+
+It has **no entries of its own** — `journal_entries.scenarioId` marks an
+*ordinary* entry as out of the accounts — so a scenario report is the one ledger
+with some extra rows. Nothing here duplicates a balance, a cache or a chart of
+accounts, and a scenario cannot drift from the books it annotates.
+
+#### Three rulings
+
+- **An unknown or inactive scenario is REFUSED, not ignored.** A reader looking at
+  a report they believe includes a forecast must not be handed the ordinary books
+  instead — the call `checkDataTypeAndFilterType` makes about an unknown filter
+  column (§10), where a silently-dropped predicate returns the unfiltered table to
+  somebody who asked for a subset.
+- **A scenario holding entries archives**, and the reason is unusual enough to be
+  worth the sentence: not that the rows are evidence, but that erasing it would
+  **change what the surviving rows mean**. An entry whose `scenarioId` pointed at
+  nothing would be excluded by the default (it carries a scenario) and included by
+  no scenario (there is none) — invisible to every report *and* in none of them.
+- **A posted entry cannot be moved in or out of one** (`describeScenarioMoveBlock`).
+  That would restate the accounts by editing one column, with no voucher, no
+  reversal and nothing in the audit trail saying a figure moved —
+  `describeBaseCurrencyBlock`'s argument (P8d) about a different column.
+
+#### ⚠️ Two of the gate's own properties failed for reasons that were the TEST's
+
+- **(4) reported that the `?view=ledger` toggle "ignored the scenario"**, and it
+  did not. `ledgerTrialBalance` had no `tx` parameter — the only one of the four
+  statements without it — so both calls read a world without the constructed
+  entry and compared two identical results. It takes an optional read-only
+  transaction now, like the other three since P3c‑2.
+- **(0) found a scenario surviving**, and it was a **tombstone**: `destroy` is
+  paranoid, so a scenario the gate deleted through the service was still a row,
+  and the census counts every row. The cleanup no longer takes a soft-deleted one
+  off its list. **A soft delete is not a cleanup when the census is `COUNT(*)`** —
+  P7c‑2's sweep learned the same thing about `UNIQUE(companyId, name)` including
+  tombstones.
+
+#### Five injections
+
+| | | |
+|---|---|---|
+| 1 | the default stops excluding scenario entries | 2 unit-level checks · **(2)**, naming 16 moved figures · (3b) · (4) |
+| 2 | a scenario is never includable | (12) · **(3)** — *"a scenario that does nothing"* |
+| 3 | an unknown scenario is silently ignored | (6) |
+| 4 | a scenario holding entries becomes erasable | (9) · (11) |
+| 5 | the statements stop threading the scenario | (3) · (3b) · (4) |
+
+`npm test` **2316/2316** · all five guards · `lint:ci` 0 errors · `nest build`
+clean · `dump-routes` resolves 796 routes · **all five P8 gates green** (16/16,
+30/30, 28/28, 26/26, 21/21) · `check-mirrors` all fifteen checks green.
+
+⚠️ **No screen, recorded rather than implied.** The scenario masters and the
+`?scenarioId=` toggle on the three statements have an API and no caller —
+BUG-0068's *"an endpoint nothing calls is an endpoint nobody has run"*. P8e‑2 is
+that screen: a scenario picker on the reports toolbar, and a masters list.
+
 ### Verification pass — 2026-08-28
 
 The plan was written from a reading of the source. It has since been checked
@@ -9305,7 +9434,8 @@ that the gate written at the end covers what the author remembers.
 | **P8c‑2** | The Interest Report's screen, and the per-ledger parameters on the Chart of Accounts | **done** — [record](#p8c-2-record--2026-09-01) |
 | **P8d** | Multi-currency — `currencies` · `exchange_rates` · the FC columns · the revaluation report | **done** — [record](#p8d-record--2026-09-01) |
 | **P8d‑2** | The currency masters' screen and the revaluation report's | not started |
-| **P8e** | Scenarios — optional/provisional voucher types, the `scenarioId` filter | not started |
+| **P8e** | Scenarios — the table, `journal_entries.scenarioId`, the report filter | **done** — [record](#p8e-record--2026-09-01) |
+| **P8e‑2** | The scenario picker on the reports toolbar, and the masters screen | not started |
 
 Four measurements taken before P8a started, two of which move the phase's own
 scope:
@@ -9343,6 +9473,15 @@ scope:
   Receipt, Journal, the two notes and the six no-GL kinds have **no assertion at
   all**, so *"the same way"* would inherit that gap into the thing that replaces
   the switch.
+
+⚠️ **P8 is complete.** Its five claims landed as seven sub-phases, and three of
+them found that §3.9 and §3.4's own mechanisms did not fit this schema — the
+posting-rule sketch had no condition column, `statutory_heads` was already
+`acc_ledgers.systemKey`, and a scenario flag on the voucher *type* would have
+meant *"every sale is provisional"*. What is deferred is **screens**: P8d‑2 and
+P8e‑2 are the currency and scenario ones, and both are recorded rather than
+implied — their APIs have no caller, which is BUG-0068's *"an endpoint nothing
+calls is an endpoint nobody has run"*.
 
 > **If the programme has to be cut.** P0–P4 is the coherent unit — it delivers the
 > ledger model, the reports and the entry screen, which is what "work like Tally"
