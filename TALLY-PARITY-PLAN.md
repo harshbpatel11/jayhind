@@ -721,7 +721,8 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P8b‑2 | The budget screen, and the variance report's screen | M | **done** — [§P8b‑2 record](#p8b-2-record--2026-09-01) |
 | P8c | Interest — the rule, the parameters, the report | M | **done** — [§P8c record](#p8c-record--2026-09-01) |
 | P8c‑2 | The interest screens | S | **done** — [§P8c‑2 record](#p8c-2-record--2026-09-01) |
-| P8d | Multi-currency | M | not started |
+| P8d | Multi-currency — the tables, the annotation, the revaluation report | M | **done** — [§P8d record](#p8d-record--2026-09-01) |
+| P8d‑2 | The currency screens | S | not started |
 | P8e | Scenarios | S | not started |
 
 Sizes are relative, not calendar.
@@ -7621,6 +7622,150 @@ No endpoint, no query, no DTO and no server rule changed: the parity diff is
 guards green · `ng build` clean · `qa:screens` **66/66** · `check-mirrors` all
 fifteen checks green · `qa:p8c-interest` still 28/28.
 
+### P8d record — 2026-09-01
+
+§3.9's multi-currency exists: `currencies`, `exchange_rates`, three annotation
+columns on `journal_lines`, and the **unrealised gain/loss report**. The phase's
+claim is the one §3.9 makes in bold — *"`debit`/`credit` stay in base currency and
+stay authoritative — every existing report is unaffected **by construction**"* —
+and the gate verifies it **structurally** rather than by care.
+
+**Gate `npm run qa:p8d-currency` — 26/26**, plus 49 unit tests in
+`currency.const.spec.ts`, shown to fail **seven** ways, one of which passed at
+first and **found a real defect**.
+
+#### What was built
+
+| | |
+|---|---|
+| `src/const/currency.const.ts` | `RateType` · `rateOn` · `toBase` · `toForeign` · `roundForCurrency` · `unrealisedOn` · `unrealisedVerdict` · four `describe*Block` refusals |
+| `src/entities/currency.entity.ts` · `exchange-rate.entity.ts` | + the scope registry, the model list and **two** hard-delete edges |
+| `migrations/20260901400000-currencies.ts` | both tables, and `currencyId · fcAmount · rate` on `journal_lines` |
+| `src/services/currency.service.ts` · `revaluation-report.service.ts` | the masters and the report |
+| routes | `GET\|POST\|PUT\|DELETE /currencies…` · `GET /reports/revaluation` |
+| `scripts/qa-p8d-currency.ts` | the gate |
+
+#### ⚠️ "By construction" is a property of the schema, and this is what makes it one
+
+The three new columns are **nullable and were not backfilled**. A line with no
+`currencyId` **is** a base-currency line, so:
+
+- **45,460 existing rows were not touched.** Backfilling a base-currency id would
+  have been 45,460 writes to the busiest table in the schema to record a fact that
+  was already true.
+- Every figure-bearing report reads `debit`/`credit`, which did not change — so
+  the Trial Balance, the Balance Sheet, the P&L, the cost reports and the bill
+  register answer exactly what they answered before, **not by care but because the
+  columns they read did not change**.
+- `ADD COLUMN` of a nullable column with no default is `ALGORITHM=INSTANT` on
+  MySQL 8, so the table was not rebuilt either.
+
+Measured after the migration: **45,460 lines, 0 annotated, Σ Dr = Σ Cr =
+₹6,21,920,688,281.08** — unchanged. That census is the gate's property (1), and
+injection 7 (a backfill actually happening) fails it.
+
+It is the same shape `interest_terms` uses one sub-phase earlier: **absence is a
+state**, not a value waiting to be filled in.
+
+#### ⚠️⚠️ The base currency is a row with a flag, and it is immovable
+
+Tally does the same, and it keeps one definition of what a currency is — a
+`companies.baseCurrency` string beside a `currencies` table would be two.
+`describeBaseCurrencyBlock` refuses to move the flag once anything has posted, and
+it is the most consequential refusal in the phase: **every figure in
+`journal_lines` is denominated in the base currency implicitly** — there is no
+column saying so, which is precisely why `currencyId` can be nullable — so
+re-pointing it would silently restate the whole ledger, every statement and every
+filed return.
+
+⚠️ **And the first cut applied that rule to `update` alone.** Creating a *new*
+currency and marking it base is the same restatement by the other door, and
+`create` walked straight past it. Found by **injection 6, which passed**: removing
+`claimBase` from `create` changed nothing the gate could see, because the gate
+never created a second base currency, because nothing made that worth testing.
+§13's standing shape — one rule enforced where somebody thought of it — on the two
+doors a person comes in through, which is exactly what
+`describeLedgerPlacementBlock` and `describeLedgerMoveBlock` say about `create`
+and `move` one master over. The rule is on both now and the gate asserts both.
+
+#### Three rulings worth carrying
+
+- **A rate is not interpolated, and not extrapolated backwards.** A quote stands
+  until the next one; a date before the first has **no rate at all**, because
+  valuing a 2019 invoice at a 2026 rate is a figure nobody quoted presented as a
+  fact. There is deliberately no `effectiveTo` — an end date would be a second
+  statement about the same thing, and the two could disagree.
+- **The posted base is READ, never recomputed.** Multiplying `fcAmount × rate`
+  again answers a hair differently wherever the original rounding fell, and that
+  hair would be reported as an exchange movement that never happened — BUG-0069's
+  doctrine: *where a figure has been posted, read the posting.* Injection 3
+  measures it.
+- **Nothing posts.** *"Computed on demand"* means a report, exactly as interest is
+  (P8c), and for the same reason: a revaluation is a judgement about a closing
+  rate on a particular day, and a ledger that quietly revalued itself every night
+  would be a company restating its own accounts without a decision.
+
+⚠️ A currency with **no quoted rate** on the date is reported as such and
+**counted** on the payload, never shown as *"no movement"* — which would
+understate an exposure to precisely the currency whose rates nobody has kept up.
+
+#### And two smaller ones
+
+- **Not every currency has two decimal places.** The yen has none, the Kuwaiti
+  dinar three; `roundForCurrency` takes the currency's own precision, while the
+  **base** amounts stay `DECIMAL(14,2)`. A rate is `DECIMAL(18,8)` because it is
+  not money — it is multiplied by a principal, so a rounding there is amplified by
+  the amount.
+- **A currency code is validated by SHAPE, not against a list.** There are 180 ISO
+  codes and they change by treaty; three capitals still refuses `usd`, `Rs` and
+  `$`, and a company trading in one this app has never heard of does not wait for
+  a release.
+
+#### ⚠️ Two of the gate's own properties could not fail, and one passed vacuously
+
+The fixture took the first posted line in the company, whose entry was dated after
+every date the gate asks about — so the ledger fell outside `je.date <= :asOf`
+entirely. **(9) failed with `undefined` and (7) PASSED**, because *"the row has no
+rate"* and *"there is no row"* are the same `undefined` to a `!row ||` check. The
+fixture is bounded now and both properties assert the row is actually there.
+
+That is P3d‑1's *"the fixture, not the assertion, was what could not fail"* for
+the fifth time in P8 — and the second time in this programme that a **lenient
+null check** turned an absent fixture into a green line.
+
+#### The unit spec was wrong about the language, not about the code
+
+It asserted `toBase(1.005, 1) === 1.01`. `1.005` is stored as
+`1.00499999999999989…`, so `Math.round(100.4999…)` is `100` and the answer is
+`1.00`. Left alone deliberately: `round2`'s `Math.round(n × 100) / 100` is what
+**every** money figure in this application uses, and making currency conversion
+round decimal halves differently would put it out of step with posting, tax and
+cost allocation — a far worse defect than a paisa nobody can observe without
+constructing it. The spec asserts a **true binary half** (`0.125 → 0.13`) and the
+decimal one against `round2` itself.
+
+#### Seven injections
+
+| | | |
+|---|---|---|
+| 1 | the report takes the earliest quote instead of the latest | (4) · (4b) · (4c) · (6) · (9) |
+| 2 | the rate lookup ignores the as-at date | (9) · (7) |
+| 3 | the difference recomputes the posted base | 1 unit test · (4c) |
+| 4 | the base currency becomes movable after posting | 1 unit test · (11) |
+| 5 | the revaluation stops excluding cancelled vouchers | (8) |
+| 6 | the base rule removed from `create` | ⚠️ **passed 24/24 at first — and the code was wrong, not the gate.** Now (10b) · (11b) · (12) · (13) |
+| 7 | the annotation columns get backfilled | **(1)**, the phase's own claim |
+
+`npm test` 2299/2299 · all five guards · `lint:ci` 0 errors · `nest build` clean ·
+`dump-routes` resolves all six routes and 784 in total · P8a 16/16, P8b 30/30 and
+P8c 28/28 still green · `check-mirrors` all fifteen checks green.
+
+⚠️ **No screen, and it is recorded rather than implied.** The currencies, the
+rate table and the revaluation report have an API and no caller — BUG-0068's *"an
+endpoint nothing calls is an endpoint nobody has run"*, with this gate as the only
+thing that has run them. P8d‑2 is those screens, and until it lands the feature is
+reachable only through the API.
+
 ### Verification pass — 2026-08-28
 
 The plan was written from a reading of the source. It has since been checked
@@ -9158,7 +9303,8 @@ that the gate written at the end covers what the author remembers.
 | **P8b‑2** | The masters screen, and the variance report's screen | **done** — [record](#p8b-2-record--2026-09-01) |
 | **P8c** | Interest — the pure rule, the Interest Report, the explicit Debit Note | **done** — [record](#p8c-record--2026-09-01) |
 | **P8c‑2** | The Interest Report's screen, and the per-ledger parameters on the Chart of Accounts | **done** — [record](#p8c-2-record--2026-09-01) |
-| **P8d** | Multi-currency — `currencies` · `exchange_rates` · the FC columns | not started |
+| **P8d** | Multi-currency — `currencies` · `exchange_rates` · the FC columns · the revaluation report | **done** — [record](#p8d-record--2026-09-01) |
+| **P8d‑2** | The currency masters' screen and the revaluation report's | not started |
 | **P8e** | Scenarios — optional/provisional voucher types, the `scenarioId` filter | not started |
 
 Four measurements taken before P8a started, two of which move the phase's own
