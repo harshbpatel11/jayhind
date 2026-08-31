@@ -428,6 +428,30 @@ guard now fails a stale key, which is `judge()`'s own argument — *an allowance
 matching nothing describes a migration that did not happen* — moved one file
 across.
 
+**And P7c‑1 is done: the dimension has Tally's percentage template.** A **cost
+centre class** — §2.4's own sentence, *"pick one name and the allocation happens
+automatically"* — and the one rule that makes such a template safe to store: each
+category's lines total 100 %, refused on the **master** even though §3.7 has a
+partial allocation only *warn* on a voucher, because a definition that totals
+90 % can never produce a complete allocation and would warn on every voucher it
+is used on, at a screen with no way to say why. Gate **307/307**, seven
+injections, parity diff **empty**. ⚠️ **A class is a stencil and the voucher does
+not store which one was used**: the screen expands it into the rows the wire
+already carries, the operator may edit them, and what is saved is the rows —
+`invoiceBodyOf`'s ruling one phase across, and the reason nothing points at a
+class and it is therefore always deletable. ⚠️⚠️ **The rounding IS the
+function.** A third of ₹1,000 three ways loses a paisa, and a paisa here is a
+coverage warning on every voucher the class is ever used on; the obvious
+alternative — round, then correct the largest — takes a share **negative** on ten
+lines over five paisa, which the payload rule then refuses, i.e. a class that
+makes its own voucher unsavable. It is the largest-remainder method in integer
+paisa. ⚠️ Two things the gate found rather than confirmed: **a refusal is not a
+rollback inside a caller's transaction** (the header row was written before the
+split was judged, so the next five refusals were all answered *"already
+exists"*), and **a paisa of slack cannot see a paisa of error** — (3) used the
+`near` every other figure test here uses, and injection 1 passed by exactly one
+paisa.
+
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
 report whose shape is fixed?"*, and there is no longer a second derivation to
@@ -473,7 +497,9 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P6 | Trading Account and Gross Profit | M | **done** — [§P6 record](#p6-record--2026-08-31) |
 | P7a | The cost dimension's masters (`cost_categories`, `cost_centres`) and its invariant | M | **done** — [§P7a record](#p7a-record--2026-08-31) |
 | P7b | `cost_allocations`, written from `persistLines` | M | **done** — [§P7b record](#p7b-record--2026-09-01) |
-| P7c | The masters screen, the entry panel, and cost centre classes | M | not started |
+| P7c‑1 | Cost centre classes — the tables, the expansion rule, the masters API | M | **done** — [§P7c‑1 record](#p7c-1-record--2026-09-01) |
+| P7c‑2 | The masters screen — categories · the centre tree · classes | M | not started |
+| P7c‑3 | The entry screen's allocation panel, and the mirrored expansion | M | not started |
 | P7d | The four cost reports | M | not started |
 | P8 | Posting rules, budgets, interest, multi-currency, scenarios | L | not started |
 
@@ -5397,6 +5423,235 @@ asking an answerable question belongs to whoever owns D9.
   wanted it is a fifth `CostAllocationOwnerType` and a different question about
   what is being partitioned — not a widening of this one.
 
+### P7c‑1 record — 2026-09-01
+
+**The cost dimension has Tally's percentage template, and it is a stencil rather
+than a fact about any voucher.** §2.4 states the whole feature in one sentence —
+*"a cost centre class pre-defines a percentage split so an operator picks one
+name and the allocation happens automatically"* — and P7c‑1 is that sentence
+plus the one rule that makes such a template safe to store.
+
+| Artefact | What it is |
+|---|---|
+| `src/const/cost-centre-class.const.ts` (+25 tests) | The rule: `expandCostCentreClass`, `describeClassLinesBlock`, `describeClassDeleteBlock`, `describeExpansion`, `CLASS_PERCENT_TOTAL`. Dependency-free; imports exactly one thing from `cost-allocation.const.ts` — the `CostAllocationShare` the wire already carries. |
+| `src/entities/cost-centre-class.entity.ts` · `…-line.entity.ts` | The template and its split. |
+| Migration `20260901100000-cost-centre-classes` | Both tables. **No seed** — Tally ships no class and neither do we (`OPERATION_TYPES`' own call). |
+| `CostCentreClassService` | `assertSplitIsOurs` (§4.3 rule 7 + the rule, at the one seam), `writeLines` (wholesale), `list` (the panel's feed, lines included). |
+| `CostCentreClassController` | Nine routes under the **existing** `cost-centres` key (755 → **764**). |
+| `describeCentreDeleteBlock`'s third count | P7a's guard, extended: a centre a class names is refused. |
+| `scripts/qa-p7c-cost-classes.ts` · `npm run qa:p7c-cost-classes` | The gate. **307/307** over 14 companies, shown to fail **seven** ways. |
+
+#### P7c split into three, on the argument the five splits before it used
+
+An `[M]` here is three separable claims — the table, then the screens, then the
+screen that consumes them — and the one thing this programme has learned about a
+phase larger than its gate is that the gate written at the end covers what the
+author remembers.
+
+| | | |
+|---|---|---|
+| **P7c‑1** | Cost centre classes: the tables, the expansion rule, the masters API | **done** |
+| **P7c‑2** | The masters screen — categories · the centre tree · classes | not started |
+| **P7c‑3** | The entry screen's allocation panel, the mirrored expansion, `check-mirrors` check 13 | not started |
+
+The order is P5's and P7's own: *the table, then the engine that maintains it,
+then the screens*, because every earlier link is what the next one's gate ties
+to.
+
+#### A class is a STENCIL — the voucher does not store which one was used
+
+This is the phase's central ruling and everything else follows from it.
+
+The entry screen expands a class into the `trx_cost_allocations` rows the
+voucher already carries, the operator sees those rows and may edit them, and
+**what is saved is the rows**. Storing the class id beside them would be two
+statements about one split that come apart the moment somebody edits the class:
+a voucher entered last March would be *reported* as one split and *re-expand* as
+another, with nothing to say which was true. That is `invoiceBodyOf`'s ruling one
+phase across — *"a saved voucher reopens in the body its own rows imply, because
+there is no stored mode to disagree with them"*.
+
+Three consequences, and the third is the one that surprises:
+
+- **Nothing points at a class**, so `describeClassDeleteBlock` returns `null`
+  unconditionally. It exists to say so rather than to be called, and its spec
+  asserts it — the opposite of `describeCentreDeleteBlock`, where a centre that
+  has been allocated to **is** history and archives.
+- **Editing a class moves no figure already allocated.** Gate property (12).
+- **The expansion has no server-side product caller until P7c‑3**, and this
+  record says so rather than implying coverage — P7b's own honesty about
+  `costAllocationProblems` having no reader yet. It ships here because it is one
+  statement with the write rule (below), and because a gate can only exercise
+  what is in its own repo. The frontend half and `check-mirrors` check 13 land
+  with the panel that calls them.
+
+#### The two halves are one statement about the same numbers
+
+`describeClassLinesBlock` refuses a class whose percentages do not total 100
+**within each category**; `expandCostCentreClass` turns those percentages into
+rupees. They are in one file because a class is storable *exactly when* it can
+expand to the whole of a figure, and the expansion is exact *because* the write
+rule refused everything else.
+
+⚠️ **Per category, not per class** — `cost-allocation.const.ts`' parallel rule,
+inherited. A class naming *Department* centres and *Location* centres totals 200,
+and demanding 100 of the whole class is what would make every two-category class
+unstorable.
+
+⚠️⚠️ **A class is refused where an allocation only warns, and that does not
+reverse §3.7.** *"A partial or missing allocation is a warning on a
+reconciliation report, not a refused save"* is about the **books** being
+incomplete, and it is untouched: a voucher allocating ₹8,000 of a ₹10,000 line
+still saves. A class is a **definition**, written once, away from any voucher —
+and one that totals 90 % can never produce a complete allocation, so accepting it
+means every voucher entered with it warns, at a screen with no way to show the
+operator why. Refusing the master refuses a mistake; refusing the voucher would
+punish somebody for a fact.
+
+#### ⚠️ The rounding IS the function, and the obvious algorithm is wrong twice
+
+A third of ₹1,000 three ways is `333.33 × 3 = 999.99`. A paisa lost here is not
+cosmetic — it is a `costAllocationProblems` coverage warning on **every voucher
+the class is ever used on**, which is precisely what the class was bought to
+avoid.
+
+So it is the **largest-remainder method in integer paisa**: floor each line, then
+hand the leftover paisa out one at a time, largest fractional remainder first,
+ties broken by the given order. Two properties fall out and both are
+load-bearing — `Σ` per category is exact, and **no share is ever negative**,
+because every share is its own floor plus at most one paisa.
+
+⚠️ The alternative that reads as obviously equivalent — round each line, then
+correct the largest by the residual — fails the second: ten lines of 10 % on
+₹0.05 round to a paisa each, and the residual `−0.05` takes the largest to
+`−0.04`, which `describeAllocationPayloadBlock` refuses. **A class that made its
+own voucher unsavable.**
+
+⚠️⚠️ **A share that rounds to nothing is dropped, not written**, for the same
+reason: the payload rule refuses a non-positive share, so a 0.4 % line of ₹1 must
+not become a row. `Σ` stays exact because the paisa it did not get went to a line
+that did.
+
+⚠️ **The denominator is 100, never the lines' own sum.** Normalising a class that
+totals 90 would silently complete it and disagree with the write rule that
+refuses it. The category's own stated total is what the leftover is distributed
+against, so a class that somehow got stored broken under-allocates **visibly** —
+which is the honest answer, and which the first cut of this function got wrong
+(it handed the missing tenth out as "rounding", one paisa per line).
+
+#### `describeCentreDeleteBlock` now asks three questions, and they are different questions
+
+An allocation is **history**, so a centre that has one archives (§4.9 rule 2, one
+dimension across). A class line is a **share of a template**, so a centre a class
+names is **refused** — because it is fixable: take the centre out of the class,
+which is one edit on the screen the class was written on. Two refusals that read
+the same would send somebody to the wrong screen, so they are counted and worded
+separately, and the order is the one somebody can act in: children, then classes,
+then allocations.
+
+The count joins on the class's own `deletedAt`: an archived class offers nothing
+to anybody and must not go on holding a centre hostage. Gate (10) is that
+sentence from the other side.
+
+#### 🐞 A refusal is not a rollback inside a caller's transaction
+
+Found by this phase's own gate, and it is worth carrying past P7.
+
+`create` and `update` accept `{ transaction: tx }` — every service here does, so
+a caller can compose. Inside somebody else's transaction there is **no
+savepoint**: the first version inserted the class header, then judged the split,
+so a refusal left the header behind. The gate's next five refusal properties were
+all answered *"a cost centre class called … already exists"* instead of the
+sentence they were about.
+
+Through the controller it is invisible, because there the service opens its own
+transaction and the throw rolls the whole thing back — which is exactly the shape
+that survives review. **Judge the payload before writing anything**, and the gate
+that composes several writes into one transaction is what notices.
+
+#### The gate, and the seven injections
+
+**307/307** over 14 companies and 13 end-to-end cases (one company has no posted
+P&L line and says *skipped* rather than reporting green over nothing). Twelve
+properties; (5) is the phase's claim end to end — a real posted line, a real
+class, the expansion driven through `CostAllocationService.replaceForOwner`, read
+back through the loader the entry screen will use, signed the way `persistLines`
+signs it, and put to `costAllocationProblems`, which is **quiet**. Anything short
+of that asserts the pure rule twice.
+
+⚠️ **Every Σ is taken in the gate**, never by calling the rule — P6's first
+injection's lesson, and P2b‑3c's variant of §13's standing shape.
+
+⚠️⚠️ **And a paisa of slack cannot see a paisa of error.** (3) first used the
+`near` every other figure comparison in this programme uses, and **injection 1
+passed**: rounding each line on its own turns 70/30 of ₹0.05 into ₹0.06, and
+`|0.06 − 0.05| < 0.011`. The expansion's whole reason to exist is that it needs
+no tolerance, so (3) and (5c) compare **integer paisa with `===`**. A tolerance
+inherited from the surrounding code is how a check comes to be unable to fail —
+this file's own version of *a check that restates the code by copying the code*.
+
+⚠️ **A three-way split cannot tell the rounding algorithms apart**, either.
+Injection 2 passed the first gate: the negative-share failure needs enough lines
+that Σ of the roundings can overshoot the largest one, which is `n² / 2` paisa.
+The gate builds a **ten-way even split** for (3) and (4) — a company with ten
+branches, which is also the realistic template.
+
+| # | Injection | Caught by |
+|---|---|---|
+| 1 | round each line on its own, no remainder distribution | (3) — `0.05 → 0.06`, `0.05 → 0.10` |
+| 2 | round, then dump the whole residual on the largest share | (3) — `0.05 → 0.09` on the ten-way |
+| 3 | the 100 % total taken over the whole class, not per category | the constructed two-category class is refused: *"allocates 200% of a figure across …"* |
+| 4 | the per-category total check removed altogether | (7a) *"did not refuse at all"*, and six more behind it |
+| 5 | the class-line count never asked in the delete guard | (9a), (9b) — and (10) as a **raw MySQL foreign-key message**, API-023's shape, which is the argument for the guard |
+| 6 | the split judged **after** the header row is written | (7b)–(7f), (8) — the defect above, re-injected |
+| 7 | the ownership load stops binding `companyId` | (8) — and it came back as the **wrong sentence** (*"is not a cost centre of Department"* instead of *"not one of this company's"*), which a bare `toThrow()` would have passed |
+
+Injection 7 is the one to keep: with the tenant bind gone the stranger's centre
+**resolved**, so the refusal was still a refusal and still wrong. Matching the
+message rather than the throw is what saw it.
+
+#### Parity
+
+`capture p7c-before` with the change stashed, `capture p7c-after` with it
+applied, `diff`: **`PARITY HELD — the diff is empty`**. Nothing re-based, nothing
+declared. P7c‑1 adds two tables nothing reads and nine routes nothing calls yet.
+
+#### Everything else, re-run
+
+`npm test` **2079/2079** (133 suites, was 2052/132); all five guards green;
+`npm run build` and `lint:ci` clean; `check-mirrors` in sync (no new key —
+`cost-centres` is P7a's); `dump-routes` boots the real `AppModule` and lists
+**764** routes, nine of them new. Earlier gates: `qa:p1-group-tree` 56,
+`qa:p2c-import-tree` 227, `qa:p3-ledger-report` 140, `qa:p3b-statements` 323,
+`qa:p5-bill-register` 157, `qa:p5b` 9, `qa:p5c` 9, `qa:p5c3` 18,
+`qa:p5d-annexure` 16, `qa:p6-trading` 154, `qa:p7a-cost-masters` 264,
+`qa:p7b-cost-allocations` 139.
+
+⚠️ **The one pre-existing failure is unchanged and at identical numbers**:
+`qa:p2-ledgers` (2) on company 28 — *"449 in population, 422 planned"* —
+reproduced on `main` at P6 and recorded at P7a and P7b. `party_ledger_plan` is
+frozen after D3.
+
+#### What P7c‑2 and P7c‑3 inherit
+
+- **Everything is still switched off.** `costCentresApplicable` is `0` on all
+  1,383 ledgers, `cost_centres` and `cost_centre_classes` are empty, and the real
+  Tally backup has one category, eleven switched-on ledgers and **no centres and
+  no classes**. The ledger's own switch already has a screen — the Chart of
+  Accounts' ledger form carries it since P7a — so what P7c‑2 adds is the masters
+  themselves.
+- **The panel's three calls all exist**: `GET /cost-categories/list`,
+  `GET /cost-centres/tree`, `GET /cost-centre-classes/list` (with the split), and
+  `POST /cost-allocations/list` to rehydrate a saved voucher.
+- ⚠️ **`expandCostCentreClass` must be mirrored, not re-derived.** P7c‑3's panel
+  is its first caller and the mirror is the check that keeps the figure on screen
+  equal to the figure that is saved — `planBillSettlement`'s own shape
+  (`check-mirrors` check 12), and the reason this rule sits in a dependency-free
+  const that can be bundled.
+- ⚠️⚠️ **The warning still has no reader.** `costAllocationProblems` is called by
+  nothing in the product; P7d's reconciliation report is where §3.7's *"a warning
+  on a reconciliation report"* becomes one.
+
 ### Verification pass — 2026-08-28
 
 The plan was written from a reading of the source. It has since been checked
@@ -6885,6 +7140,9 @@ does not.
 **Gate:** every Trial Balance figure is unchanged by the presence of allocations —
 the proof that the GL was not touched.
 
+⚠️ **P7c split again, into three**, on the same argument — the table, then the
+screens, then the screen that consumes them. See [§P7c‑1 record](#p7c-1-record--2026-09-01).
+
 ⚠️ **Split on the same argument as the four splits before it** (P2, P3, P4, P5):
 an `[L]` here is four separable claims, each with its own gate, and the one thing
 this programme has learned about a large phase is that the gate written at the
@@ -6896,7 +7154,9 @@ because every earlier link is what the next one's gate ties to.
 |---|---|---|
 | **P7a** | `cost_categories` · `cost_centres` · the per-category invariant · the masters API | **done** — [record](#p7a-record--2026-08-31) |
 | **P7b** | `cost_allocations`, written from `persistLines`; the voucher's allocation payload | **done** — [record](#p7b-record--2026-09-01) |
-| **P7c** | The masters screen, the entry screen's allocation panel, and cost centre classes | not started |
+| **P7c‑1** | Cost centre classes — `cost_centre_classes` · `_lines` · the expansion rule · the masters API | **done** — [record](#p7c-1-record--2026-09-01) |
+| **P7c‑2** | The masters screen — categories · the centre tree · classes | not started |
+| **P7c‑3** | The entry screen's allocation panel, and `expandCostCentreClass` mirrored | not started |
 | **P7d** | Cost Centre Summary · Category Summary · Cost Centre Breakup · Ledger Breakup | not started |
 
 ⚠️ **The plan's gate sentence belongs to P7b**, not to P7a — there are no
