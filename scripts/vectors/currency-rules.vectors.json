@@ -1,0 +1,149 @@
+{
+ "_": "Shared behavioural table for the CURRENCY refusals — see scripts/check-mirrors.js check 16. `jayhind-client-back/src/const/currency.const.ts` enforces them; `jayhindi-client-front/src/utils/currency-rules.util.ts` states them in the currency and exchange-rate dialogs so an operator reads the reason instead of meeting a 400 on a control that looked live. Both must answer every expanded row with the SAME SENTENCE, and both must match the sentence stated here — so a wording one side quietly improved, and a rule both sides forgot together, are different failures.",
+ "__notMirrored": "⚠️ Only the REFUSALS are mirrored, never the arithmetic. `rateOn`, `toBase`, `toForeign`, `unrealisedOn` and `unrealisedVerdict` live server-side alone: the Revaluation Report renders figures the server computed and the browser never recomputes one, so a second copy would be a rule with no reader. P8b-2 shipped exactly that (a `varianceVerdict` copy nothing called) and its own UI gate proved it by injecting a wrong verdict there and passing 6/6. A mirror exists so a screen does not OFFER what the server will refuse; a computed figure is not an offer. Check 15 carries the same note one master over.",
+ "__twoArmsAreTheServers": "⚠️⚠️ `base` and `delete/posted` turn on facts the browser does not hold — whether the company has posted anything, and how many journal lines name this currency. Neither is on any payload the currencies screen reads, and inventing one would be a second definition of it. So the screen passes `null` (\"not known here\"), the request goes, and the server refuses in these exact words. The rows below still exercise both arms on both implementations, which is what makes that a RULE rather than an accident of two signatures — P3d-2's `hasPostings` ruling and P7c-2's `allocationCount: null`.",
+ "__isoIsAShape": "The code is validated as ISO 4217 SHAPE, never against a list: there are 180 codes, they change by treaty, and a company trading in one this app has never heard of should not wait for a release. Three capitals still refuses `usd`, `Rs` and `$`.",
+ "messages": {
+  "need-code": "A currency needs a code.",
+  "bad-code": "\"${code}\" is not an ISO 4217 currency code — those are three capital letters, like USD or EUR.",
+  "bad-places": "A currency carries between 0 and 6 decimal places — the yen has none, the Kuwaiti dinar has three.",
+  "rate-need-figure": "An exchange rate needs a figure.",
+  "rate-not-positive": "An exchange rate is how many units of your own currency one unit of the foreign one is worth, so it has to be above zero.",
+  "rate-bad-type": "\"${rateType}\" is not a rate type — it is the standard, buying or selling rate.",
+  "rate-no-date": "An exchange rate applies from a date — a rate with none applies to nothing.",
+  "base-immovable": "The base currency cannot be changed once anything has been posted — every figure in the books is already stated in it, so changing it would restate the whole ledger without recording that anything had happened.",
+  "delete-base": "\"${code}\" is the base currency — the books are kept in it, so it cannot be removed.",
+  "delete-posted-one": "\"${code}\" is on 1 posted line and is part of the books. It can be made inactive, not erased.",
+  "delete-posted-many": "\"${code}\" is on ${postedLines} posted lines and is part of the books. It can be made inactive, not erased."
+ },
+ "currency": [
+  {
+   "id": "ok",
+   "given": {
+    "code": ["USD", "EUR", "JPY", "KWD", "XAU"],
+    "decimalPlaces": [0, 2, 3, 6, null]
+   },
+   "expect": null,
+   "why": "Well-formed. `XAU` is included because it is a real ISO 4217 code for gold that no rate table anybody would hard-code contains — the shape rule is what lets it through."
+  },
+  {
+   "id": "need-code",
+   "given": {
+    "code": ["", "   ", null],
+    "decimalPlaces": [2]
+   },
+   "expect": "need-code",
+   "why": "⚠️ The whitespace-only row is what exercises the TRIM, and it is here rather than in `bad-code` on purpose: a padded code would make the refusal name a value different from the one the vector states, which would be testing the table's own interpolation rather than the rule."
+  },
+  {
+   "id": "bad-code",
+   "given": {
+    "code": ["usd", "Usd", "Rs", "$", "US", "USDX", "US1", "₹"],
+    "decimalPlaces": [2]
+   },
+   "expect": "bad-code",
+   "why": "⚠️ The sentence has to name the SHAPE — three capital letters — because somebody who typed `Rs` has nowhere to go from a wall saying only 'invalid'. Lower case is refused deliberately: the service upper-cases on the way in, so the DIALOG upper-cases before judging, and this rule stays strict."
+  },
+  {
+   "id": "bad-places",
+   "given": {
+    "code": ["USD"],
+    "decimalPlaces": [-1, 7, 2.5, 100]
+   },
+   "expect": "bad-places",
+   "why": "⚠️ 0 and 3 are REAL (the yen and the Kuwaiti dinar), which is why the range is a range rather than a two-decimal assumption; 2.5 is refused because a fraction of a decimal place is not a thing."
+  }
+ ],
+ "rate": [
+  {
+   "id": "ok",
+   "given": {
+    "rate": [0.00000001, 0.012, 1, 83.25, 100000],
+    "rateType": ["standard", "buy", "sell", null],
+    "effectiveFrom": ["2026-01-01", "2026-09-01T00:00:00.000Z"]
+   },
+   "expect": null,
+   "why": "Well-formed, including the smallest storable rate (DECIMAL(18,8)) and both directions of a plausible quote."
+  },
+  {
+   "id": "need-figure",
+   "given": {
+    "rate": [null, "abc"],
+    "rateType": [null],
+    "effectiveFrom": ["2026-01-01"]
+   },
+   "expect": "rate-need-figure",
+   "why": "No rate at all. ⚠️ An EMPTY BOX is normalised to `null` by the dialog before it calls, deliberately — `Number('')` is 0, which would answer the 'above zero' sentence to somebody who has typed nothing."
+  },
+  {
+   "id": "not-positive",
+   "given": {
+    "rate": [0, -1, -0.00000001, ""],
+    "rateType": [null],
+    "effectiveFrom": ["2026-01-01"]
+   },
+   "expect": "rate-not-positive",
+   "why": "⚠️ A conversion DIVIDES by the rate as well as multiplying, so zero makes every foreign amount nil and a negative one inverts the sign of somebody's balance. The sentence states the direction (units of your own currency per one of theirs) because both readings are plausible and only one is stored."
+  },
+  {
+   "id": "bad-type",
+   "given": {
+    "rate": [83],
+    "rateType": ["standard ", "STANDARD", "mid", "closing", ""],
+    "effectiveFrom": ["2026-01-01"]
+   },
+   "expect": "rate-bad-type",
+   "why": "A CLOSED set of three, and the sentence names all three. `mid` and `closing` are real conventions this app deliberately does not offer; the empty string is included because it is a STATED value, not an absent one."
+  },
+  {
+   "id": "no-date",
+   "given": {
+    "rate": [83],
+    "rateType": [null],
+    "effectiveFrom": [null, "", "   "]
+   },
+   "expect": "rate-no-date",
+   "why": "⚠️ A quote applies FROM a date and stands until the next one — there is deliberately no end date, because a second statement about the same fact could disagree with the first. So a rate with no start applies to nothing at all."
+  }
+ ],
+ "base": [
+  {
+   "id": "may",
+   "given": { "hasPostings": [false, null] },
+   "expect": null,
+   "why": "⚠️ `null` is what the BROWSER passes — 'not known here' — and it must read as permission, so the request goes and the server answers. A screen that guessed would be a refusal that is sometimes wrong, which teaches an operator to ignore refusals."
+  },
+  {
+   "id": "immovable",
+   "given": { "hasPostings": [true] },
+   "expect": "base-immovable",
+   "why": "⚠️ The most consequential refusal in P8d. Every figure in `journal_lines` is denominated in the base currency IMPLICITLY — there is no column saying so, which is precisely why `currencyId` is nullable — so re-pointing it would restate the whole ledger, every statement and every filed return with nothing recording that the unit had changed. The sentence has to say WHY, or it reads as an arbitrary lock on a checkbox."
+  }
+ ],
+ "delete": [
+  {
+   "id": "may",
+   "given": { "code": ["USD"], "isBase": [false, null], "postedLines": [0, null] },
+   "expect": null,
+   "why": "Nothing names it. `null` postedLines is the browser's 'not known here'."
+  },
+  {
+   "id": "base",
+   "given": { "code": ["INR", "USD"], "isBase": [true], "postedLines": [0, 12, null] },
+   "expect": "delete-base",
+   "why": "⚠️ The base arm is FIRST and is decidable in the browser — `isBase` rides on the row the grid already holds — so this refusal never leaves the page even though the one below it always does."
+  },
+  {
+   "id": "posted-one",
+   "given": { "code": ["USD"], "isBase": [false], "postedLines": [1] },
+   "expect": "delete-posted-one",
+   "why": "The singular. A sentence that said '1 posted lines' is the kind of thing a mirror comparing wording catches and a mirror comparing verdicts does not."
+  },
+  {
+   "id": "posted-many",
+   "given": { "code": ["USD", "JPY"], "isBase": [false], "postedLines": [2, 45460] },
+   "expect": "delete-posted-many",
+   "why": "⚠️ It ARCHIVES rather than refusing outright (§4.9 rule 2) — the rows naming it are evidence — so the sentence has to offer the alternative ('made inactive'), not just say no."
+  }
+ ]
+}

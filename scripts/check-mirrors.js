@@ -1659,6 +1659,143 @@ if (hubFeatureColumns && hubFeaturesDto && consoleFeatures) {
   }
 }
 
+// ── 16. the currency and exchange-rate refusals ─────────────────────────────
+//
+// `currency.const.ts` decides what the API refuses; `currency-rules.util.ts`
+// says the same thing in the currency and exchange-rate dialogs (P8d‑2), so an
+// operator reads the reason rather than meeting a 400 on a control that looked
+// live.
+//
+// ⚠️ Checks 10, 13, 14 and 15's argument: the **message text** is compared. Two
+// of these sentences do work no verdict could. The base-currency one has to say
+// WHY it is refused — every figure in the books is already stated in that unit,
+// with no column recording it — or it reads as an arbitrary lock on a checkbox;
+// and the ISO one has to name the shape (three capital letters), or somebody
+// typing `Rs` meets a wall saying only *"invalid"*.
+//
+// ⚠️⚠️ **Only the refusals are mirrored, never the arithmetic.** `rateOn`,
+// `toBase`, `toForeign`, `unrealisedOn` and `unrealisedVerdict` live server-side
+// alone: the Revaluation Report renders figures the server computed and the
+// browser never recomputes one, so a second copy would be a rule with **no
+// reader** — which P8b‑2 shipped, and whose own UI gate proved it by injecting a
+// wrong verdict into the browser copy and passing 6/6.
+//
+// ⚠️ Two of the four arms turn on facts the browser does not hold (has this
+// company posted? how many lines name this currency?) and are passed `null` —
+// *"not known here"*. They are still compared on BOTH implementations here,
+// which is what makes that a rule rather than an accident of two signatures.
+{
+  const BACK_C = 'jayhind-client-back/src/const/currency.const.ts';
+  const FRONT_C = 'jayhindi-client-front/src/utils/currency-rules.util.ts';
+  const vectorFile = path.join(__dirname, 'vectors/currency-rules.vectors.json');
+
+  const backSrc = read(path.join(ROOT, BACK_C));
+  const frontSrc = read(path.join(ROOT, FRONT_C));
+
+  let table;
+  try {
+    table = JSON.parse(fs.readFileSync(vectorFile, 'utf8'));
+  } catch (err) {
+    failures.push(`currency-rules vectors: could not read ${path.relative(ROOT, vectorFile)} — ${err.message}`);
+  }
+
+  if (table && backSrc && frontSrc) {
+    let back, front;
+    try {
+      back = loadTsModule(...splitRepoPath(BACK_C));
+      front = loadTsModule(...splitRepoPath(FRONT_C));
+    } catch (err) {
+      failures.push(`currency-rules vectors: ${err.message}`);
+    }
+
+    const expand = (given) => {
+      let rows = [{}];
+      for (const k of Object.keys(given)) {
+        const values = Array.isArray(given[k]) ? given[k] : [given[k]];
+        rows = rows.flatMap((row) => values.map((v) => ({ ...row, [k]: v })));
+      }
+      return rows;
+    };
+
+    const sentence = (key, row) => {
+      if (key === null || key === undefined) return null;
+      const template = table.messages[key];
+      if (template === undefined) {
+        failures.push(`currency-rules vectors: no message named '${key}'`);
+        return null;
+      }
+      return template.replace(/\$\{(\w+)\}/g, (_m, k) => String(row[k]));
+    };
+
+    // Four rules, four arities — so the section names how each is CALLED rather
+    // than the loop assuming one shape. The two `null` arguments below are the
+    // browser's own *"not known here"*, and they are exercised as rows.
+    const SECTIONS = {
+      currency: (mod, row) => mod.describeCurrencyBlock({ code: row.code, decimalPlaces: row.decimalPlaces }),
+      rate: (mod, row) => mod.describeRateBlock({ rate: row.rate, rateType: row.rateType, effectiveFrom: row.effectiveFrom }),
+      base: (mod, row) => mod.describeBaseCurrencyBlock(row.hasPostings),
+      delete: (mod, row) => mod.describeCurrencyDeleteBlock({ code: row.code, isBase: row.isBase }, row.postedLines),
+    };
+
+    if (back && front) {
+      // The rate types are compared as DATA as well as in the sentence: a side
+      // that accepted a fourth would refuse nothing while telling the operator
+      // there are three.
+      const asList = (v) => JSON.stringify(Object.values(v ?? {}).sort());
+      if (asList(back.RateType) !== asList(front.RateType)) {
+        failures.push(
+          `currency-rules: RateType is ${asList(back.RateType)} in client-back and ` +
+            `${asList(front.RateType)} in client-front — the two would accept different quotes ` +
+            'while printing the same three in the refusal',
+        );
+      }
+
+      let compared = 0;
+      let regions = 0;
+      for (const [section, call] of Object.entries(SECTIONS)) {
+        const cases = table[section];
+        if (!Array.isArray(cases)) {
+          failures.push(`currency-rules vectors: no '${section}' cases in the table`);
+          continue;
+        }
+        regions += cases.length;
+        for (const vector of cases) {
+          for (const row of expand(vector.given)) {
+            const expected = sentence(vector.expect, row);
+            const b = call(back, row) ?? null;
+            const f = call(front, row) ?? null;
+            compared++;
+
+            const shape = JSON.stringify(row);
+            if (b !== f) {
+              failures.push(
+                `currency-rules DRIFT · ${section}/${vector.id} · ${shape}:\n` +
+                  `      client-back:  ${JSON.stringify(b)}\n` +
+                  `      client-front: ${JSON.stringify(f)}\n` +
+                  `      — ${vector.why}`,
+              );
+            } else if (b !== expected) {
+              failures.push(
+                `currency-rules RULE CHANGED · ${section}/${vector.id} · ${shape}:\n` +
+                  `      both sides say ${JSON.stringify(b)}\n` +
+                  `      the table says ${JSON.stringify(expected)}\n` +
+                  `      — ${vector.why}\n` +
+                  '      If the rule or the wording genuinely changed, update scripts/vectors/ in the same commit.',
+              );
+            }
+          }
+        }
+      }
+
+      notes.push(
+        `currency-rules: ${compared} behavioural comparisons over ${regions} region cases across four ` +
+          'refusals, run against BOTH implementations, comparing the message text (P8d‑2). ' +
+          'The conversion arithmetic is deliberately not mirrored — see this check\'s own note.',
+      );
+    }
+  }
+}
+
 // ── Report ──────────────────────────────────────────────────────────────────
 for (const n of notes) console.log(`note: ${n}`);
 

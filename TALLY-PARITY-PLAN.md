@@ -685,6 +685,32 @@ written — a fixture out of the report window that made a lenient `!row ||` che
 pass vacuously, a `ledgerTrialBalance` with no transaction parameter comparing two
 identical results, and a soft-deleted row that a `COUNT(*)` census still counted.
 
+**And P8d‑2 is done: the currencies have a screen, and so does the revaluation.**
+P8d's API had no caller at all — BUG-0068's *"an endpoint nothing calls is an
+endpoint nobody has run"* — and the first thing a caller found was
+[BUG-0072](../qa-artifacts/docs/bugs/BUG-0072.md): both deletes soft-deleted into
+a **unique index**, so deleting a currency made its code permanently uncreatable
+and withdrawing a wrong quote made that day permanently unquotable, with no
+restore route, no archived view and a message reciting the name of a database
+index. Both are hard deletes now, which is what the refusal above them had
+already decided — a currency any posted line names is refused outright, so the
+delete is only ever reached when there is nothing to preserve. ⚠️ **Two of the
+four refusals are the SERVER's** and the gate measures the split rather than
+glossing it: the dialog states the consequence, **Save stays live**, the request
+goes, and the sentence comes back over the wire, with the requests counted.
+⚠️⚠️ **The revaluation report can only ever be empty, and the screen says which
+ingredient is missing rather than leaving a blank table to read as a defect** —
+nothing writes `journal_lines.currencyId`, because P8d added the annotation
+columns and no voucher states a currency (0 annotated of 45,460, measured). That
+is a feature not built, named here rather than implied. ⚠️ And injection 1
+**passed twice** before the rebuild-waiter was found to be the defect: it looped
+on `SECONDS`, which is a float in zsh, so every wait reported *"no rebuild"*
+instantly while the injection went untested — P7c‑2's own note, this time in the
+instrument. Gate **3/3**, six injections, `check-mirrors` **check 16** (112
+comparisons) shown to fail three ways, and the screen census's five missing
+entries — P8b‑2's two and P8c‑2's two, as well as this phase's — closed in the
+same commit.
+
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
 report whose shape is fixed?"*, and there is no longer a second derivation to
@@ -742,7 +768,7 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P8c | Interest — the rule, the parameters, the report | M | **done** — [§P8c record](#p8c-record--2026-09-01) |
 | P8c‑2 | The interest screens | S | **done** — [§P8c‑2 record](#p8c-2-record--2026-09-01) |
 | P8d | Multi-currency — the tables, the annotation, the revaluation report | M | **done** — [§P8d record](#p8d-record--2026-09-01) |
-| P8d‑2 | The currency screens | S | not started |
+| P8d‑2 | The currency screens | S | **done** — [§P8d‑2 record](#p8d-2-record--2026-09-01) |
 | P8e | Scenarios — the table, the flag, the report filter | S | **done** — [§P8e record](#p8e-record--2026-09-01) |
 | P8e‑2 | The scenario picker and masters screen | S | not started |
 
@@ -7784,8 +7810,174 @@ P8c 28/28 still green · `check-mirrors` all fifteen checks green.
 ⚠️ **No screen, and it is recorded rather than implied.** The currencies, the
 rate table and the revaluation report have an API and no caller — BUG-0068's *"an
 endpoint nothing calls is an endpoint nobody has run"*, with this gate as the only
-thing that has run them. P8d‑2 is those screens, and until it lands the feature is
-reachable only through the API.
+thing that has run them. P8d‑2 is those screens — **landed**, and building them
+found [BUG-0072](../qa-artifacts/docs/bugs/BUG-0072.md), which is what a caller is
+for.
+
+### P8d‑2 record — 2026-09-01
+
+**P8d has screens.** The currencies, their dated quotes and the unrealised
+gain/loss report had an API and **no caller** — BUG-0068's *"an endpoint nothing
+calls is an endpoint nobody has run"*, with `qa:p8d-currency` as the only thing
+that had ever run them. P8d‑2 is the callers.
+
+**Gate `npm run qa:screens` — `currencies.ui.spec.ts` 3/3**, shown to fail
+**six** ways, plus `check-mirrors` **check 16** (112 behavioural comparisons over
+15 region cases across four refusals), shown to fail three ways.
+
+#### What was built
+
+| | |
+|---|---|
+| `client-front/src/utils/currency-rules.util.ts` | the four `describe*Block` refusals mirrored, `RateType` as data, `rateTypeLabel` |
+| `components/admin/transaction/currencies/` | the masters screen + `currency-add-edit` + `rate-add-edit` |
+| `components/admin/transaction/reports/revaluation/` | the report's screen |
+| `masters.routes.ts` · `reports.routes.ts` · `navigation.config.ts` | Masters ▸ **Currencies** (`acc-ledgers`) · Reports ▸ **Revaluation** (`reports`) |
+| `scripts/vectors/currency-rules.vectors.json` · `check-mirrors.js` check 16 | the shared table and the comparator |
+| `qa-artifacts/tests/ui/masters/currency-rules.ts` · `currencies.ui.spec.ts` | the restated third copy, and the gate |
+
+#### ⚠️ Two keys, and it is the same split P8c‑2 made one master over
+
+The masters carry **`acc-ledgers`** and the report carries **`reports`**. Not a
+key of its own: the base currency **is** the unit every figure in the chart of
+accounts is stated in, so a role that may shape the chart is the role that
+decides this, and a separate key would be one more row in every company's
+permission matrix for a screen with no independent audience. The split itself is
+P8c‑2's sentence with one noun changed — *a role that may read an exposure must
+not be able to change the rate it is measured at.*
+
+#### ⚠️⚠️ Two of the four refusals are the SERVER's, and the gate measures the split
+
+`describeBaseCurrencyBlock` turns on *"has this company posted anything?"* and
+`describeCurrencyDeleteBlock`'s second arm on *"how many posted lines name this
+currency?"*. Neither figure is on any payload the currencies screen reads, so
+both are passed **`null`** — *"not known here"* — which is P3d‑2's `hasPostings`
+ruling and P7c‑2's `allocationCount: null`, and the vector table states it as a
+rule rather than leaving it an accident of two signatures.
+
+What the gate adds is that **both halves are asserted at once**, in the same
+test: the dialog shows the consequence, **Save stays live**, the request goes,
+and the server's sentence comes back over the wire — with `requestsDuring`
+counting, so *"a request has to have gone"* is measured rather than assumed.
+Injection 3 is the browser guessing that refusal, and it fails on both halves.
+
+#### 🐞 The phase's real find: two soft deletes into a unique index
+
+[BUG-0072](../qa-artifacts/docs/bugs/BUG-0072.md). `CurrencyService.remove` and
+`.removeRate` were paranoid, and both tables carry a unique index that **counts
+the tombstone** while Sequelize's paranoid read does not. Measured through the
+real API:
+
+```
+DELETE /currencies/48        → 200 {"removed":true}   (row 48 still there, deletedAt set)
+POST   /currencies {"QAX"}   → 409 "A record with this uq_currencies_company_code already exists"
+```
+
+There is **no way back**: no restore route, no archived view, and `findByPk` is
+paranoid in `remove` and `update` too — so deleting `USD` by mistake made `USD`
+permanently uncreatable in that company, and correcting a wrong quote by removing
+it made that `(currency, type, day)` unquotable for ever. The message recited the
+name of a database index, which is API-023's family.
+
+⚠️ **The fix is a hard delete, and that is not a relaxation of §4.9 rule 2 — it
+is what the refusal above it had already decided.** `describeCurrencyDeleteBlock`
+refuses a currency any posted line names (*"It can be made inactive, not
+erased"*), with `journal_lines.currencyId` `RESTRICT` behind it, so the delete
+that reaches `destroy()` is by construction on a currency the books do not
+mention. There is no evidence to keep, exactly as `describeBudgetDeleteBlock`
+(P8b) has nothing to bite on. A quote is the same argument by a different route:
+a posted line stores the rate it was posted at in its **own** column and every
+reader reads that (BUG-0069), so an `exchange_rates` row values nothing already
+in the books.
+
+⚠️⚠️ **And the recovery shipped with it**, because a database that ran the old
+code is otherwise wedged with no migration to unwedge it: `upsertRate` and
+`create` read with `paranoid: false` and revive a tombstone. `create` refuses a
+**live** duplicate in a sentence of its own (*"QAX is already one of this
+company's currencies."*) rather than letting the unique index answer — a create
+that silently updated a live row would be a save nobody asked for.
+
+**The generalisation is worth carrying:** a paranoid model under a unique index
+is a dead end unless one of three things exists — a restore route, a
+`paranoid: false` read at the write seam, or the recognition that the delete is
+only ever reached when there is nothing to preserve. Here none of them did.
+P7c‑2's sweep note is the same trap on `cost_categories`, and it was reachable
+only by a test; this one was reachable by a customer.
+
+#### ⚠️ The report can only ever be empty, and the screen says so rather than implying it
+
+**Nothing writes `journal_lines.currencyId`.** P8d added the three annotation
+columns and **no voucher states a currency** — measured, 0 annotated of 45,460 —
+so a foreign exposure can exist only inside a gate's own transaction. That is not
+a defect in P8d, whose claim was precisely that the columns move no figure; it is
+a **feature that has not been built**, and this record names it rather than
+leaving a blank report to be read as one.
+
+So the empty state names which of the three ingredients is missing — no base
+currency, no quote, or no annotated line — because *"no rows"* is the same
+picture whichever it is. The `noBaseCurrency` flag the API already carried
+acquired its first reader here.
+
+⚠️ **What is deferred is a voucher-level currency field**: a DTO, a posting
+change and an entry-screen control, which is a phase and not a screen. Until it
+lands the annotation is reachable only through a direct write.
+
+#### The gate, and the six injections
+
+| | | |
+|---|---|---|
+| 1 | the currency dialog stops mirroring its refusal | (1) |
+| 2 | the base-flag warning is removed | (1) |
+| 3 | the browser **guesses** the base refusal and disables Save | (1), on both halves |
+| 4 | the rate dialog stops mirroring, so a zero rate becomes a server 400 | (2) |
+| 5 | the report drops *"computed, never posted"* | (3) |
+| 6 | the rate basis stops reaching the URL | (3) |
+
+and check 16's three: a one-word wording change on the front (**DRIFT**), the
+base refusal removed from **both** sides (**RULE CHANGED**), and a fourth
+`RateType` on one side — caught **twice**, once by the data comparison and once
+by the `bad-type` vector, because `mid` is in that vector for exactly this.
+
+#### ⚠️⚠️ Injection 1 passed twice, and the instrument was the defect
+
+P7c‑2's injection 4 a second time — *the dev server had not rebuilt, so the
+browser was running the code the edit had replaced* — except that here the
+**rebuild-waiter itself** was the reason. It looped on bash's `SECONDS`; zsh's
+`SECONDS` is a float, `[ "$SECONDS" -lt "$end" ]` is an integer-expression error,
+so the loop never ran and every wait reported *"no rebuild"* instantly while the
+injection went untested. Two passes were spent before the waiter was fixed to use
+`date +%s`. **A harness that cannot wait is a harness that cannot fail**, and the
+tell was that it reported the failure it was written to report.
+
+#### The screen census had five holes, and this commit closes them
+
+`tests/ui/masters/screens.ts`' own header says it: *"the silent one is a route
+MISSING from the census, because an unswept screen looks exactly like a screen
+that passed."* Neither P8b‑2's two screens nor P8c‑2's two were ever added.
+Five entries now — Masters ▸ Budgets and Currencies, Reports ▸ Budget Variance,
+Interest and Revaluation — each carrying **why** it is empty in this world,
+which differs per screen: no company has a budget, no ledger carries interest
+parameters, and no journal line records a currency at all. `qa:screens` **32/32**
+(was 30), and all three new report entries pass in `qa:money`'s sweep.
+
+⚠️ **That sweep is 46/60, and the 14 failures are NOT this phase's** — every one
+is a **voucher list**, and each says *"the list is empty before any search, so
+narrowing proves nothing"*. Measured rather than assumed: reverting P8d‑2's four
+modified frontend files reproduces the failure exactly, and the request the
+browser sends explains it —
+
+```
+filters.date: dateAfter 2026-08-30T18:30Z · dateBefore 2026-09-01T18:30Z   → totalItems 0
+{"page":1,"pageSize":3}                                                     → totalItems 3661
+```
+
+— so a voucher list opens on a **yesterday-to-today window**, and the QA world's
+newest sales voucher is older than that. It is a **calendar artefact of the
+fixture** that arrived when the clock did, not a defect in a screen and not
+something P8d‑2 touched. Recorded here rather than folded into this phase's
+numbers: whether a voucher list should default to two days is a product question,
+and whether the census should assert data through a default window is the
+harness's.
 
 ### P8e record — 2026-09-01
 
@@ -9433,7 +9625,7 @@ that the gate written at the end covers what the author remembers.
 | **P8c** | Interest — the pure rule, the Interest Report, the explicit Debit Note | **done** — [record](#p8c-record--2026-09-01) |
 | **P8c‑2** | The Interest Report's screen, and the per-ledger parameters on the Chart of Accounts | **done** — [record](#p8c-2-record--2026-09-01) |
 | **P8d** | Multi-currency — `currencies` · `exchange_rates` · the FC columns · the revaluation report | **done** — [record](#p8d-record--2026-09-01) |
-| **P8d‑2** | The currency masters' screen and the revaluation report's | not started |
+| **P8d‑2** | The currency masters' screen and the revaluation report's | **done** — [record](#p8d-2-record--2026-09-01) |
 | **P8e** | Scenarios — the table, `journal_entries.scenarioId`, the report filter | **done** — [record](#p8e-record--2026-09-01) |
 | **P8e‑2** | The scenario picker on the reports toolbar, and the masters screen | not started |
 
@@ -9478,10 +9670,13 @@ scope:
 them found that §3.9 and §3.4's own mechanisms did not fit this schema — the
 posting-rule sketch had no condition column, `statutory_heads` was already
 `acc_ledgers.systemKey`, and a scenario flag on the voucher *type* would have
-meant *"every sale is provisional"*. What is deferred is **screens**: P8d‑2 and
-P8e‑2 are the currency and scenario ones, and both are recorded rather than
-implied — their APIs have no caller, which is BUG-0068's *"an endpoint nothing
-calls is an endpoint nobody has run"*.
+meant *"every sale is provisional"*. What was deferred was **screens**, and **P8d‑2 has landed**: the currencies,
+their quotes and the revaluation report now have callers, and building them found
+[BUG-0072](../qa-artifacts/docs/bugs/BUG-0072.md) — both deletes soft-deleted into
+a unique index, so a currency code and a quoted day could never be used again.
+**P8e‑2 is the scenario one** and is still recorded rather than implied: its API
+has no caller, which is BUG-0068's *"an endpoint nothing calls is an endpoint
+nobody has run"*.
 
 > **If the programme has to be cut.** P0–P4 is the coherent unit — it delivers the
 > ledger model, the reports and the entry screen, which is what "work like Tally"
