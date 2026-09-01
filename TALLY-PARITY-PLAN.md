@@ -711,6 +711,44 @@ comparisons) shown to fail three ways, and the screen census's five missing
 entries — P8b‑2's two and P8c‑2's two, as well as this phase's — closed in the
 same commit.
 
+**And P8e‑2 is done, which closes the programme.** P8e shipped the column a
+report reads and **no writer at all** — one `grep` found `liveEntrySql` reading
+`journal_entries.scenarioId` and nothing writing it — so a scenario could be
+*named* and no voucher could ever be *put in one*, which makes a picker a control
+that shows identical figures on every company for ever. So the phase is the write
+path as well as the screens: a **Journal or a Contra** carries a `scenarioId`,
+`PostingService.post` stamps it onto the entry, and the masters screen, the
+entry-surface field and the picker on the three statements are what a person
+uses. Gate **40/40** (six injections) plus three browser properties and
+`check-mirrors` **check 17**; the parity diff is **empty, with nothing re-based**.
+⚠️ **The claim is not *"the reports exclude it"*** — P8e proved that.
+`persistLines` writes four things beside the lines and **none of their readers
+consults `liveEntrySql`**: the bill register (the annexure would chase a
+provisional invoice), the cost allocations (summed **grossly** on purpose, P7b)
+and the **three balance caches** (`getFundsSummary` reads them instead of the
+lines, BUG-0042). One early return, not four conditions — and `rebuildBalances`
+excludes scenario lines in the same commit, because a cache and its rebuild are
+one change. ⚠️⚠️ **The reversal is the one that bites silently**, and the three
+statements cannot see it: `liveEntrySql` drops every reversal by `isReversal = 0`
+before the scenario predicate is reached, so a reversal that lost its scenario
+puts the *negation* of a figure that was never in the books INTO them and only
+the **caches** notice — BUG-0044's lesson in a new dimension. ⚠️ Two of fourteen
+kinds may carry one, and the line is *"what else does approving this do?"*: the
+ten item and workflow kinds move stock and are declared on GSTR-1 from `trx`
+rather than from `journal_lines`, and a payment or receipt settles a real bill.
+⚠️⚠️ **The gate's own cache property was inert and injection 1 proved it** — Σ
+over every row cannot see a balanced entry, so two of three caches were blind on
+the phase's central claim; each is read **per row** now. And (8a) failed twice
+for reasons that were the test's, the second needing `ledgerReport` to gain the
+read-only `Transaction` the four statements have — P8e's own finding one report
+over. ⚠️ Building it found
+[BUG-0073](../qa-artifacts/docs/bugs/BUG-0073.md) — BUG-0072's shape a third
+time, and the lesson is about **timing**: P8e landed after that bug was found and
+before it was fixed, so the fix and the next instance passed each other. Plus a
+defect that had been there since B.2: editing an **N-line Journal** patched no
+header at all, so it opened on today's date with an empty narration and wrote
+both back.
+
 ⚠️ **The parity harness's question changed at P3c‑1**, which is that phase in one
 line: it existed to ask *"did a figure move as the mechanism changed underneath a
 report whose shape is fixed?"*, and there is no longer a second derivation to
@@ -770,7 +808,7 @@ sides — seven of them, and the diff over everything else is **empty**.
 | P8d | Multi-currency — the tables, the annotation, the revaluation report | M | **done** — [§P8d record](#p8d-record--2026-09-01) |
 | P8d‑2 | The currency screens | S | **done** — [§P8d‑2 record](#p8d-2-record--2026-09-01) |
 | P8e | Scenarios — the table, the flag, the report filter | S | **done** — [§P8e record](#p8e-record--2026-09-01) |
-| P8e‑2 | The scenario picker and masters screen | S | not started |
+| P8e‑2 | The scenario picker, the masters screen, and the WRITE path | M | **done** — [§P8e‑2 record](#p8e-2-record--2026-09-01) |
 
 Sizes are relative, not calendar.
 
@@ -8087,6 +8125,221 @@ clean · `dump-routes` resolves 796 routes · **all five P8 gates green** (16/16
 BUG-0068's *"an endpoint nothing calls is an endpoint nobody has run"*. P8e‑2 is
 that screen: a scenario picker on the reports toolbar, and a masters list.
 
+### P8e‑2 record — 2026-09-01
+
+**The programme is complete.** Every phase in the table above is done.
+
+P8e‑2 was recorded as *"the scenario picker on the reports toolbar, and the
+masters screen"*, and the first measurement taken before starting it moved the
+scope: **nothing wrote `journal_entries.scenarioId`.** One `grep` over the whole
+backend found `liveEntrySql` reading it and **no writer at all** — so a scenario
+could be *named* and no voucher could ever be *put in one*, which makes the
+picker a control that shows identical figures on every company for ever. That is
+P8d‑2's *"the revaluation report can only ever be empty"* one sub-phase later,
+and BUG-0068's *"an endpoint nothing calls is an endpoint nobody has run"* for
+the third time in this programme. So the phase is **three things**: the write
+path, the two screens, and BUG-0073.
+
+**Gates:** `npm run qa:p8e2-scenario-write` **40/40** (six injections) ·
+`qa-artifacts/tests/ui/masters/scenarios.ui.spec.ts` **3 properties** ·
+`check-mirrors` **check 17**, 54 comparisons, shown to fail three ways ·
+`qa:p8e-scenarios` still **21/21** · `npm test` **2322/2322** · all five guards ·
+`nest build` clean · **the parity diff is empty, with nothing re-based.**
+
+#### What was built
+
+| | |
+|---|---|
+| `src/const/scenario.const.ts` | `SCENARIO_VOUCHER_KINDS` · `describeScenarioVoucherBlock` |
+| `migrations/20260901600000-voucher-scenario.ts` | `trx_payment_receipts.scenarioId`, `trx_contras.scenarioId` — nullable, unbackfilled, `ON DELETE RESTRICT` |
+| `src/services/scenario-voucher.ts` | `assertScenarioIsOurs` — the kind, then §4.3 rule 7, then *is it active?* |
+| `src/services/posting.service.ts` | `PostingRequest.scenarioId` · `post` stamps it · `postJournalLines` and both wrappers thread it · **`reverseSource` carries the original's** · `persistLines` stops after the lines · `rebuildBalances` excludes it |
+| `src/services/reports.service.ts` · `reports.controller.ts` | `scenarioId` on `group-summary`, the Ledger report, its vouchers and the Group Book; `withScenario` echoes the applied scenario's **name** |
+| `src/services/scenario.service.ts` | **BUG-0073** — hard delete, tombstone revival on create |
+| `client-front` `transaction/scenarios/` · `shared/scenario-picker/` · `utils/scenario-rules.util.ts` | the masters screen, the picker, the mirror |
+| `client-front` `voucher-entry.ts` | the scenario field on the Dr/Cr surface, on a Journal and a Contra |
+| `scripts/vectors/scenario-rules.vectors.json` · `check-mirrors.js` check 17 | the shared table |
+
+#### ⚠️ The claim is not *"the reports exclude it"* — P8e proved that
+
+`liveEntrySql` takes a scenario entry out of every report, and that is the whole
+of the **general ledger**. It is not the whole of what `persistLines` does. Four
+things are written beside the lines and **none of their readers consults
+`liveEntrySql`**:
+
+- **`bill_references`** — the annexure, both Bills reports and the open-bills
+  picker read it directly, so a provisional invoice would appear as an open bill
+  somebody chases;
+- **`cost_allocations`** — the four cost reports sum it **grossly**, on purpose
+  (P7b: a signed allocation makes a cancelled pair cancel itself), so a
+  provisional figure there is modelled spend reported as real;
+- **the three balance caches** — `getFundsSummary` and the Financial Dashboard
+  read them *instead of* the lines (§4.9, BUG-0042), so bumping them would put
+  provisional money in the funds card while every statement excluded it.
+
+So `persistLines` returns after the insert when the entry carries a scenario —
+**one early return, not four conditions**, so a fifth satellite added below that
+line is out of a scenario by existing (§13 still-open #3's third answer: *the
+safe behaviour has to be the one you get for free*). And `rebuildBalances`
+excludes scenario lines in the same commit, because **a cache and its rebuild are
+one change** (§4.9, the rule D5 added the third cache under).
+
+#### ⚠️⚠️ The reversal is the one that bites silently
+
+A reversal that dropped its scenario would put the **negation** of a figure that
+was never in the books INTO them: every report moving by −₹x on the cancellation
+of a voucher it never counted. `reverseSource` copies `live.scenarioId`, which is
+the same argument `ledgerId` and `date` already make two lines above it — *a
+reversal has to cancel where the original landed*.
+
+⚠️ **The three statements cannot see that defect.** `liveEntrySql` is
+`isReversal = 0 AND scenarioSql(…)`, so a reversal is dropped by the first clause
+before the scenario predicate is reached — injection 3 measured it: the direct
+column check failed and the *"the books moved in neither direction"* property
+stayed green. What sees it is the **caches**, which is BUG-0044's lesson
+(*a gross figure is what a cancelling pair hides behind*) arriving in a new
+dimension. Property (5b) reads them.
+
+#### ⚠️ Two of fourteen voucher kinds, and the line is *"what else does approving this do?"*
+
+`SCENARIO_VOUCHER_KINDS` is **`journal` and `contra`** — the two whose *entire*
+effect at approval is journal lines (`ApprovalService`'s Contra strategy is
+`postContra` and nothing else). Every other kind has an effect `liveEntrySql`
+does not govern:
+
+- the ten **item and workflow** kinds move **stock** (`InventoryService.apply`
+  reads no journal entry and has no scenario to consult) and are **GST
+  documents** — `GstReturnAssemblyService` assembles GSTR-1 and GSTR-3B from
+  `trx` rows by status, never from `journal_lines`, so a *"provisional"* sales
+  invoice would be **declared to the government while being out of the
+  accounts**;
+- **payment** and **receipt** settle real documents: `applyReceiptSettlement`
+  moves `trx.paidAmount` and the register writes an `against` reference against a
+  bill that IS in the books.
+
+Tally marks *any* voucher optional because its optional vouchers update neither
+books **nor** inventory; this schema's inventory and returns are not downstream
+of the ledger, so the honest port is the narrower set rather than the same word.
+Widening it is a real piece of work — teaching those three subsystems about
+scenarios, and a gate proving each ignores a provisional document — not a line in
+a list. **Two refusals, two sentences**, because a single message naming both
+stock and settlement would be true of neither.
+
+#### ⚠️⚠️ The gate's own cache property was inert, and injection 1 proved it
+
+The first cut read each balance cache as **Σ over every row of the company**.
+Injection 1 (a provisional entry writing its satellites) moved
+`trx_groups.currentBalance` by **+₹3,14,159.26** on the head and
+**−₹3,14,159.26** on the cash group, so the company total was unchanged and only
+`trx_accounts` — where a Journal names ONE account — reported anything. **Two of
+three cache properties were blind**, on the phase's central claim.
+
+Each cache is read **per row** now, comparing the largest single-row movement.
+That is BUG-0044's rule turned on the gate itself: a gross figure is exactly what
+a balanced pair hides behind, and the property measuring a balanced entry is the
+last place to use one.
+
+#### ⚠️ And (8a) failed for a reason that was the test's, twice over
+
+It asserted the **fixture's** ledger id, where `resolveLegs` decides which ledger
+each leg lands on — so it read 0.00 → 0.00 and reported a defect that was its own
+assumption. It reads the entry's **own lines** now. And getting there needed
+`ledgerReport` to take the optional read-only `Transaction` the four statements
+have had since P3c‑2: without it both calls see a world the constructed entry is
+not in, and the property can only assert that the two **agree**, which is a check
+that cannot fail. **That is P8e's own finding one report over** — its (4)
+reported that `?view=ledger` *"ignored the scenario"* for exactly this reason.
+
+#### BUG-0073 — and what it says about timing
+
+[BUG-0073](../qa-artifacts/docs/bugs/BUG-0073.md) is **BUG-0072's shape a third
+time**: `scenarios` is `UNIQUE(companyId, name)`, MySQL counts a tombstone in a
+unique index and Sequelize's paranoid read does not, and there was no restore
+route and no archived view — so deleting a scenario made its name uncreatable for
+ever, answering the next attempt with *"Duplicate entry '1-Q3 forecast' for key
+'scenarios.uq_scenarios_company_name'"*. Measured on the development database.
+
+The fix is P8d‑2's, on its own argument: `describeScenarioDeleteBlock` refuses a
+scenario holding entries, so the delete is only ever reached when there is
+nothing to preserve. Hard delete, plus a tombstone revival on create for a
+database that ran the old code.
+
+⚠️ **P8e landed after BUG-0072 was found and before it was fixed**, so the fix
+and the next instance passed each other. The generalisation is about timing
+rather than about the rule: when a defect turns out to be a **shape**, the
+question is not only *"where else is this shape?"* but ***"what landed between
+the finding and the fix?"***
+
+#### ⚠️ Two things found in passing, both in the same branch
+
+`patchPaymentReceipt`'s **split-journal** branch patched **no header at all** — it
+pushed the lines and returned — so editing an N-line Journal opened on *today's*
+date with an empty narration and `onSubmit` wrote both back: a voucher re-dated
+by somebody correcting a line. It had been that way since B.2. Adding
+`scenarioId` is what made it visible, because there the same omission is
+**data-loss shaped**: a provisional journal would have been silently saved into
+the books by an edit. Both are patched (not `patchValue(record)` wholesale —
+`amount` and `trxAccountId` are deliberately absent on a split journal).
+
+And `onSubmit`'s split path is a **second payload builder**: a field added to
+`buildPayload` alone is dropped by every N-line Journal. §13 still-open #3 inside
+one component.
+
+#### The parity diff is empty, and that was designed
+
+`withScenario` adds `scenarioId`/`scenarioName` to a statement's payload **only
+when one was applied**. Present always as `null`, they would be two new paths in
+every snapshot of every company and would need `diff --rebased`; omitted, the
+diff across the whole phase is **empty by construction** — captured either side
+of the change on the real development database and confirmed *"PARITY HELD"*.
+
+#### Six injections
+
+| | | |
+|---|---|---|
+| 1 | `persistLines` writes its satellites for a provisional entry | (4) — and **only one of three caches** at first, which is what rewrote the property |
+| 2 | `rebuildBalances` drops the exclusion | (6) |
+| 3 | `reverseSource` drops the scenario | (5) · **(5b)**, which is why (5b) exists |
+| 4 | `post()` does not stamp it | (2) · (3) · (6) · (8a) · (8b) · (5) — eight properties |
+| 5 | the delete goes back to soft | (9) · (0)'s census |
+| 6 | `SCENARIO_VOUCHER_KINDS` admits a payment | (7a) × 2 · (0) |
+
+Check 17 shown to fail three ways: one-sided wording drift (`DRIFT`), both sides
+changed together (`RULE CHANGED`), and the **kind set** drifting — which the data
+comparison catches beside the sentence, because a side that offered the field on
+a third kind would disagree about the set rather than about the wording.
+
+And the browser gate shown to fail three ways: the scenario field rendered on a
+**payment**, the **banner** removed from a scenario'd Trial Balance, and Save
+left live beside the name refusal.
+
+#### ⚠️ Two findings about the INSTRUMENT, and both cost several minutes of a green light
+
+- **The field is guarded twice**, and the first injection removed only one guard:
+  `loadScenarios()` returns early on a kind that cannot carry a scenario, so
+  `scenarios()` is empty and the template's `@if` is false whatever it says. That
+  is defence in depth *and* it means one guard failing is invisible — the
+  injection had to remove both before the gate could see anything. **A property
+  behind two independent guards is a property one of them is not being tested
+  for.**
+- **A verification loop whose pass condition is the ABSENCE of a failure passes
+  when nothing ran at all.** Eight attempts reported *"still passing"* while
+  Playwright was answering *"No tests found"*, because the command was run from
+  the wrong submodule directory — P5c‑1's own recorded note (*"a failed `cd`
+  short-circuited it"*) from the other side, and P8d‑2's *"a harness that cannot
+  wait is a harness that cannot fail"* in a new form. An injection's loop must
+  assert the **positive**: that a specific test failed, by name.
+
+#### What is deliberately still not built
+
+**A scenario cannot be set on a Sales, Purchase, note, payment, receipt or
+workflow document**, for the reasons above — recorded here rather than implied.
+And there is no *"regularise this"* action turning a provisional voucher into a
+real one: `describeScenarioMoveBlock` refuses to move a posted entry, and the way
+through is the one it names — cancel the voucher and enter it again the way it
+should be counted, which is what the approved-Journal edit path already does by
+reversing and superseding.
+
 ### Verification pass — 2026-08-28
 
 The plan was written from a reading of the source. It has since been checked
@@ -9591,7 +9844,7 @@ because every earlier link is what the next one's gate ties to.
 | **P7b** | `cost_allocations`, written from `persistLines`; the voucher's allocation payload | **done** — [record](#p7b-record--2026-09-01) |
 | **P7c‑1** | Cost centre classes — `cost_centre_classes` · `_lines` · the expansion rule · the masters API | **done** — [record](#p7c-1-record--2026-09-01) |
 | **P7c‑2** | The masters screen — categories · the centre tree · classes | **done** — [record](#p7c-2-record--2026-09-01) |
-| **P7c‑3** | The entry screen's allocation panel, and `expandCostCentreClass` mirrored | not started |
+| **P7c‑3** | The entry screen's allocation panel, and `expandCostCentreClass` mirrored — ⚠️ split two ways in the event, both landed: P7c‑3a the Dr/Cr surface, P7c‑3b the item form | **done** — [P7c‑3a](#p7c-3a-record--2026-09-01) · [P7c‑3b](#p7c-3b-record--2026-09-01) |
 | **P7d‑1** | Cost Centre Summary · Category Summary · Cost Centre Breakup · Ledger Breakup · the reconciliation — the API | **done** — [record](#p7d-1-record--2026-09-01) |
 | **P7d‑2** | Their screens, and `DrillTarget`'s fourth and fifth members | **done** — [record](#p7d-2-record--2026-08-31) |
 
@@ -9627,7 +9880,7 @@ that the gate written at the end covers what the author remembers.
 | **P8d** | Multi-currency — `currencies` · `exchange_rates` · the FC columns · the revaluation report | **done** — [record](#p8d-record--2026-09-01) |
 | **P8d‑2** | The currency masters' screen and the revaluation report's | **done** — [record](#p8d-2-record--2026-09-01) |
 | **P8e** | Scenarios — the table, `journal_entries.scenarioId`, the report filter | **done** — [record](#p8e-record--2026-09-01) |
-| **P8e‑2** | The scenario picker on the reports toolbar, and the masters screen | not started |
+| **P8e‑2** | The scenario picker on the reports toolbar, the masters screen, **and the write path §3.9 needed and P8e did not build** | **done** — [record](#p8e-2-record--2026-09-01) |
 
 Four measurements taken before P8a started, two of which move the phase's own
 scope:

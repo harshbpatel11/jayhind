@@ -1796,6 +1796,156 @@ if (hubFeatureColumns && hubFeaturesDto && consoleFeatures) {
   }
 }
 
+// ── 17. the scenario refusals ───────────────────────────────────────────────
+//
+// `scenario.const.ts` decides what the API refuses; `scenario-rules.util.ts`
+// says the same thing on the scenarios master screen and on the voucher entry
+// surface (P8e‑2), so an operator reads the reason rather than meeting a 400 on
+// a control that looked live.
+//
+// ⚠️ Checks 10, 13, 14, 15 and 16's argument: the **message text** is compared.
+// Two of these three sentences do work no verdict could. The delete one has to
+// say WHY a scenario holding entries is kept — erasing it would leave those
+// entries in no scenario and still out of the accounts, invisible to every
+// report *and* in none of them — or the archive reads as a failed delete; and
+// the voucher one has to name **what else approving the voucher does** (stock, a
+// GST return, a settled bill), or *"only a Journal or a Contra"* is a rule with
+// no reason and the operator cannot tell whether a Journal is what they wanted.
+//
+// ⚠️⚠️ **Only the refusals are mirrored, never `scenarioSql`.** The predicate
+// that decides which entries a report may see is server-side alone: the browser
+// never re-derives a figure, so a copy would be a rule with **no reader** —
+// which P8b‑2 shipped, and whose own UI gate proved by injecting a wrong verdict
+// into the browser copy and passing 6/6.
+//
+// ⚠️ And unlike check 16, **neither mirrored arm is passed a `null`
+// placeholder**: `entryCount` is on the row `GET /scenarios` already returns,
+// and the voucher kind is the segment the entry screen is routed on. Both
+// refusals are therefore made in the browser with no request leaving the page.
+// `describeScenarioMoveBlock` has no browser copy at all and is deliberately not
+// compared — see the vector table's own note.
+{
+  const BACK_S = 'jayhind-client-back/src/const/scenario.const.ts';
+  const FRONT_S = 'jayhindi-client-front/src/utils/scenario-rules.util.ts';
+  const vectorFile = path.join(__dirname, 'vectors/scenario-rules.vectors.json');
+
+  const backSrc = read(path.join(ROOT, BACK_S));
+  const frontSrc = read(path.join(ROOT, FRONT_S));
+
+  let table;
+  try {
+    table = JSON.parse(fs.readFileSync(vectorFile, 'utf8'));
+  } catch (err) {
+    failures.push(`scenario-rules vectors: could not read ${path.relative(ROOT, vectorFile)} — ${err.message}`);
+  }
+
+  if (table && backSrc && frontSrc) {
+    let back, front;
+    try {
+      back = loadTsModule(...splitRepoPath(BACK_S));
+      front = loadTsModule(...splitRepoPath(FRONT_S));
+    } catch (err) {
+      failures.push(`scenario-rules vectors: ${err.message}`);
+    }
+
+    const expand = (given) => {
+      let rows = [{}];
+      for (const k of Object.keys(given)) {
+        const values = Array.isArray(given[k]) ? given[k] : [given[k]];
+        rows = rows.flatMap((row) => values.map((v) => ({ ...row, [k]: v })));
+      }
+      return rows;
+    };
+
+    const sentence = (key, row) => {
+      if (key === null || key === undefined) return null;
+      const template = table.messages[key];
+      if (template === undefined) {
+        failures.push(`scenario-rules vectors: no message named '${key}'`);
+        return null;
+      }
+      return template.replace(/\$\{(\w+)\}/g, (_m, k) => String(row[k]));
+    };
+
+    // Three rules, three arities — so the section names how each is CALLED
+    // rather than the loop assuming one shape.
+    const SECTIONS = {
+      scenario: (mod, row) => mod.describeScenarioBlock({ name: row.name, kind: row.kind }),
+      delete: (mod, row) => mod.describeScenarioDeleteBlock({ name: row.name }, row.entryCount),
+      voucher: (mod, row) => mod.describeScenarioVoucherBlock(row.voucherKind, row.scenarioId),
+    };
+
+    if (back && front) {
+      // ⚠️ The two kinds are compared as DATA as well as in the sentence: the
+      // entry surface reads this set to decide whether to RENDER the control at
+      // all, so a side that offered it on a third kind would disagree about the
+      // set rather than merely about the wording — and the operator would meet a
+      // 400 from a field they were shown.
+      const asList = (v) => JSON.stringify([...(v ?? [])].sort());
+      if (asList(back.SCENARIO_VOUCHER_KINDS) !== asList(front.SCENARIO_VOUCHER_KINDS)) {
+        failures.push(
+          `scenario-rules: SCENARIO_VOUCHER_KINDS is ${asList(back.SCENARIO_VOUCHER_KINDS)} in ` +
+            `client-back and ${asList(front.SCENARIO_VOUCHER_KINDS)} in client-front — one side would ` +
+            'offer the scenario field on a voucher the other refuses',
+        );
+      }
+      // And the kinds as data too, for `describeScenarioBlock`'s own arm.
+      const asKinds = (v) => JSON.stringify(Object.values(v ?? {}).sort());
+      if (asKinds(back.ScenarioKind) !== asKinds(front.ScenarioKind)) {
+        failures.push(
+          `scenario-rules: ScenarioKind is ${asKinds(back.ScenarioKind)} in client-back and ` +
+            `${asKinds(front.ScenarioKind)} in client-front — the dialog would offer a kind the ` +
+            'column refuses, or hide one it accepts',
+        );
+      }
+
+      let compared = 0;
+      let regions = 0;
+      for (const [section, call] of Object.entries(SECTIONS)) {
+        const cases = table[section];
+        if (!Array.isArray(cases)) {
+          failures.push(`scenario-rules vectors: no '${section}' cases in the table`);
+          continue;
+        }
+        regions += cases.length;
+        for (const vector of cases) {
+          for (const row of expand(vector.given)) {
+            const expected = sentence(vector.expect, row);
+            const b = call(back, row) ?? null;
+            const f = call(front, row) ?? null;
+            compared++;
+
+            const shape = JSON.stringify(row);
+            if (b !== f) {
+              failures.push(
+                `scenario-rules DRIFT · ${section}/${vector.id} · ${shape}:\n` +
+                  `      client-back:  ${JSON.stringify(b)}\n` +
+                  `      client-front: ${JSON.stringify(f)}\n` +
+                  `      — ${vector.why}`,
+              );
+            } else if (b !== expected) {
+              failures.push(
+                `scenario-rules RULE CHANGED · ${section}/${vector.id} · ${shape}:\n` +
+                  `      both sides say ${JSON.stringify(b)}\n` +
+                  `      the table says ${JSON.stringify(expected)}\n` +
+                  `      — ${vector.why}\n` +
+                  '      If the rule or the wording genuinely changed, update scripts/vectors/ in the same commit.',
+              );
+            }
+          }
+        }
+      }
+
+      notes.push(
+        `scenario-rules: ${compared} behavioural comparisons over ${regions} region cases across three ` +
+          'refusals, run against BOTH implementations, comparing the message text (P8e‑2). ' +
+          '`scenarioSql` and `describeScenarioMoveBlock` are deliberately not mirrored — see this ' +
+          'check\'s own note.',
+      );
+    }
+  }
+}
+
 // ── Report ──────────────────────────────────────────────────────────────────
 for (const n of notes) console.log(`note: ${n}`);
 
