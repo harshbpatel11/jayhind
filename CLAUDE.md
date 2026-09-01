@@ -2179,6 +2179,35 @@ src/
     redirect (they are in bookmarks and in P3d's drill stack) and the **lists**
     stay where they are. Note the singular/plural: `/transaction/voucher` is the
     entry surface, `/transaction/vouchers` is the lists.
+    - **The surface has TWO HOSTS, and a switch must not leave the one it is
+      in** (2026-09-01). The routed pages above are the deep-link host; the one
+      operators type in is a **dialog** over whatever list they were reading —
+      every Add button in the module goes through `VoucherFormDialogService`.
+      The type bar and the F-keys are on the form either way, and they used to
+      do the same thing either way (`router.navigate`), which on the routed
+      surface is right and in a dialog **dismissed the dialog** and dropped the
+      operator on the full page: one click on `F9 · Purchase` from a Sales popup
+      and the popup was gone, the list behind it lost. In a dialog the switch is
+      now a **close carrying the type asked for** (`voucher-dialog.util.ts`
+      `voucherSwitchRequest`), and the service reopens in its place — the chain
+      is owned by the **service's own** `afterClosed` subscription, not the
+      caller's, so a switch happens even if the list has stopped listening, and
+      what the caller finally gets is the result of whichever dialog the
+      operator finished in (so a Sales list that watched a switch to Purchase
+      and a save still refreshes). Three things worth knowing: the close is
+      **not** a save, so `UnsavedChangesService` asks *"Discard unsaved
+      changes?"* exactly as `pendingChangesGuard` asks on the routed side — one
+      rule, two hosts; the **exit animation is `0ms` on every voucher dialog**,
+      because the one that has to leave instantly is the one being switched away
+      from and its config is fixed when it opens, so a gap there is a flash of
+      the list underneath saying the popup closed; and a **view-only** dialog —
+      the history preview of a superseded version, opened with `MatDialog`
+      directly rather than through the service — offers no type bar and refuses
+      the chords, because a switch there would close the dialog with nobody
+      listening to reopen it. Gate `qa-artifacts/tests/ui/money/
+      voucher-dialog-switch.ui.spec.ts`; ⚠️ a browser is the only instrument
+      that can see this, since no DTO, endpoint or posting rule changed and the
+      parity diff is empty by construction.
     - **One surface, TWO components**, and that is deliberate.
       `VoucherEntryComponent` draws the Dr/Cr grid (it replaced and **deleted**
       `trx-contra-add-edit`, `trx-payment-receipt-add-edit` and
@@ -3578,6 +3607,7 @@ is one nobody reads.
 | Why is a ledger sitting in Suspense A/c? | it should not be, unless its legacy head genuinely has no `AccountNature`. `Suspense A/c` is reachable only as `fallbackGroupForNature`'s `default` arm, and both callers used to ask for `trx_natures.name` (`'Assets'`) where the rule switches on the enum (`'Asset'`) — so all 33 fallback-placed ledgers went there. Fixed in `ledger-resolution.ts` and `acc-ledger-seed.ts`; repaired by `20260828500000-ledger-nature-fallback-repair`; censused by `qa-p2-ledgers` (4c) |
 | What happens when a party with no ledger is posted to for the first time? | `src/services/ledger-resolution.ts` `resolveOrCreateLedger` provisions one, **inside the posting transaction**, so it commits with the entry that needed it or rolls back with it. Its side comes from the **control head the posting is on** — not `derivePartySide`'s no-activity default, because at migration time there was a history to weigh and a human to review it (`party_ledger_plan`) and here there is neither, but there IS better information than a default. Refusing to post for want of a row the engine can create would be a regression, not a safety property |
 | Where is a Contra / Payment / Receipt / Journal typed? | `client-front` `components/admin/transaction/vouchers/voucher-entry/` — `/transaction/**voucher**/<type>/new` (singular; the plural is the lists). P4b; it replaced three components and deleted them |
+| Why did clicking another voucher type close the popup and jump to a full page? | it no longer does — `src/utils/voucher-dialog.util.ts` + `VoucherFormDialogService` (2026-09-01). A type switch inside a **dialog** closes with `{ switchTo }` and the service reopens the next type in its place; only the **routed** host still navigates, where each type is its own route config carrying its own permission key. ⚠️ The close is not a save, so `UnsavedChangesService` still asks about a dirty voucher — the dialog half of what `pendingChangesGuard` does routed. Gate `npm run qa:money` (`voucher-dialog-switch.ui.spec.ts`) |
 | Where is a Sales / Purchase / Debit Note / Credit Note typed? | the **same** surface since P4c — `/transaction/voucher/<type>/new` — but a different component: `vouchers/trx/trx-add-edit/`, re-hosted and otherwise untouched. `entrySurfaceFor()` in `utils/voucher-entry.util.ts` is the one answer to which surface a type is on; don't write `/transaction/voucher` at a call site |
 | Where is a Purchase Order / Sales Order / Delivery Note typed? | the same surface since **P4d**, on the same component as the item four — a Workflow Document IS the item grid, under a different invariant. Reached by `Ctrl+F8`/`Ctrl+F9`/`Alt+F8`/`Alt+F9`, or from the type bar's **overflow**. ⚠️ **Quotation and Purchase Requisition are gone from the UI** (2026-09-01) — neither is a Tally voucher type; their `PostingVoucherKind` members stay, so documents already raised still post and print |
 | Why is a Purchase Order not drawn as a Dr/Cr grid? | `loadFor` in `voucher-entry.routes.ts` asks `isAccountingEntry`, not `isItemEntry` — the Dr/Cr grid hosts a closed set of four and everything else on the surface is the item form. Asked the other way round, every Workflow Document renders two rows whose totals are both zero (F6) |
