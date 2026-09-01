@@ -517,6 +517,120 @@ Existing `*UserId` foreign keys across the schema (`preparedByUserId`,
 `supplierUserId`, …) point at `users.id`, **never** at `company_members.id`.
 Don't "tidy" that.
 
+#### Roles are TWO populations on one table (2026-09-01)
+
+`roles` was a fixed set — seeded, `isSystem = 1`, no create/edit/delete route at
+all. It is now two populations, and every rule about a role turns on which:
+
+| | Built-in (`isSystem = 1`) | Company-defined (`isSystem = 0`) |
+|---|---|---|
+| Who creates them | `CompanyProvisioningService`, seven per company | an **Admin**, through `POST /roles` |
+| Rename / delete / restore | **refused** (`RoleService.assertNotSystem`) | allowed |
+| Permission matrix | editable (except Admin's) | editable, and **starts empty** |
+| Extra profile fields | derived from the NAME | the role's own `profileSatellite` |
+
+⚠️ **Only an Admin may create, edit, delete or restore a role, and that is a
+hard rule rather than a matrix grant** (`user-protection.const.ts`
+`roleMutationViolation`, called by every write on `RoleController`). The matrix
+lets an Admin hand `roles:canAdd` to another role, and the moment custom roles
+exist that is **a self-escalation path with one extra step**:
+`rolePermissionEditViolation` stops you widening your OWN role's matrix, and
+stopped nothing about creating a NEW role, granting it everything and moving
+into it — the new role is not yours until you take it. Verified against a real
+Manager token holding `roles` FULL: all four writes answer 403, both reads still
+work.
+
+It is deliberately **not** expressed by adding `roles` to
+`ADMIN_ONLY_PERMISSION_KEYS`, which locks a key **whole** — HR and Manager are
+seeded with view-only access to that screen on purpose, and reading who may do
+what is not the power to decide it.
+
+⚠️ **A built-in role's protection is about NAME-keyed lookups, not foreign
+keys.** `RoleMenuGuard`'s Admin bypass, `SAFE_DEFAULT_ROLE_NAME`,
+`satelliteForRoleName`, `role-matrix.const.ts`' seeding and the Tally import's
+party-role lookup all match `roles.name`. Renaming a built-in breaks those
+silently — nothing throws.
+
+**Deleting a role asks two different questions, one per stage.**
+`BaseCrudService.remove` archives on the first call and erases on the second;
+`company_members.roleId` is `ON DELETE RESTRICT` while `role_menu_permissions
+.roleId` is `ON DELETE CASCADE`. So archiving counts **live** memberships
+("move them to another role first") and erasing counts **all** of them,
+soft-deleted included, because that is what the constraint counts. ⚠️ Measured:
+asking the erase question at the archive stage means a role whose only holder
+has since been deleted **can never be archived at all** — the count is 1 for
+ever and no operator action changes it.
+
+**`isActive = false` is a lockout, not a label.** `AuthService` refuses a
+sign-in to anyone holding an inactive role (three call sites), so the role form
+warns before switching it off. `RoleService.update` bumps `membershipVersion`
+on a change to `name`, `isActive` or `profileSatellite` — §4.4/D-40's mechanism,
+for the same reason the matrix does — and deliberately **not** on a
+`description`-only edit, which no session depends on.
+
+#### What extra fields a role's holders get — `roles.profileSatellite` (2026-09-01)
+
+`satelliteForRoleName` decides the Add User form's extra-field block from the
+role NAME: Admin → none, Party User → the address & GST block, everything else →
+the employee block. That is complete for the seven seeded names and **cannot
+answer for a role somebody invents** — it takes the `default:` arm, so
+"JobViewRole" is asked for a department, a designation and a joining date.
+
+So a role may declare it. `satelliteForRole(role)` in
+`src/const/role-satellite.const.ts` is **the resolver every call site now uses**
+(six of them: both `UsersService` writes, `users.controller`'s create and
+update, `InvitationService`, `UserProfileService`); the name rule survives as
+its **fallback arm**, not as a legacy path — it is what keeps a custom role's
+declaration optional and the seeded roles' behaviour a derivation rather than
+seven stored decisions that can drift from it.
+
+⚠️ **`null` means opposite things on the two sides.** On the column it is
+*"nothing declared, ask the name"*; as a RESULT it is *"no extra fields at
+all"*. `'none'` is how a role says the second on purpose. The migration ships
+the column NULL on every existing row and **does not backfill** — writing
+`'employee'` onto the five roles the name rule already answers that way would
+state as a decision something that is currently a derivation.
+
+⚠️⚠️ **`'party'` is not a form-layout choice.** `UsersService
+.applyRoleDrivenKind` derives `company_members.userKind` from the resolved
+satellite, so a role declaring `'party'` mints **trading parties** — subject to
+`PartyOnlyGuard`, `SharedReadPartyGuard` (D-46) and `party-file-access.const.ts`.
+Verified end to end: a user created on a custom `'party'` role comes back
+`userKind: 'party'`. The seeded-name lookups that hunt for *the* Party User role
+(`SubscriptionBillingService`, `ImportCommitService`) are unaffected — they name
+the built-in, which always exists.
+
+Mirrored in `jayhindi-client-front/src/utils/role-satellite.util.ts`. ⚠️ The two
+disagree on a **missing** name — `null` here, `'employees'` on the server — and
+that is deliberate, not drift: on the client "no role chosen yet" is a form
+state, and answering `'employees'` would sprout department fields on a blank
+form. The server never reaches its own fallback with a null role. The util's
+own comment says so; don't "align" them.
+
+**A role name may be TWO characters** (`CreateUpdateRoleDto`, and the form's
+mirror). It was `@Length(3, 100)`, which refuses `CA` — the first custom role
+anybody asks for — and also refuses `HR`, **a role this application itself
+seeds**. A floor that rejects the product's own data is the tell that the number
+was picked rather than measured.
+
+⚠️ `CA`, `CS` and `CMA` are on `NAME_ACRONYMS` (`display-case.const.ts`, both
+copies + `scripts/vectors/display-case.vectors.json`). Without them
+`TitleCaseNameDirective` silently saved the role as **"Ca"** on blur — the same
+way `HR`, `ESI` and `MD` got on that list, and the reason it is a curated list
+rather than a heuristic. The vectors include `cathy` and `cab service`, which
+are the guard proving `CA` is matched as a whole **token** and never a prefix.
+
+**Admin-only config modules render locked in the matrix, and are refused a
+stored grant.** `getRolePermissionMatrix` sends `adminOnly` per row from
+`ADMIN_ONLY_PERMISSION_KEYS` (beside the guard that enforces it, so the SPA
+keeps no second copy of that list), and `upsertRolePermissions` **drops** those
+keys rather than writing a permission `RoleMenuGuard` will never honour — an
+inert row in that table is a row that lies to the next reader. Dropped silently,
+not 400'd, because the client sends the whole matrix in one PUT and one inert
+row must not block every real one beside it. ⚠️ The reason is on the row's
+LABEL cell, never on the checkboxes: Material renders **no tooltip on a disabled
+control**, so it would be invisible on exactly the rows that need it.
+
 `membershipVersion` makes a permission change take effect without waiting out
 the token TTL: bump it on any role/permission change, and the guard returns
 `409 MEMBERSHIP_STALE`, which the frontend turns into a silent refresh.
@@ -3456,6 +3570,12 @@ is one nobody reads.
 | What runs when a request arrives? | `client-back/src/app.module.ts` (doc comment) |
 | How is tenancy enforced? | `src/utility/tenant-context.ts`, `src/database/tenant-scoping.hooks.ts` |
 | Who can call what? | `src/const/permission-registry.ts`, `src/guards/role-menu-permissions.guard.ts` |
+| May this role be renamed / deleted? | `RoleService.assertNotSystem` — `isSystem` is the two populations (§4.4). ⚠️ The protection is about **NAME-keyed lookups** (`RoleMenuGuard`'s Admin bypass, `SAFE_DEFAULT_ROLE_NAME`, `satelliteForRoleName`, the Tally import's party-role lookup), not about a foreign key: renaming a built-in breaks those silently |
+| Who may create a role? | **an Admin, and only an Admin** — `user-protection.const.ts` `roleMutationViolation`, called by every write on `RoleController`. Deliberately a hard rule rather than a `roles:canAdd` grant: a role that can create ANOTHER role can grant it everything and move into it, which `rolePermissionEditViolation` does not cover (the new role is not yours until you take it). ⚠️ Not `ADMIN_ONLY_PERMISSION_KEYS`, which would lock the key whole and take HR's and Manager's seeded view-only access with it |
+| Why can't I delete this role? | it has holders — and the question **changes with the stage** (`RoleService.holderCount`). Archiving counts LIVE memberships; erasing counts ALL of them, because `company_members.roleId` is `ON DELETE RESTRICT` and a soft-deleted membership is still a row. ⚠️ Asking the erase question at the archive stage means a role whose only holder was deleted can never be archived at all — measured |
+| Which extra fields does a user on THIS role get? | `src/const/role-satellite.const.ts` `satelliteForRole` — the role's own `profileSatellite` if it declares one, else `satelliteForRoleName` (the seeded roles' rule, and every existing row's, since the column ships NULL and is deliberately not backfilled). ⚠️ `'party'` decides `company_members.userKind`, so it mints trading parties — D-46's guards, not a form layout. Mirrored in `client-front/src/utils/role-satellite.util.ts`, which deliberately differs on a MISSING name |
+| Why did my role save as "Ca"? | it no longer does — `CA`/`CS`/`CMA` are on `NAME_ACRONYMS` (`display-case.const.ts`, both copies, with vectors). `TitleCaseNameDirective` tidies a name on blur, and the acronym set is a **list, not a heuristic** (§9); this is how it grows, exactly as `HR`, `ESI` and `MD` did |
+| Why is a permission checkbox greyed out for a non-Admin role? | the module is in `ADMIN_ONLY_PERMISSION_KEYS` — `getRolePermissionMatrix` sends `adminOnly` per row and `upsertRolePermissions` **drops** those keys rather than storing a grant `RoleMenuGuard` will never honour. ⚠️ The reason renders on the row's LABEL cell: Material shows no tooltip on a disabled control |
 | May a trading party read this? | `src/guards/shared-read.decorator.ts`, `src/guards/shared-read-party.guard.ts` (D-46) |
 | May a trading party receive this over a SOCKET? | nothing generic — the socket plane has no guard chain, so `src/socket/socketGateWay.ts` checks inline off the `userKind` it records at connection (BUG-0063) |
 | May a trading party download this FILE? | `src/const/party-file-access.const.ts` (BUG-0057) — the shared-read guard does not cover the delivery route |

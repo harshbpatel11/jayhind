@@ -115,6 +115,46 @@
       "in": "   ",
       "out": "",
       "why": "blank is blank"
+    },
+    {
+      "in": "ca",
+      "out": "CA",
+      "why": "the first custom ROLE anybody creates — it saved as 'Ca' until CA joined the acronym list"
+    },
+    {
+      "in": "CA",
+      "out": "CA",
+      "why": "already correct — must be left alone"
+    },
+    {
+      "in": "ca firm",
+      "out": "CA Firm",
+      "why": "the acronym leads an ordinary name"
+    },
+    {
+      "in": "senior ca",
+      "out": "Senior CA",
+      "why": "and trails one — matching is per token, not positional"
+    },
+    {
+      "in": "cs",
+      "out": "CS",
+      "why": "company secretary, CA's sibling designation"
+    },
+    {
+      "in": "cma",
+      "out": "CMA",
+      "why": "cost & management accountant, likewise"
+    },
+    {
+      "in": "cathy",
+      "out": "Cathy",
+      "why": "⚠️ the guard on the above: 'CA' is matched as a whole TOKEN, never as a prefix"
+    },
+    {
+      "in": "cab service",
+      "out": "Cab Service",
+      "why": "same guard, leading token"
     }
   ]
 }
