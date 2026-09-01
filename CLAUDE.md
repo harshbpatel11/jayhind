@@ -2043,17 +2043,95 @@ src/
     inventory one — see §14.
   - **Above 14 pages the panel's groups collapse to an accordion**, except
     those listed in `PINNED_PANEL_GROUPS` — the everyday destinations, which
-    must never need a click to reveal. Transaction (40 pages) is the reason
-    both mechanisms exist, and since **2026-08-20** its panel reads: Overview ·
-    **Daily Entry** (Sales, Purchase, Receipt, Payment, Journal, Contra — open)
-    · Sales Cycle ▸ · Purchase Cycle ▸ · **Ledgers & GST** (open) · Reports ▸ ·
-    Masters ▸ · Setup ▸. The order of `vouchers.children` in
-    `navigation.config.ts` **is** that layout — it was document-flow order
-    before, which reads well as a diagram and put Sales, the most-used screen
-    in the app, ninth and behind a disclosure triangle. No route moved; only
-    the `group` labels and the order did.
-  - **Transaction ▸ Ledgers** (2026-08-29) sits in that **Ledgers & GST** group,
-    above *Chart of Accounts*, and the two names are not interchangeable:
+    must never need a click to reveal. Transaction (45 pages) is the reason both
+    mechanisms exist, and since **2026-09-01 its panel IS Gateway of Tally**:
+    Overview (open) · **Vouchers** (open — Contra, Payment, Receipt, Journal,
+    Sales, Purchase, Credit Note, Debit Note) · Order Vouchers ▸ · Masters ▸ ·
+    **Reports** (open — Balance Sheet, Profit & Loss A/c, Trial Balance, Day
+    Book) · Account Books ▸ · **Statements of Accounts** (open) · Inventory
+    Reports ▸ · Statutory Reports ▸ · Utilities ▸. The order of
+    `vouchers.children` in `navigation.config.ts` **is** that layout.
+
+    ⚠️ **This replaced the 2026-08-20 ordering, which led with Sales** because it
+    is the most-used screen in the app. That argument was real and was overruled
+    rather than refuted: the operators this is sold to arrive from Tally, and
+    **F8 landing fifth in a list headed "Vouchers" is the order their hands
+    already know**. `VOUCHER_SHORTCUTS` is the same sequence — don't re-sort one
+    without the other, or the panel and the keyboard disagree about what F4 is.
+
+    ⚠️⚠️ **The panel is now the module's ONLY navigation**, which is what makes
+    its shape load-bearing. The reports' 18-tab horizontal strip and the masters'
+    4-tab one are both gone (UI-005's ruling, a third and fourth time) — and both
+    had already **drifted from the panel beside them**: Budget Variance, Interest
+    and Revaluation were in the panel with no tab, Budgets, Currencies and
+    Scenarios likewise. A second menu that disagrees with the first is worse than
+    no second menu. `ReportsLayoutComponent` and `MastersLayoutComponent` survive
+    as bare `<router-outlet>`s and **deleting either is a regression**: the first
+    carries `DrillBackDirective` (the one Esc listener every report inherits,
+    P3d), and the second owns the URL segment its children's routes are declared
+    under.
+
+    ⚠️ **Two panel mechanics were added for it**, both in
+    `sidemenu.component.ts`. A `sub` node's children are now split by their own
+    `group` label (falling back to the `sub` node's name), which is what gives
+    Reports its four Tally sections without a second level of nesting the panel
+    cannot render. And `mergeByLabel` folds every block sharing a label into the
+    **first** that carried it — Tally files Outstandings under *Statements of
+    Accounts* beside the cost and interest reports, and those live under
+    `transaction/reports/…` while Outstandings is `transaction/outstanding`, so
+    ordering alone could never make them adjacent.
+
+    ⚠️⚠️ `Statements of Accounts` is pinned for a reason the other three are not:
+    it holds Outstandings, which is read daily and sat in a pinned block before
+    the re-shape. Fidelity that buries the AR/AP position behind a click is a
+    usability regression wearing Tally's name.
+
+    **Seven screens were removed** (nav + route + component; **no backend
+    endpoint, DTO, enum or posting rule was touched**, so every figure they
+    answered is still gated and every document already raised still posts,
+    prints and reports):
+
+    | Removed | Why | Where it went |
+    |---|---|---|
+    | **Quotation**, **Purchase Requisition** | not Tally voucher types | paths redirect to the stage each converted into |
+    | **Dues** | Tally has one answer to *"what is owed and when"*, and since P5d so does this — the bill register | redirects to Outstandings ▸ Receivable |
+    | **Daily Cash** | no Tally counterpart | — |
+    | **Ledger Breakup**, **Allocation Check** | ours, not Tally's | endpoints still gated by `qa:p7d-cost-reports` (6)–(8) |
+    | **Receipt Register** | was `extends PaymentRegisterComponent` with a heading changed | **merged** — one screen, `?side=receipt`, legacy path still routes |
+
+    ⚠️ `quotation` and `purchase-requisition` are **deliberately still in
+    `PostingVoucherKind` and in `ENTRY_MODE_BY_TYPE` on both sides**:
+    `POSTING_EFFECT` is a total `Record` and `check-mirrors.js` check 11 compares
+    that map as data, so removing them from one side alone is drift and removing
+    them from both is a schema change this decision did not make. They are gone
+    from `WORKFLOW_ENTRY_TYPES` (the type bar, the entry routes) and from
+    `SIDEBAR_OPTIONAL_ITEMS` (a toggle for a page that does not exist is a
+    setting nobody can act on) — but **not** from the server's
+    `HIDEABLE_TRANSACTION_MENUS`, so a company that stored either key keeps a
+    valid stored value.
+
+    **Renamed to Tally's own names**, labels only — every `route` and every wire
+    `TrxType` is unchanged, because a renamed URL orphans bookmarks, the drill
+    stack and every stored `hiddenTransactionMenus` key: Ledgers → **Chart of
+    Accounts** · the old Chart of Accounts (`trx_accounts`, the instrument
+    master) → **Bank & Cash Accounts** · Transaction Group → **Voucher Heads** ·
+    Delivery Challan → **Delivery Note** · Goods Receipt → **Receipt Note** ·
+    Group Statement → **Group Summary** · Profit & Loss → **Profit & Loss A/c** ·
+    Valuation Summary → **Stock Summary** · Reorder Alerts → **Reorder Status** ·
+    Revaluation → **Forex Gain/Loss** · Interest → **Interest Calculations** ·
+    Outstanding → **Outstandings** · Party Statement → **Party Ledger** · GST
+    Rates → **GST Rate Setup** · Data Import → **Import Data**.
+
+    ⚠️ The two document renames reach **printed paper**: `print.service.ts` holds
+    its own label map, a fourth beside the three in `trx-interfaces.ts`, so a
+    customer's Delivery Note now says Delivery Note. `print-preview.ui.spec.ts`
+    asserts both titles. The **Rule 55** challan caption is deliberately
+    untouched — that one is the statute's word, not ours.
+  - **Transaction ▸ Chart of Accounts** (2026-08-29 as *Ledgers*; renamed
+    2026-09-01) sits in the **Masters** group, above *Bank & Cash Accounts*, and
+    the two are not interchangeable — ⚠️ note the names **swapped** at the
+    re-shape, so a pre-2026-09-01 doc means the other screen by "Chart of
+    Accounts":
     `/transaction/ledgers` is the **Tally-shaped chart** (`acc_groups` as a tree
     with its `acc_ledgers` leaves, permission key `acc-ledgers`), while
     `/transaction/chart-of-accounts` is the **instrument** master (`trx_accounts`
@@ -2110,13 +2188,16 @@ src/
     (`.rpt-scenario-banner`, in `reports.shared.scss` for P6's encapsulation
     reason): a Balance Sheet with a scenario applied still *balances*, so *"does
     it add up?"* says nothing about whether a reader is looking at the books.
-  - **Transaction ▸ Reports gained the cost dimension's four tabs** (P7d‑2,
-    2026-08-31) — *Cost Categories · Cost Centres · Ledger Breakup · Allocation
-    Check*, under the same `reports` key as every other report, because a cost
-    report is a report and `permissionKeyForUrl` walks the nav tree by URL
-    segment. ⚠️ **Four tabs for FIVE reports**: a tab is for a report whose
-    subject is at most *one* picker away, and the **Cost Centre Breakup**'s is
-    two (a category, then a centre in that category's tree) — the Cost Centre
+  - **Transaction ▸ Reports carries the cost dimension** (P7d‑2, 2026-08-31)
+    under the same `reports` key as every other report, because a cost report is
+    a report and `permissionKeyForUrl` walks the nav tree by URL segment. Since
+    the **2026-09-01** re-shape it is *Cost Category Summary* and *Cost Centre
+    Summary*, in the panel's **Statements of Accounts** block — the four-tab sub-
+    nav went with the tab strip, and the **Ledger Breakup** and **Allocation
+    Check** screens went with it (their endpoints and `qa:p7d-cost-reports` are
+    untouched). ⚠️ **Two entries for THREE reports**: an entry is for a report
+    whose subject is at most *one* picker away, and the **Cost Centre Breakup**'s
+    is two (a category, then a centre in that category's tree) — the Cost Centre
     Summary already is that picker with the figures beside it, so
     `/transaction/reports/cost-centre-breakup?centreId=` is reached by drilling
     and is still a real route somebody can paste. ⚠️⚠️ The **Category Summary
@@ -2150,11 +2231,13 @@ src/
     second half is what recovers a browser that already has the old shape
     stored. `setOptions()` persists everything it is handed, which is how a
     derived value acquired a memory nobody decided to give it.
-  - **ALL FOURTEEN voucher types are entered on ONE surface** — Contra, Payment,
+  - **ALL TWELVE voucher types are entered on ONE surface** (fourteen until
+    2026-09-01, when Quotation and Purchase Requisition left the UI — see the
+    panel note above) — Contra, Payment,
     Receipt and Journal since P4b (2026-08-29), Sales, Purchase, Debit Note and
-    Credit Note since P4c, and the six **Workflow Documents** (purchase
-    requisition, purchase order, goods receipt, quotation, sales order, delivery
-    challan) since **P4d** (2026-08-30):
+    Credit Note since P4c, and the four **Workflow Documents** — Tally's *Order
+    Vouchers* (purchase order, receipt note, sales order, delivery note) — since
+    **P4d** (2026-08-30):
     `/transaction/voucher/<type>/new` and `…/<type>/:id/edit`. **No type has an
     entry route outside the surface.** The old `…/vouchers/<type>/new` paths
     redirect (they are in bookmarks and in P3d's drill stack) and the **lists**
@@ -2183,7 +2266,7 @@ src/
       `isItemEntry`** (`voucher-entry.routes.ts`). The Dr/Cr grid hosts a
       **closed** set of four and everything else on the surface is the item
       form, so the closed half is the half the condition names — asking it the
-      other way round dropped the six Workflow Documents onto
+      other way round dropped the Workflow Documents onto
       `VoucherEntryComponent`, which draws a document that posts no legs as two
       rows whose totals are both zero and holds it to a balance it can never
       have. It throws loudly (`accountingRowPlan` refuses a type that is not on
@@ -2198,21 +2281,24 @@ src/
       not the one the chain names), and the GST and Due Date chips are absent,
       which follows from posting nothing rather than from a style choice. Without
       the caption the screen is an item invoice that has quietly lost its totals.
-    - **The type bar's row is the EIGHT that post; the six that do not sit
-      behind one overflow.** Fourteen buttons wrap onto three lines of a title
-      bar and stop being a row of keys. The split **is** `buildLegs` returning
-      legs or returning none — the same fact `ENTRY_MODE_BY_TYPE` is keyed off —
-      so the two tiers say what kind of document each is. ⚠️ The menu is also the
-      surface the *no-invented-chords* ruling implies must exist: **purchase
-      requisition** and **quotation** have no chord deliberately (they are ours,
-      not Tally's), so a keyboard is not a complete way in. It lists the six in
+    - **The type bar's row is the EIGHT that post; the four that do not sit
+      behind one overflow.** Twelve buttons wrap onto two lines of a title bar
+      and stop being a row of keys. The split **is** `buildLegs` returning legs
+      or returning none — the same fact `ENTRY_MODE_BY_TYPE` is keyed off — so
+      the two tiers say what kind of document each is. It lists the four in
       **conversion** order, not key order — a bar is read as a row of keys and a
-      menu as a list. ⚠️⚠️ It is filtered by `hiddenTransactionMenus`, because
-      the six hideable stages are **exactly** these six (the terminal Purchase
-      and Sales are never hideable), and `app-sidemenu` and the convert action
-      both already apply it — a third place that must not forget. Not gated: no
-      company in the development database hides anything, so it is verified by
-      hand and recorded as such.
+      menu as a list. ⚠️ It is filtered by `hiddenTransactionMenus`, and
+      `app-sidemenu` and the convert action both already apply it — a third place
+      that must not forget. Not gated: no company in the development database
+      hides anything, so it is verified by hand and recorded as such.
+
+      ⚠️⚠️ **The menu's original justification is gone, and the menu is not.** It
+      existed because the *no-invented-chords* ruling left **purchase
+      requisition** and **quotation** with no chord at all (they were ours, not
+      Tally's), so a keyboard was not a complete way in. Both left the UI on
+      2026-09-01 and every surviving type has a chord — but the row is still the
+      eight that post, so the four that do not still need somewhere to be. The
+      ruling itself stands: a chord we invent is muscle memory nobody has.
     - ⚠️ **A blank item voucher used to be born dirty** (found by P4c's gate).
       `app-ledger-picker`'s `preselectDefault` applies the seeded head through
       `onChange`, the `ControlValueAccessor`'s **view→model** path, which Angular
@@ -2281,10 +2367,27 @@ src/
       `{ optional: true }`, the shape every voucher form here already uses. Not a
       second editor.
   - **The per-module tab bars are gone, and so is Transaction's right-hand
-    rail** (UI-005, corrected 2026-08-26). `ModuleLayoutComponent` and
-    `transaction-layout.html` are both a bare `<router-outlet>`; the panel lists
-    the same tree at full width without the horizontal scrolling seven tabs
-    forced. Don't reintroduce either.
+    rail** (UI-005, corrected 2026-08-26; finished 2026-09-01).
+    `ModuleLayoutComponent` and `transaction-layout.html` are both a bare
+    `<router-outlet>`; the panel lists the same tree at full width without the
+    horizontal scrolling seven tabs forced. Don't reintroduce either.
+
+    ⚠️ **Two more fell on 2026-09-01, and they were the ones that mattered**:
+    the reports' **18-tab** strip (`ReportsLayoutComponent`) and the masters'
+    4-tab one (`MastersLayoutComponent`). Both had already **drifted from the
+    panel beside them** — Budget Variance, Interest and Revaluation were in the
+    panel with no tab; Budgets, Currencies and Scenarios likewise — so one module
+    described its own screens two ways and the two disagreed. That is worse than
+    the duplication UI-005 was filed about. Both components **survive as bare
+    outlets and must not be deleted**: `ReportsLayoutComponent` carries the one
+    `DrillBackDirective` every report inherits (P3d — a second global Esc
+    listener would navigate twice, and none would break the drill spine on every
+    statement), and `MastersLayoutComponent` owns the URL segment its children's
+    routes are declared under.
+
+    ⚠️⚠️ The **Outstanding** layout's two tabs stay, and the distinction is worth
+    keeping: Receivable/Payable are two views of **one** screen, not a second
+    listing of the module's pages.
 
     ⚠️ This paragraph used to say the Transaction rail was *"the one survivor,
     because it also carries rules the panel does not"*. It is not, and it does
@@ -3024,12 +3127,12 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
 | The cost dimension's FIGURES | `client-back/scripts/qa-p7b-cost-allocations.ts` — P7b's gate (§3.7). Twelve properties over every company, and (3) is the plan's own sentence in the only form that can fail: the three statements captured with the allocation rows present, the rows **deleted** inside the same transaction, and captured again — so `0 changed` is a claim about the allocations rather than about the voucher, and `allocRows.length > 0` beside it stops it passing on nothing. ⚠️ Injection 6 is the defect the phase is a promise about — a Trial Balance that reads `cost_allocations` — and it named three moved figures to the paisa. (7) sums by centre over a cancelled voucher **grossly**, with no `liveEntrySql` at all, because that is the property a signed allocation buys (BUG-0044). ⚠️⚠️ The whole feature still has **no instance** — 0 allocations, 0 centres, 0 switched-on ledgers across 14 companies — so everything from (3) on is constructed in a rolled-back transaction, P5b's `advance` arm a fifth time; and every Σ is taken **in the gate**, never by calling the rule, which is P6's first injection's lesson. Shown to fail six ways | `npm run qa:p7b-cost-allocations` |
 | The cost dimension's TEMPLATE | `client-back/scripts/qa-p7c-cost-classes.ts` — P7c‑1's gate (§3.7). Twelve properties over every company, and (5) is the phase's claim end to end: a real posted line, a real class, the expansion driven through `CostAllocationService.replaceForOwner`, read back through the loader the entry screen will use, signed the way `persistLines` signs it, and `costAllocationProblems` **quiet** — anything short of that asserts the pure rule twice. ⚠️ **(3) compares INTEGER PAISA with `===`**, not the `near` every other figure test in this programme uses: the expansion exists so that no paisa is lost, and a paisa-tolerant check cannot see a one-paisa defect — measured, injection 1 turned 70/30 of ₹0.05 into ₹0.06 and passed. ⚠️⚠️ A **three-way** split cannot tell the rounding algorithms apart either (the negative-share failure needs `n²/2` paisa), so it builds a ten-way even split. Everything is constructed in a rolled-back transaction — 0 classes, 0 centres, 0 switched-on ledgers across 14 companies — P5b's `advance` arm a sixth time. **307/307**, shown to fail seven ways | `npm run qa:p7c-cost-classes` |
 | The cost dimension's REPORTS | `client-back/scripts/qa-p7d-cost-reports.ts` — P7d‑1's gate (§3.7, §3.10). Thirteen properties over every company, and the reason it exists is that **the parity diff cannot gate an additive report** — one the harness has never seen is absent from both sides and passes by being absent (§6.4, P3a's own argument). ⚠️ (2) is asked as a **deletion in both directions at once**: deleting every allocation empties the cost reports *and* moves no figure on any of the three statements, so `0 changed` is a claim about the allocations rather than about the voucher. ⚠️⚠️ (6) ties the Ledger Breakup's residue to the reconciliation's sentence — one subtraction, `unallocatedOf` — and it is stated as the **difference between two parallel sections**, because the first cut assumed the residue was over one voucher and it is over the ledger's whole period (₹5.75 crore of history on company 28's purchase head). ⚠️ (7) asks BOTH halves of the reconciliation's population: a switched-on ledger with no allocation at all, and allocations stranded on a ledger switched off. ⚠️⚠️ (8) compares the report's answer with a **gross** Σ taken in the gate with no `liveEntrySql` at all, which is the property a signed allocation buys (BUG-0044) measured rather than asserted in a comment. Its **(0) is census-relative**, deliberately — it captures the four counts before the run — because a global `COUNT(*) = 0` inherits somebody else's leak, which is exactly what had turned `qa:p7b` and `qa:p7c`'s own (0) red (BUG-0071; both are census-relative now too). ⚠️ Its *named-row* half was a wildcard `QA·P7d%` and that matches **`QA·P7d2`**, the next phase's mark — so it failed on a later gate's rows while its own rollback was perfect. **A count that means "my rows" has to be written so it can only ever mean that**: a phase mark is a prefix of the next phase's mark, every time. **169/169**, shown to fail six ways, with one injection that passed **and was not a defect** | `npm run qa:p7d-cost-reports` |
-| The cost reports' SCREENS | `qa-artifacts/tests/ui/money/cost-reports.ui.spec.ts` + `cost-report-rules.ts` (restated) — P7d‑2's gate, eight properties: the Category Summary carrying two parallel cuts of one figure with **no total row and a caption saying why**, a category opening its own centre tree with the period carried, a centre's breakup totalling **the figure that was clicked**, its ledger row reaching the general ledger through the spine's own `ledger` target, **Esc walking back out** three screens deep, every Ledger Breakup section being a *complete* cut (`allocated + unallocated = the ledger's own figure`, asked **per section** — `Σ sections` is the defect the dimension is exposed to), a switched-off ledger still reporting its stray rows, and the Allocation Check naming an incomplete split **in the rule's own sentence**. ⚠️ These reports read `cost_allocations`, which exists only once a voucher has **posted**, so unlike `voucher-allocation.ui.spec.ts` this one cannot stop at the draft's statement: it approves two real journals and the sweep **cancels** them (a voucher that ever posted is never erased) — measured afterwards at 0.00 across every live allocation, because an allocation is signed and a reversal negates it. ⚠️⚠️ Its masters are **ensured, not re-created per run**: a centre that has been allocated to can no longer be erased, so a per-run copy leaves an archived set behind on every run, which is the leak P7d‑1 filed against P7c‑3. **8/8**, shown to fail seven ways — and injection 2 was refused by the **compiler** first | `npm run qa:money` |
+| The cost reports' SCREENS | `qa-artifacts/tests/ui/money/cost-reports.ui.spec.ts` + `cost-report-rules.ts` (restated) — P7d‑2's gate, **five** properties: the Category Summary carrying two parallel cuts of one figure with **no total row and a caption saying why**, a category opening its own centre tree with the period carried, a centre's breakup totalling **the figure that was clicked**, its ledger row reaching the general ledger through the spine's own `ledger` target, and **Esc walking back out** three screens deep. ⚠️ **It was eight until 2026-09-01**, when the Ledger Breakup and the Allocation Check left the UI with the module's re-shape to Tally's menu: the complete-cut invariant, the switched-off ledger and the reconciliation's own sentence are `qa:p7d-cost-reports` (6)–(8), which is where each was first stated — what a screen removal genuinely costs is the browser's half, whether the figure reached a reader. `sectionIsComplete` was **deleted** rather than left behind, because a mirror with no reader is not a mirror (P8b‑2). ⚠️ These reports read `cost_allocations`, which exists only once a voucher has **posted**, so unlike `voucher-allocation.ui.spec.ts` this one cannot stop at the draft's statement: it approves two real journals and the sweep **cancels** them (a voucher that ever posted is never erased) — measured afterwards at 0.00 across every live allocation, because an allocation is signed and a reversal negates it. ⚠️⚠️ Its masters are **ensured, not re-created per run**: a centre that has been allocated to can no longer be erased, so a per-run copy leaves an archived set behind on every run, which is the leak P7d‑1 filed against P7c‑3. **8/8**, shown to fail seven ways — and injection 2 was refused by the **compiler** first | `npm run qa:money` |
 | The reference grid | `qa-artifacts/tests/ui/money/bill-reference-grid.ui.spec.ts` + `bill-reference-rules.ts` (restated) — P5c‑2's gate, seven properties: the grid is fed by the **register** in its own order (so an opening balance is on it), a document-less bill is offered, **ticked and settled** — that property asserted an *un-tickable* row until P5c‑3 made the allocation column nullable, and it now follows the tick through the save and the approval to the `against` reference it writes — the "This voucher" column is the allocation, an offsetting bill is labelled one and **agrees with its document's own type read from the database**, a refusal is the server's sentence with **no request leaving the page**, the bounded read says how much it is hiding and `search` reaches past it, an **advance survives to `bill_references`** through a DTO, a column default and the posting engine; and **editing a voucher shows the bills it settled, still ticked**. ⚠️ A browser is the only instrument that can see this phase: the wire is unchanged, so the parity diff is empty by construction. ⚠️⚠️ Its row selectors are `data-bill-id` / `data-bill-target` / `[data-tag="offsets"]`, and **`voucher-entry.ui.spec.ts` reads two of them from another file** — P5c‑3 moved both and only the full lane noticed, so `grep -rn 'data-bill-\|vch-bill__tag' tests/` is the check before changing one. ⚠️⚠️ Shown to fail **six** times, and **one injection passed** — making the column echo `open` was invisible while the amount was prefilled, because a fully-applied bill has `applied === open`; the property now under-pays the selection, which splits the cash oldest-first. It then passed **twice more** before that was understood, because the edit fixing the property had never applied (a failed `cd` short-circuited it) — P5c‑1's own note, a second time. ⚠️ Two of its properties found defects in the phase's own code rather than confirming it: a bill ticked before a search was silently dropped from the payload, and editing a voucher whose settled bill lay outside the bounded window lost that allocation | `npm run qa:money` |
 | The voucher head picker | `qa-artifacts/tests/ui/money/ledger-picker.ui.spec.ts` + `ledger-picker-rules.ts` (restated) — P4a's gate: every head field is `app-ledger-picker` **and no group-fed select survives**, it offers what the group NATURE allows (the widening compared against a live `groupFor` count, not a number written down), a **control head is offered in no context**, the pre-filled default survived the widening, a saved voucher renders its own head even one outside the field's scope, and `Alt+C` from **inside the open dropdown** creates a ledger that carries the head the form binds. ⚠️ A fifth injection **passed** and the property was the problem: scoping the hydration by nature left it green because `legacyHeadOption` answered instead — *a fallback that covers a bug is how a rule stops being measurable*. ⚠️⚠️ The invoice-scan review is the seventh site and is deliberately **not** gated (it needs a `scanned_invoices` row the QA world does not build); verified by hand and recorded as such | `npm run qa:money` |
 | The unified voucher entry screen | `qa-artifacts/tests/ui/money/voucher-entry.ui.spec.ts` + `voucher-entry-rules.ts` (restated) — P4b's gate, eight properties: one screen for Contra/Payment/Receipt/Journal with the old paths redirecting onto it, **the rows on screen equal to the legs the voucher posts** (read from `data-role`, then compared against the approved voucher's own `journal_lines`, for a contra **and** a payment), a keyboard-only post, an unbalanced split journal refused in the voucher's own words with **no request leaving the page**, and a Payment's head on no grid row. ⚠️ Its ledger property was **wrong at first and passed an injection**: it compared the saved voucher's `toAccountId`/`fromAccountId` with the legs, and the posting engine *derives* the debit from `toAccountId` — so swapping the two grid cells left it green. It compares the **account names chosen on screen** now. ⚠️⚠️ Whether the accept chord is `document:`-scoped is **not observable here** (the select's overlay pane renders inside the component's own subtree) and the spec says so rather than implying coverage. ⚠️ It pushes **`/status of 429/` and nothing else** into `problems.ignore`: the ERP throttles 100 req/min per IP, `qa:money` shares one bucket across 85 serial tests, and these two properties are the request-heaviest — a rate limit that actually broke a screen still fails through the assertions | `npm run qa:money` |
 | The item grid, re-hosted | `qa-artifacts/tests/ui/money/voucher-rehost.ui.spec.ts` + `voucher-rehost-rules.ts` (restated) — P4c's gate, six properties: eight types on one surface with the old paths redirecting onto it, **the LISTS unmoved** (the property the redirect itself can break — `sales` and `sales/new` are one segment apart), both halves offering the same eight buttons **in the same order** (a scrambled bar is a different defect from a short one), one key crossing from the item half to the accounting half and back, the form arriving **whole** (header strip · items grid · options bar · head picker — a stub renders a route just as well as the real form), and F4/F6 switching the voucher rather than focusing a field while `Alt+N` still adds a line. ⚠️ A browser is the only instrument that can see this phase: no DTO and no service changed, so the parity diff is empty **by construction**. ⚠️⚠️ It found a real defect rather than being written around one — every blank item voucher was **born dirty**, because P4a's head preselect propagates through the `ControlValueAccessor`'s view→model path, so a type switch asked *"Discard unsaved changes?"* on an empty form. Shown to fail three ways: the F4 focus binding put back, a redirect that drops its `/new` segment, and item mode un-hosted | `npm run qa:money` |
-| The Workflow Document mode | `qa-artifacts/tests/ui/money/workflow-document.ui.spec.ts` + `workflow-document-rules.ts` (restated) — P4d's gate, six properties: the six upstream documents on the surface with their old paths redirecting, **the six LISTS unmoved**, each of them the **item grid with no Dr/Cr difference**, each naming **what it converts into** (with the chain's own label — a goods receipt becomes a *Purchase Entry*), the bar's row still eight with the six behind one overflow that actually reaches Quotation (which has no chord), and a key crossing in and out. ⚠️ A browser is the only instrument that can see this phase: the backend diff is **empty**, so the parity diff is empty by construction. ⚠️⚠️ Its (3) was **inert when first written** — it looked for `.vch-grid` as "the Dr/Cr grid", and the item form's own table is `class="vch-grid vch-grid--items"`, so the selector matched **both** components and could not discriminate; the right discriminator was never markup but the **invariant** (`[data-testid="difference"]`), asserted from both sides so a build rendering it nowhere cannot pass. Shown to fail four ways: `loadFor` back to `isItemEntry` (5 of 6 fail; only the lists survive), all fourteen buttons pushed into the row (2 fail — P4d's own and P4c's rewritten bar property), the conversion caption removed, and the redirect's `pathMatch` moved onto the list path | `npm run qa:money` |
+| The Workflow Document mode | `qa-artifacts/tests/ui/money/workflow-document.ui.spec.ts` + `workflow-document-rules.ts` (restated) — P4d's gate, six properties: the four Order Vouchers on the surface with their old paths redirecting, **the four LISTS unmoved**, each of them the **item grid with no Dr/Cr difference**, each naming **what it converts into** (with the chain's own label — a receipt note becomes a *Purchase Entry*), the bar's row still eight with the four behind one overflow that actually navigates, and a key crossing in and out. ⚠️ It measured **six** documents until 2026-09-01; Quotation and Purchase Requisition left the UI with the module's re-shape to Tally's menu, and the overflow property changed with them — it used to prove the menu reached the one type with no chord, and now proves it reaches anything at all. ⚠️ A browser is the only instrument that can see this phase: the backend diff is **empty**, so the parity diff is empty by construction. ⚠️⚠️ Its (3) was **inert when first written** — it looked for `.vch-grid` as "the Dr/Cr grid", and the item form's own table is `class="vch-grid vch-grid--items"`, so the selector matched **both** components and could not discriminate; the right discriminator was never markup but the **invariant** (`[data-testid="difference"]`), asserted from both sides so a build rendering it nowhere cannot pass. Shown to fail four ways: `loadFor` back to `isItemEntry` (5 of 6 fail; only the lists survive), all fourteen buttons pushed into the row (2 fail — P4d's own and P4c's rewritten bar property), the conversion caption removed, and the redirect's `pathMatch` moved onto the list path | `npm run qa:money` |
 | The leg table as data | `client-back/scripts/qa-p8a-posting-rules.ts` — P8a's gate (§3.4). Sixteen properties, and (1) is the plan's own sentence: **5,040 comparisons** between the interpreter and `legacySwitch`, the pre-P8a `buildLegs` **transcribed into the gate** — because the thing this phase must be identical to was deleted by this phase, so there is nothing to import even in principle. ⚠️ **A restated switch is not enough on its own**: it proves the interpreter equals a switch *as transcribed by whoever deleted it*, and a transcription wrong in the same way the table is wrong agrees with it (§13's P2b‑3c variant). So (2)–(5) tie it to money nobody in this phase wrote — the **13,461 posted entries already in the books**, every one written by the switch itself months earlier, which cannot inherit a transcription mistake. (3) is the **line count** with the aggregate charges leg expanded per `trx_charges` row, and it is what sees a leg dropped at a total that still balances — `grand−taxTotal` and `taxTotal` sum back to `grand` however wrongly they are split, so (2) is blind to exactly the RCM error. ⚠️⚠️ It failed first run on **15 vouchers that were not a defect** (BUG-0069's pre-D-52 population), and they are a **declared exception held to a shape** — party credited exactly `grandTotal` *and* no RCM leg, one leg short of the interpreter — never a date and never an id list, so an interpreter defect cannot pass through it (injection 3). It is a **list**, so an allowance matching nothing fails as loudly as a difference nobody allowed (`judge()`'s rule, one gate over). ⚠️ Building it found the gate itself excluding **archived** vouchers, whose entries §4.9 rule 2 keeps in the books — 470 of company 28's, BUG-0038's shape — and injection 4 *crashing* it rather than failing a property, so a throw is compared as a value now. **16/16**, shown to fail seven ways; injection 7 dates the RCM rows by deploy day, makes the totals **greener**, and is refused four ways | `npm run qa:p8a-posting-rules` |
 | Budgets | `client-back/scripts/qa-p8b-budgets.ts` — P8b‑1's gate (§3.9). Thirty properties, and (2) is §3.9's own promise — *"no engine change at all"* — asked as a construction: the Trial Balance, Balance Sheet and Profit & Loss captured with a budget present and without it, 44 figures, with `rows.length > 0` beside `0 changed` so it is a claim about the budget rather than about nothing. ⚠️ **Two properties were inert when first written and the gate said so itself.** (6), the two bases, passed while printing *"THEY ARE EQUAL on this fixture, so the pair above does not discriminate"* — the fixture's whole history fell inside the window, so `closing` and `nett` were one figure; the search now demands a ledger with **both** an opening balance and in-window movement. And **(4b) did not exist**: the injection that matches a group's subtree with `path + '%'` instead of `subtreePrefix` — BUG-0023 exactly — **passed 30/30**, because the fixture's group was too deep to have a colliding sibling. It runs **in whichever company has the collision** (1 of 14), computes both figures here and asserts they **differ** before asserting which the report gives. ⚠️⚠️ (5) was being **skipped** for want of a cost centre, and the 144 allocation rows on this database **sum to 0.00** (cancelled pairs — the property a signed allocation buys), so 0-against-0 would pass on a build answering zero always: (5c) constructs a real ₹7,777.77 allocation and reads the report inside the same transaction, which is why `budgetVariance` takes an optional read-only `Transaction` (P3c‑2's device). ⚠️ It **commits** and says so — `BudgetService` opens its own transaction, and cleanup is safe because a budget posts nothing and nothing points at one; scratch rows are named from an **explicit list**, never a `LIKE 'QA·P8b%'` wildcard (P7d‑1's own red (0) on `QA·P8d2`), and (0) is census-relative (BUG-0071). **30/30**, shown to fail six ways | `npm run qa:p8b-budgets` |
 | The budget screens | `qa-artifacts/tests/ui/masters/budgets.ui.spec.ts` + `budget-rules.ts` (restated) — P8b‑2's gate, six properties: a budget **built through the dialog** (construction is the first property, because the world has none), every refusal stated in the browser with **no request leaving the page** — *counted*, because a 400 caught and toasted looks identical on screen — the report stating the **clipped** window it actually used, a verdict rendered **only** where the nature makes one derivable, and the round trip through edit and delete. ⚠️ **Unlike `cost-rules.util.ts` this mirror has no server-only arm**, so "nothing went" is the property rather than a split. ⚠️⚠️ **A mirror with no reader is not a mirror**: the first cut copied `varianceVerdict` into the browser, nothing called it, and the injection *"the screen invents a verdict for Asset and Liability"* aimed at that copy **passed 6/6** — deleted, and the harness's own restated copy is what checks the rendering. ⚠️ Three assertions could not fail when written — the verdict property budgeted four balance-sheet groups so its rendering half never ran, the window property asserted the budget's own period rather than the clipped one, and a fixture named *"Compare"* made four `aria-label`s match one selector. ⚠️⚠️ It found two real defects in the screen, both a11y-shaped: a `mat-form-field` in a table cell with no width, whose wrapped label covered the select's own click target, and an `aria-label` that did not contain its visible text (WCAG 2.5.3). ⚠️ Its first version cost **another file's** passing test by doing two SPA boots in one test — §11's own *"a new suite spends a budget that is already gone"*, measured; one boot fewer put `qa:screens` back to 63/63. **6/6**, shown to fail five ways | `npm run qa:screens` |
@@ -3445,6 +3548,11 @@ is one nobody reads.
 | Choosing/switching company | `client-back/src/services/auth.service.ts` `switchCompany`, `client-front/src/services/company-switch.service.ts`, `components/auth/select-company/` |
 | Why one party has a row per company | `src/entities/user-details.entity.ts`, `src/migrations/20260820000000-user-details-company-scope.ts` |
 | Frontend nav & permissions | `client-front/src/core/navigation/navigation.config.ts`, `guards/permission.guard.ts` |
+| Why is the Transaction panel shaped like Tally? | it **is** Gateway of Tally since 2026-09-01 (§7) — `APP_NAVIGATION`'s `transaction` node, in Tally's F-key order, with `PANEL_GROUP` holding Tally's own section names. The panel is the module's **only** navigation; the reports' and masters' tab strips are gone |
+| How does one panel block hold pages from two different parents? | `sidemenu.component.ts` `mergeByLabel` — every block sharing a label folds into the **first** that carried it. Tally files Outstandings under *Statements of Accounts* beside the cost and interest reports, and `transaction/outstanding` is a module leaf while those are children of the `reports` `sub` node, so no ordering could make them adjacent |
+| Why does Reports render four blocks and not one? | a `sub` node's children are split by their own `group` label (`rawGroups`), falling back to the `sub` node's name — that is what gives Tally's *Account Books · Statements of Accounts · Inventory Reports* without a second nesting level the panel cannot draw |
+| Where did Quotation / Purchase Requisition / Dues / Daily Cash go? | removed from the **UI** on 2026-09-01 (§7's table) — none has a Tally counterpart. ⚠️ Every backend endpoint, DTO, enum and posting rule is untouched: both voucher kinds are still in `PostingVoucherKind` and in `ENTRY_MODE_BY_TYPE` (check 11 compares that map as data), the `dues` endpoint still feeds the main Dashboard and the reminder cron, and documents already raised still post, print and report |
+| Why does `/transaction/reports/receipt-register` still work? | it is a real route with `data: { side: 'receipt' }` on the merged Payment & Receipt Register, **not** a redirect — `redirectTo` cannot carry a query string, so a redirect would land a bookmarked receipt link on the payments half |
 | Breakpoints / responsive rules | `client-front/src/styles/design-system/_breakpoints.scss`, `scripts/breakpoint-guard.js` |
 | What is the shell supposed to do at this width? | `qa-artifacts/tests/ui/shell/shell-rules.ts` — the layout rules restated from §7/§9, and the only place they are written down as executable derivations |
 | Can a screen reader use this screen? | `qa-artifacts/tests/ui/a11y/` — axe over every route in both apps and both palettes, gating on critical/serious, plus the five keyboard properties axe cannot see (`npm run qa:a11y`) |
@@ -3546,7 +3654,7 @@ is one nobody reads.
 | Why can a budget line not name two heads? | `budget.const.ts` `describeBudgetLineBlock` **and** `chk_budget_lines_one_target`, both — a `CHECK` is parsed and silently ignored below MySQL 8.0.16, so its existence proves nothing (P5c‑3's finding about `chk_trxprt_one_target`). ⚠️ With the service refusal removed the write still fails and the caller is handed *"Check constraint … is violated"*, which is API-023's own defect — the sentence is what prevents that |
 | Which figure does a budget line compare against? | its own `basis` — `closing-balance` is what the head **stands at** on the window's last day, `nett-transactions` is what **moved** in it. Both already exist on every report node, which is why §3.9 could promise no engine change. ⚠️ Getting the pair the wrong way round is the one silent error available here: a Sundry Debtors budget on the wrong basis reads a year's turnover as a closing balance, and both are plausible numbers |
 | How much did this department cost us? | the four cost reports — P7d‑1, all on `ReportsController` under the one `reports` key, derived in `src/services/cost-report.service.ts`. `GET /reports/cost-centre-summary/:categoryId` (one category's centre tree) · `…/cost-category-summary` · `…/cost-centre-breakup/:centreId` (a centre, cut by ledger) · `…/cost-ledger-breakup/:ledgerId` (a ledger, cut by centre). Gate `npm run qa:p7d-cost-reports` |
-| Where does a person READ the cost dimension? | `client-front` `components/admin/transaction/reports/cost-*` — P7d‑2. Four sub-nav tabs (*Cost Categories · Cost Centres · Ledger Breakup · Allocation Check*) and `/transaction/reports/cost-centre-breakup?centreId=`, which has **none**: a tab is for a report whose subject is at most one picker away, and a centre's is two — the Cost Centre Summary is that picker. ⚠️ The Category Summary prints a **caption where every other report prints a total**, because two categories cut the same money. Gate `npm run qa:money` (`cost-reports.ui.spec.ts`) |
+| Where does a person READ the cost dimension? | `client-front` `components/admin/transaction/reports/cost-*` — P7d‑2. **Two** panel entries under *Statements of Accounts* (*Cost Category Summary · Cost Centre Summary*) and `/transaction/reports/cost-centre-breakup?centreId=`, which has **none**: a panel entry is for a report whose subject is at most one picker away, and a centre's is two — the Cost Centre Summary is that picker. ⚠️ It was four sub-nav tabs until 2026-09-01: the tab strip is gone (the panel is the module's one navigation) and the Ledger Breakup and Allocation Check screens went with it. ⚠️ The Category Summary prints a **caption where every other report prints a total**, because two categories cut the same money. Gate `npm run qa:money` (`cost-reports.ui.spec.ts`) |
 | Why did erasing a voucher leave a cost centre undeletable? | [BUG-0071](qa-artifacts/docs/bugs/BUG-0071.md) — `trx_cost_allocations.ownerId` carries **no foreign key** (it is polymorphic over D6's four `ledgerId` holders), so a hard delete removes the owner and the database removes nothing here. The orphan is unreadable (`sharesForOwners` is keyed by that id) **and** holds its centre hostage through `describeCentreDeleteBlock` with no draft behind it anybody could act on. `CostAllocationService.discardForOwners` at the two erase seams is the fix — the child ids read **before** the destroy, because `trx_charges` / `trx_payment_receipt_lines` cascade away with the row — and `scripts/purge-orphaned-cost-allocations.ts` is the repair |
 | Why does the Category Summary have no total? | because the categories are **parallel partitions of the same figure** — a ₹10,000 expense cut by Department *and* by Location is ₹20,000 of allocation rows, correctly — so their sum is `n ×` the money. There is deliberately **no field on the payload** to render one into, and adding one is a `TS2353` before it is a failing test (P7d‑1's injection 6). Same ruling one level down: the Cost Centre Summary and the Cost Centre Breakup take the category from the **route**, not from a filter somebody can omit, and the Ledger Breakup is **sectioned** per category, each section summing to the ledger's whole figure |
 | Why is this ledger's cost section short by ₹2,000? | `cost-allocation.const.ts` `unallocatedOf` — the ledger's own net less what that category accounts for. ⚠️ It lives beside `costAllocationProblems` and shares `COST_RESIDUE_NEAR` because it **is** that rule's Coverage arm as a figure: a breakup screen printing an unallocated balance beside a reconciliation calling the line complete is BUG-0040's shape, and the co-located spec asserts the equivalence over a sweep. ⚠️⚠️ It is over the **ledger's whole period**, not over one voucher — on a real head that is years of unallocated history, and P7d‑1's gate assumed otherwise and failed |
@@ -3589,10 +3697,10 @@ is one nobody reads.
 | What happens when a party with no ledger is posted to for the first time? | `src/services/ledger-resolution.ts` `resolveOrCreateLedger` provisions one, **inside the posting transaction**, so it commits with the entry that needed it or rolls back with it. Its side comes from the **control head the posting is on** — not `derivePartySide`'s no-activity default, because at migration time there was a history to weigh and a human to review it (`party_ledger_plan`) and here there is neither, but there IS better information than a default. Refusing to post for want of a row the engine can create would be a regression, not a safety property |
 | Where is a Contra / Payment / Receipt / Journal typed? | `client-front` `components/admin/transaction/vouchers/voucher-entry/` — `/transaction/**voucher**/<type>/new` (singular; the plural is the lists). P4b; it replaced three components and deleted them |
 | Where is a Sales / Purchase / Debit Note / Credit Note typed? | the **same** surface since P4c — `/transaction/voucher/<type>/new` — but a different component: `vouchers/trx/trx-add-edit/`, re-hosted and otherwise untouched. `entrySurfaceFor()` in `utils/voucher-entry.util.ts` is the one answer to which surface a type is on; don't write `/transaction/voucher` at a call site |
-| Where is a Purchase Order / Quotation / Delivery Challan typed? | the same surface since **P4d**, on the same component as the item four — a Workflow Document IS the item grid, under a different invariant. Reached by `Ctrl+F8`/`Ctrl+F9`/`Alt+F8`/`Alt+F9`, or from the type bar's **overflow**, which is the only way in for purchase requisition and quotation (no chord, deliberately) |
-| Why is a Purchase Order not drawn as a Dr/Cr grid? | `loadFor` in `voucher-entry.routes.ts` asks `isAccountingEntry`, not `isItemEntry` — the Dr/Cr grid hosts a closed set of four and everything else on the surface is the item form. Asked the other way round, all six Workflow Documents render two rows whose totals are both zero (F6) |
-| Why does this voucher's title bar say "→ Goods Receipt"? | `TrxAddEditComponent.convertsIntoLabel` (P4d) — the Workflow Document mode's invariant made visible, since a document with the item grid and neither of its guarantees otherwise reads as an invoice that lost its totals. It reads `nextVisibleInFlow`, so it names the stage **this company** converts into rather than the one `DOCUMENT_FLOW_NEXT` names |
-| Why isn't Purchase Order a button on the voucher type bar? | it is, behind the **overflow** — fourteen buttons is not a row of keys, so the row is the eight that post and the six that do not sit in one menu (P4d). The menu is filtered by `hiddenTransactionMenus`, because those six are exactly the hideable stages |
+| Where is a Purchase Order / Sales Order / Delivery Note typed? | the same surface since **P4d**, on the same component as the item four — a Workflow Document IS the item grid, under a different invariant. Reached by `Ctrl+F8`/`Ctrl+F9`/`Alt+F8`/`Alt+F9`, or from the type bar's **overflow**. ⚠️ **Quotation and Purchase Requisition are gone from the UI** (2026-09-01) — neither is a Tally voucher type; their `PostingVoucherKind` members stay, so documents already raised still post and print |
+| Why is a Purchase Order not drawn as a Dr/Cr grid? | `loadFor` in `voucher-entry.routes.ts` asks `isAccountingEntry`, not `isItemEntry` — the Dr/Cr grid hosts a closed set of four and everything else on the surface is the item form. Asked the other way round, every Workflow Document renders two rows whose totals are both zero (F6) |
+| Why does this voucher's title bar say "→ Receipt Note"? | `TrxAddEditComponent.convertsIntoLabel` (P4d) — the Workflow Document mode's invariant made visible, since a document with the item grid and neither of its guarantees otherwise reads as an invoice that lost its totals. It reads `nextVisibleInFlow`, so it names the stage **this company** converts into rather than the one `DOCUMENT_FLOW_NEXT` names |
+| Why isn't Purchase Order a button on the voucher type bar? | it is, behind the **overflow** — twelve buttons is not a row of keys, so the row is the eight that post and the four Order Vouchers sit in one menu (P4d). The menu is filtered by `hiddenTransactionMenus` |
 | Why does the voucher type bar look identical on two different screens? | it IS one — `components/shared/voucher-type-bar/`, rendered by both entry components (P4c). Presentational: it emits the type and each host navigates, which is what keeps a switch a navigation through `pendingChangesGuard` |
 | Why does a brand-new voucher ask "Discard unsaved changes?" | it should not — `app-ledger-picker`'s `preselectDefault` restores pristine/untouched after applying the seeded head (P4c). ⚠️ Any programmatic write through a `ControlValueAccessor`'s `onChange` marks the control dirty **and** touched: Angular cannot tell it from a keystroke, so a component applying a default has to say so |
 | How do I type a service bill with no stock? | `Ctrl+H` on Sales, Purchase or either note — P4e. ⚠️ The old answer here said an Accounting Invoice is *not representable*; that was measured and is wrong. See the row below |
