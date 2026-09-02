@@ -1037,6 +1037,140 @@ if (hubFeatureColumns && hubFeaturesDto && consoleFeatures) {
   }
 }
 
+// ── 13. round off, and the four decimals a voucher RATE carries (2026-09-01) ──
+//
+// Two rules, one check, because they meet on the same screen and one is only
+// safe because of the other.
+//
+// `voucher-round-off.const.ts` decides what a whole-bill rounding adjusts and
+// what a per-line rounding takes a line to; `voucher-round-off.util.ts` says
+// the same thing on the entry form. ⚠️ The form's figure is a PREVIEW — the
+// server derives the adjustment and writes it as a charge — so drift here does
+// not corrupt the books, it does something worse for a person: the total on
+// screen and the total that saves differ by a few paise with nothing saying so.
+//
+// `rateFromAmount` is the second half. The server re-derives every line's net
+// as `round2(quantity × unitPrice)`, so a rate rounded to a different number of
+// decimals on the two sides means a typed Amount comes BACK as a different
+// amount — which is the defect four decimals were introduced to fix, reappearing
+// as drift. `RATE_DECIMALS` is compared as data for that reason: it is the one
+// constant that has to be identical for the arithmetic to agree at all.
+{
+  const BACK_RO = 'jayhind-client-back/src/const/voucher-round-off.const.ts';
+  const FRONT_RO = 'jayhindi-client-front/src/utils/voucher-round-off.util.ts';
+  const BACK_RATE = 'jayhind-client-back/src/const/trx-discount.const.ts';
+  const FRONT_RATE = 'jayhindi-client-front/src/utils/trx-discount.util.ts';
+  const vectorFile = path.join(__dirname, 'vectors/voucher-round-off.vectors.json');
+
+  let table;
+  try {
+    table = JSON.parse(fs.readFileSync(vectorFile, 'utf8'));
+  } catch (err) {
+    failures.push(`voucher-round-off vectors: could not read ${path.relative(ROOT, vectorFile)} — ${err.message}`);
+  }
+
+  if (table) {
+    let back, front, backRate, frontRate;
+    try {
+      back = loadTsModule(...splitRepoPath(BACK_RO));
+      front = loadTsModule(...splitRepoPath(FRONT_RO));
+      backRate = loadTsModule(...splitRepoPath(BACK_RATE));
+      frontRate = loadTsModule(...splitRepoPath(FRONT_RATE));
+    } catch (err) {
+      failures.push(`voucher-round-off vectors: ${err.message}`);
+    }
+
+    if (back && front && backRate && frontRate) {
+      let compared = 0;
+
+      // Each row is checked THREE ways — backend, frontend, and the table's own
+      // `want`. A two-way parity check passes a rule both sides forgot together;
+      // only the restated answer catches that (§13.4's own reasoning).
+      const three = (label, fn, rows, args, want) => {
+        for (const row of rows) {
+          const a = args(row);
+          const gotBack = fn(back, backRate)(...a);
+          const gotFront = fn(front, frontRate)(...a);
+          compared += 1;
+          if (gotBack !== gotFront) {
+            failures.push(
+              `voucher-round-off: ${label}(${a.map((x) => JSON.stringify(x)).join(', ')}) — ` +
+                `client-back says ${gotBack}, client-front says ${gotFront}. DRIFT.`,
+            );
+          } else if (gotBack !== want(row)) {
+            failures.push(
+              `voucher-round-off: ${label}(${a.map((x) => JSON.stringify(x)).join(', ')}) — ` +
+                `both sides say ${gotBack}, the vector table expects ${want(row)}` +
+                `${row.why ? ` (${row.why})` : ''}. RULE CHANGED on both sides at once.`,
+            );
+          }
+        }
+      };
+
+      three('roundOffAdjustment', (m) => m.roundOffAdjustment, table.adjustment ?? [],
+        (r) => [r.base, r.mode], (r) => r.want);
+      three('roundOffStep', (m) => m.roundOffStep, table.step ?? [],
+        (r) => [r.mode], (r) => r.want);
+      three('roundLineAmount', (m) => m.roundLineAmount, table.lineAmount ?? [],
+        (r) => [r.net], (r) => r.want);
+      three('rateFromAmount', (_m, rate) => rate.rateFromAmount, table.rateFromAmount ?? [],
+        (r) => [r.amount, r.quantity], (r) => r.want);
+
+      // ⚠️ The property the whole feature rests on, asserted rather than
+      // assumed: re-rounding a rounded total must add nothing. `TrxWriteService`
+      // computes the adjustment on the total EXCLUDING the round-off charge
+      // precisely because this holds — if it stopped holding, an edit would
+      // compound the rounding on every save and the drift would look like a
+      // pricing bug rather than a rule one.
+      for (const mode of ['nearest1', 'nearest5', 'nearest10']) {
+        for (const base of [2762935.78, 1234.4, 99.995, -1234.4]) {
+          for (const [name, m] of [['client-back', back], ['client-front', front]]) {
+            const once = m.roundedTotal(base, mode);
+            compared += 1;
+            if (m.roundOffAdjustment(once, mode) !== 0) {
+              failures.push(
+                `voucher-round-off: on ${name}, rounding ${base} to ${mode} gives ${once}, and rounding ` +
+                  'THAT moves it again — the adjustment is not idempotent, so an edit compounds it.',
+              );
+            }
+          }
+        }
+      }
+
+      // The mode list has to match: the ENUM column stores these literals, so a
+      // value one side offers and the other does not is a 400 on save.
+      const backModes = JSON.stringify(back.ROUND_OFF_MODES);
+      const frontModes = JSON.stringify(front.ROUND_OFF_MODES);
+      compared += 1;
+      if (backModes !== frontModes) {
+        failures.push(
+          `voucher-round-off: the mode lists differ — client-back ${backModes}, client-front ${frontModes}. ` +
+            'These are the literals the ENUM column stores; a mode only one side knows is a 400 on save.',
+        );
+      }
+
+      // `RATE_DECIMALS` compared as DATA, not only through the function: the
+      // two could agree on every vector above and still disagree about a rate
+      // no vector happens to exercise.
+      compared += 1;
+      if (backRate.RATE_DECIMALS !== frontRate.RATE_DECIMALS) {
+        failures.push(
+          `voucher-round-off: RATE_DECIMALS is ${backRate.RATE_DECIMALS} on client-back and ` +
+            `${frontRate.RATE_DECIMALS} on client-front — the server derives every line's net from ` +
+            'quantity × unitPrice, so a typed Amount comes back as a different amount.',
+        );
+      }
+
+      notes.push(
+        `voucher-round-off: ${compared} behavioural comparisons over ` +
+          `${(table.adjustment?.length ?? 0) + (table.step?.length ?? 0) + (table.lineAmount?.length ?? 0) + (table.rateFromAmount?.length ?? 0)} ` +
+          'vectors, each checked against BOTH implementations and against the table\'s own restated answer, ' +
+          'plus the idempotence property and RATE_DECIMALS as data.',
+      );
+    }
+  }
+}
+
 // ── Report ──────────────────────────────────────────────────────────────────
 for (const n of notes) console.log(`note: ${n}`);
 

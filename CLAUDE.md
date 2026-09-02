@@ -1373,6 +1373,64 @@ self-invoice (`gst-returns/self-invoice.const.ts`, rendered by the print payload
 all agree about what an RCM document is. Forward-only: vouchers posted before
 this are not re-posted.
 
+**Round off is a CHARGE, and a line round-off is not** (2026-09-01). Two
+different roundings, deliberately not one rule (`src/const/voucher-round-off.const.ts`):
+
+- A **line** round-off takes the line's *taxable net* to the whole rupee, and GST
+  is charged on the rounded figure — so `net + tax` still ties exactly, nothing
+  is left over and no ledger is involved. It is expressed through the line's own
+  `unitPrice`, because the server derives every net as
+  `round2(quantity × unitPrice)`: a rounded amount the rate cannot express would
+  not survive the save.
+- A **bill** round-off rounds the grand total *after* tax, so it cannot be folded
+  into a taxable value. It is an ordinary `trx_charges` row on the company's
+  Round Off head — the shape the Tally import has always produced for a "Round
+  Of" ledger line — so it posts through `PostingService` with no special case and
+  the entry balances by construction.
+
+⚠️ **It is the one charge that is NOT part of the taxable value.** §15(2)(c) puts
+an incidental expense charged on the invoice *into* the transaction value, which
+is why every other charge is a return line (GST-021) — and rounding is not an
+incidental expense, it is the total being presented to the rupee.
+`trx_charges.isRoundOff` is what `GstReturnAssemblyService` reads to keep it out
+of GSTR-1's line details while leaving it inside the invoice `val` the customer
+pays. Read off the **row**, never off the head: a company may point its rounding
+at any head, and that head can carry ordinary charges beside it.
+
+⚠️⚠️ **No DTO declares `isRoundOff`**, so `forbidNonWhitelisted` strips it — a
+caller cannot mark a real charge as rounding and take a taxable figure out of the
+return. The client states only `trx.roundOffMode`; the adjustment, its row and
+its flag are all derived (BUG-0030's rule). `TrxWriteService` also **drops any
+charge a caller sends against the round-off head**, because the form loads a
+voucher's charges on edit and re-sending the derived row would persist it as an
+ordinary charge *and* add a fresh adjustment beside it — the total drifting by the
+rounding on every save. Filtering in the form would work until the next caller
+(§13 still-open #3); filtering at the writer cannot be forgotten.
+
+⚠️ The head is `Indirect Expenses`, where the four other charge heads are
+**Direct** — and that is a figure, not a preference: P6 draws the Trading Account
+through Direct Expenses, so filing a rounding adjustment there would move **Gross
+Profit** by the paise a company rounds off. It carries **no `systemKey`**
+deliberately (the posting engine never resolves it — the charge names its own
+group, exactly as Freight does); which head to use is stated on
+`transaction_configurations.roundOffGroupId`, and a company with none is offered
+no whole-bill rounding rather than a guessed head.
+
+**A voucher line's RATE carries four decimals; its money carries two**
+(`RATE_DECIMALS`, 2026-09-01). The server derives every net as
+`round2(quantity × unitPrice)`, so the rate is the only lever a client has for
+making a line come out at a stated figure — and at two decimals, typing a
+supplier's own line total and back-solving `amount / quantity` rounded the rate
+to paise **first**, so `quantity × that` missed the figure on the paper invoice.
+A purchase voucher could not be made to equal the purchase invoice, which is the
+entire job of a purchase voucher. ⚠️ **It is exact up to a quantity of 100 and
+best-effort above it**: the error is `0.00005 × quantity`, so at 10,000 units the
+arithmetic can still miss by 22 paise. That is a property of the number of
+decimals, not of the code — moving the boundary is one edit to `RATE_DECIMALS`
+and one `ALTER` on `trx_items.unitPrice`, and the co-located spec asserts both
+the guarantee and the limit rather than leaving the limit to be found on a
+customer's invoice.
+
 **Compensation cess is not modelled** (D-53). `trx_items.cessAmount` is dropped —
 it was a client-stated figure the server never derived, never billed and posted
 to no head, read straight into GSTR-1's `csamt`. The **portal** field stays at a
@@ -3223,7 +3281,7 @@ return { status: true, data: <payload>, message: 'Product created successfully' 
 | GST rules vs. the statute | `qa-artifacts/tests/gst/` — `gst-rules.ts` restates the rules from the Acts and notifications, and four specs measure the rate schedule, GSTIN validation, the computation matrix and the HSN master against it. Every rule is cited, with the date it was checked, in `qa-artifacts/docs/findings/gst.md` — **check that file before defending a GST number**, because rates and thresholds change by notification | `npx playwright test --project=api tests/gst` |
 | Every displayed figure is reproducible | `qa-artifacts/tests/reports/` — the statements and books against `statement-rules.ts`, the party account and the stock position against `party-rules.ts`, both **restated** rather than imported. ⚠️ **The oracle is the TREE since P3c‑1**: `ledgerFigures` (Σ per `acc_ledgers` row) and `groupFigures` (the same, rolled up by the materialised `path`, terminator carried because `/1/7/` must not collect `/1/70/`). Σ is taken over the **leaves**, never over the tree — a parent's figure includes its subtree, so adding the nodes up counts every line once per ancestor — and only Σ period debit, Σ period credit and Σ net survive a regrouping, which is why they are the figures a grouped report is held to identically. ⚠️⚠️ Its **party-facing** oracles were the last thing still asking the legacy question (*which control head was this line posted to?*) where every report answers *which group does this party's ledger hang under?*; the two differ by the whole of D3's movement, and that was twelve of the twenty-five failures on `main`. The suite is not green — **8 fail, against a measured 25 before P3c‑1, a strict subset** — and what is left is the same family, outside `tests/reports/`: fixtures written before a party had one ledger on one side. ⚠️⚠️ Two oracles here encoded the pre-D3 world in an **arithmetic** rather than in a query, which is the harder kind to see: `Math.max(receivable, payable)` read a party's control balance and picked the ZERO from the other side whenever their own was negative (a net advance), and *"is this party single-sided?"* was read off the ledger, where D3 makes every party single-sided. Both are questions about the documents now. Includes the two census tests that compare the derived balance caches with `journal_lines` (BUG-0042) and the delta tests that ask whether a figure *moves* by the right amount, which is the half an equality test cannot see | `npm run qa:reports` |
 | Async work & the deliberate outages | `qa-artifacts/tests/cross-service/` — nine properties (A1…A9) over what is allowed to be slow or absent: the scan pipeline's two error classes across four hops, the queue proved on a **side effect** rather than on its flag, Redis/hub/sidecar stopped one test at a time (D-29 via `framework/services.ts`), socket delivery measured with two real connections, and every `@Cron` method's single-runner claim. The fake OCR lane is the sidecar's **own** stub (D-32); `@real-model` is opt-in and excluded by `--grep-invert` | `npm run qa:cross-service` · `npm run qa:cross-service:real-model` |
-| Cross-repo mirror drift | `scripts/check-mirrors.js` (**this** repo — only it sees both submodules). Checks 1–3 compare data; check 4 compares **behaviour**, running both `voucher-lifecycle` implementations against `scripts/vectors/` (§13.4); check 7 compares the **hub console's** names for the nine licence switches against the hub API's `COMPANY_FEATURE_COLUMN` *and* `UpdateCompanyFeaturesDto`'s declared fields (BUG-0066 — the pair that had never once agreed); check 9 compares `JobWorkBoardStage` and `BOARD_STAGE_SEQUENCE`, **membership and order**, because the sequence IS the Kanban's lane order and the strings are the tokens the server's `stage` filter compares; check 10 runs both copies of the chart of accounts' five `describe*Block` refusals over `scripts/vectors/ledger-rules.vectors.json` (182 rows from 21 region cases) and compares the **message text**; check 11 compares the voucher **entry mode** of all fourteen types as data and *runs* `accountingRowPlan` on both sides — the backend derives it from `buildLegs`, so this is the only thing tying the entry screen to the posting engine across the repo boundary — there the sentence IS the deliverable, so a pair that agrees about the verdict and not the wording is the drift worth catching; check 12 runs both copies of `planBillSettlement` — how much of each selected bill a payment or receipt closes — over `scripts/vectors/bill-settlement.vectors.json`, comparing the **mappings and the message text**, plus `billSettlementSign`'s four rows and (P5c‑3) `allocationTargetFor`, whose two answers are checked against the **fields `CreateUpdateTrxPaymentReceiptTrxDto` actually declares** — `forbidNonWhitelisted` turns a key the DTO does not declare into a 400, which is BUG-0066's shape and why check 7 is written the same way. Needs esbuild from one submodule's `node_modules` and **fails loudly** rather than downgrading if none is present | `node scripts/check-mirrors.js` |
+| Cross-repo mirror drift | `scripts/check-mirrors.js` (**this** repo — only it sees both submodules). Checks 1–3 compare data; check 4 compares **behaviour**, running both `voucher-lifecycle` implementations against `scripts/vectors/` (§13.4); check 7 compares the **hub console's** names for the nine licence switches against the hub API's `COMPANY_FEATURE_COLUMN` *and* `UpdateCompanyFeaturesDto`'s declared fields (BUG-0066 — the pair that had never once agreed); check 9 compares `JobWorkBoardStage` and `BOARD_STAGE_SEQUENCE`, **membership and order**, because the sequence IS the Kanban's lane order and the strings are the tokens the server's `stage` filter compares; check 10 runs both copies of the chart of accounts' five `describe*Block` refusals over `scripts/vectors/ledger-rules.vectors.json` (182 rows from 21 region cases) and compares the **message text**; check 11 compares the voucher **entry mode** of all fourteen types as data and *runs* `accountingRowPlan` on both sides — the backend derives it from `buildLegs`, so this is the only thing tying the entry screen to the posting engine across the repo boundary — there the sentence IS the deliverable, so a pair that agrees about the verdict and not the wording is the drift worth catching; check 12 runs both copies of `planBillSettlement` — how much of each selected bill a payment or receipt closes — over `scripts/vectors/bill-settlement.vectors.json`, comparing the **mappings and the message text**, plus `billSettlementSign`'s four rows and (P5c‑3) `allocationTargetFor`, whose two answers are checked against the **fields `CreateUpdateTrxPaymentReceiptTrxDto` actually declares** — `forbidNonWhitelisted` turns a key the DTO does not declare into a 400, which is BUG-0066's shape and why check 7 is written the same way. check 13 runs both copies of the **round off** rule over `scripts/vectors/voucher-round-off.vectors.json` and compares `RATE_DECIMALS` as data — the four-decimal voucher rate is checked beside it because the server derives every line's net from `quantity × unitPrice`, so a rate rounded differently on the two sides means a typed Amount comes BACK as a different amount. ⚠️ It also asserts the adjustment is **idempotent**, which is what lets `TrxWriteService` compute it on the total excluding its own charge; and two of its vectors exist only because a third, obvious-looking one (`99.995`) turns out **not** to discriminate the paise-first rounding — float truncation puts both orderings on the same answer, so the check passed an injection until it was replaced. Needs esbuild from one submodule's `node_modules` and **fails loudly** rather than downgrading if none is present | `node scripts/check-mirrors.js` |
 | QA harnesses | `scripts/qa-*.ts` (~55 in client-back, 5 in admin-back) | `npx ts-node -r tsconfig-paths/register scripts/qa-<name>.ts` |
 | Style guard | `scripts/breakpoint-guard.js` — the four-value scale, over `.scss` **and `.ts`** (eleven components declare their CSS inline, and those were unscanned until 2026-08-27; the five HR files that surfaced are grandfathered with a reason) | `npm run lint` (client-front) |
 | E2E / UI | `qa-artifacts/` (Playwright) | see its README |
@@ -3587,6 +3645,11 @@ is one nobody reads.
 | Why is `buildLegs` not in `posting.const.ts` any more? | it **is** the interpreter now, so it lives with the rules — and a re-export would make the two files a **cycle** whose failure depends on load order, because `POSTING_RULES` is built at module-evaluation time out of `posting.const.ts`'s enums (P8a) |
 | Why does an empty leg set throw for one kind and not another? | `posting-rules.const.ts` `POSTING_EFFECT` — the total `Record` that keeps the switch's `default: throw`. A rule table cannot tell *"posts nothing"* from *"nobody wrote the rules"*, and reading the second as the first approves a voucher into no ledger |
 | Is a charge on the invoice part of the taxable value? | **Yes** — CGST Act §15(2)(c). `GstReturnAssemblyService.chargeToLineInput` (GST-021) makes each `trx_charges` row a return line at the rate actually charged. ⚠️ It carries no HSN/SAC, so table 12 groups it under `UNSPECIFIED_HSN`; a real code belongs on the charge **head** |
+| How is a whole-bill round off recorded? | a `trx_charges` row on the head named by `transaction_configurations.roundOffGroupId`, carrying `isRoundOff` — `src/const/voucher-round-off.const.ts` is the rule, `TrxWriteService` derives it. ⚠️ The client states only `trx.roundOffMode`; the flag is on **no DTO**, so a caller cannot mark a real charge as rounding and take it out of GSTR-1. A charge sent against that head is dropped, or an edit doubles the adjustment |
+| Why is the Round Off head Indirect and the other charge heads Direct? | `TRX_GROUP_TARGET` — P6 draws the Trading Account through `Direct Expenses`, so filing a rounding adjustment there would move **Gross Profit** by the paise a company rounds off |
+| Why does my voucher offer no Round Off chip? | the company has no round-off head — `transaction_configurations.roundOffGroupId` is null, and the server refuses to guess one (a wrong head is silent; it just reports under something else). Set it on **Transaction ▸ Configuration ▸ Entry grid** |
+| Why can't I type a Rate that reproduces the supplier's line total? | you can, to a quantity of 100 — `RATE_DECIMALS` (`trx-discount.const.ts`) is 4 and `trx_items.unitPrice` is `DECIMAL(16,4)`. ⚠️ Above that the error is `0.00005 × quantity` and the line can land a few paise off; the co-located spec asserts the limit as well as the guarantee |
+| Why is the Discount column missing from the item grid? | `transaction_configurations.showLineDiscount` is off for that voucher type — switched on per voucher from the options bar, and per type on **Transaction ▸ Configuration ▸ Entry grid**. ⚠️ A voucher whose line already HOLDS a discount shows the column regardless (`showDiscountColumn`), because hiding an entered figure would strip it on the next save |
 | Which tax does this supply bear, and why? | `src/const/gst.const.ts` (`isInterStateSupply`, `gstLineTax`), `src/const/gst-returns/gst-classification.const.ts` (the deemed-inter-state set) |
 | What unit code does a statutory document declare? | `src/const/uqc.const.ts` `resolveUqc` — the portal's own list, used by GSTR-1 table 12, the IRN payload and the e-way bill alike (BUG-0037) |
 | Is this GSTIN real, and what does it say? | `src/const/gstin.const.ts` (grammar, check digit, state, PAN) |
