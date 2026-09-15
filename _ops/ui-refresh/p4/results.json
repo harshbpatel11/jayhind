@@ -1,0 +1,112 @@
+[
+  {
+    "name": "chat/light conversation list rendered",
+    "pass": true,
+    "detail": "1 row(s)"
+  },
+  {
+    "name": "chat/light avatar distinct from its selected row",
+    "pass": true,
+    "detail": "row rgb(239, 237, 240) / avatar rgb(215, 227, 255)"
+  },
+  {
+    "name": "chat/light own and incoming bubbles differ",
+    "pass": true,
+    "detail": "mine rgb(0, 92, 187) / theirs rgb(250, 249, 253)"
+  },
+  {
+    "name": "chat/light own bubble text passes AA (4.5:1)",
+    "pass": true,
+    "detail": "6.46:1 — rgb(255, 255, 255) on rgb(0, 92, 187)"
+  },
+  {
+    "name": "chat/light incoming bubble text passes AA (4.5:1)",
+    "pass": true,
+    "detail": "16.41:1 — rgb(26, 27, 31) on rgb(250, 249, 253)"
+  },
+  {
+    "name": "chat/light own bubble distinct from the selected row",
+    "pass": true,
+    "detail": "bubble rgb(0, 92, 187) / row rgb(239, 237, 240)"
+  },
+  {
+    "name": "chat/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "chat/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "chat/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "chat/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "chat/dark conversation list rendered",
+    "pass": true,
+    "detail": "1 row(s)"
+  },
+  {
+    "name": "chat/dark avatar distinct from its selected row",
+    "pass": true,
+    "detail": "row rgb(31, 32, 34) / avatar rgb(0, 69, 143)"
+  },
+  {
+    "name": "chat/dark own and incoming bubbles differ",
+    "pass": true,
+    "detail": "mine rgb(171, 199, 255) / theirs rgb(18, 19, 22)"
+  },
+  {
+    "name": "chat/dark own bubble text passes AA (4.5:1)",
+    "pass": true,
+    "detail": "7.74:1 — rgb(0, 47, 101) on rgb(171, 199, 255)"
+  },
+  {
+    "name": "chat/dark incoming bubble text passes AA (4.5:1)",
+    "pass": true,
+    "detail": "14.41:1 — rgb(227, 226, 230) on rgb(18, 19, 22)"
+  },
+  {
+    "name": "chat/dark own bubble distinct from the selected row",
+    "pass": true,
+    "detail": "bubble rgb(171, 199, 255) / row rgb(31, 32, 34)"
+  },
+  {
+    "name": "chat/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "chat/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "chat/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "chat/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "no console errors",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "no failed requests",
+    "pass": true,
+    "detail": ""
+  }
+]

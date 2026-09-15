@@ -1,0 +1,2830 @@
+{
+  "$comment": [
+    "Behavioural parity vectors for the voucher-lifecycle rules \u2014 CLAUDE.md \u00a713.4.",
+    "One table, spent by scripts/check-mirrors.js against BOTH implementations:",
+    "  jayhind-client-back/src/const/voucher-lifecycle.const.ts   (VoucherLifecycleState) => ActionVerdict",
+    "  jayhindi-client-front/src/utils/voucher-lifecycle.util.ts  (VoucherLifecycleRow, VoucherTypeFlags) => boolean",
+    "`actions` is the EXHAUSTIVE cross-product of the six facts a decision turns on:",
+    "  status (5) x everPosted x isArchived x activeReferences(0|2) x allowCancel(unset|false) x allowDelete(unset|false)",
+    "so no branch can be missing and no two rows can duplicate each other's inputs.",
+    "`expect` is the rule RESTATED from the doc comments and \u00a74.9's two lifecycle rules \u2014 not read off",
+    "either implementation \u2014 so the table can disagree with the code instead of agreeing by construction.",
+    "`why` carries prose on the rows that pin something notable (BUG-0024, the asymmetries) and a derived",
+    "label on the rest. See ./README.md. Add vectors in the same commit as a rule change."
+  ],
+  "actions": [
+    {
+      "id": "V-001",
+      "why": "draft",
+      "given": {
+        "status": "draft",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": true,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-002",
+      "why": "draft \u00b7 delete disabled",
+      "given": {
+        "status": "draft",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-003",
+      "why": "draft \u00b7 cancel disabled",
+      "given": {
+        "status": "draft",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": true,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-004",
+      "why": "draft \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "draft",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-005",
+      "why": "a DRAFT archives even with a live reference \u2014 the switch returns before the reference check, deliberately: nothing that never posted can be legitimately depended on, and rule 1 is about documents leaving the BOOKS. An asymmetry with the cancelled case that a reader would otherwise take for a bug",
+      "given": {
+        "status": "draft",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": true,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-006",
+      "why": "draft \u00b7 2 live ref(s) \u00b7 delete disabled",
+      "given": {
+        "status": "draft",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-007",
+      "why": "draft \u00b7 2 live ref(s) \u00b7 cancel disabled",
+      "given": {
+        "status": "draft",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": true,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-008",
+      "why": "draft \u00b7 2 live ref(s) \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "draft",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-009",
+      "why": "the one erasable shape: archived, never posted, unreferenced",
+      "given": {
+        "status": "draft",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": true
+      }
+    },
+    {
+      "id": "V-010",
+      "why": "BUG-0024 \u2014 deletion switched off must block stage TWO as well. The server honoured it in archive and not in erase, so the first DELETE was refused and the second erased the row permanently",
+      "given": {
+        "status": "draft",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-011",
+      "why": "draft \u00b7 archived \u00b7 cancel disabled",
+      "given": {
+        "status": "draft",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": true
+      }
+    },
+    {
+      "id": "V-012",
+      "why": "draft \u00b7 archived \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "draft",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-013",
+      "why": "draft \u00b7 archived \u00b7 2 live ref(s)",
+      "given": {
+        "status": "draft",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-014",
+      "why": "draft \u00b7 archived \u00b7 2 live ref(s) \u00b7 delete disabled",
+      "given": {
+        "status": "draft",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-015",
+      "why": "draft \u00b7 archived \u00b7 2 live ref(s) \u00b7 cancel disabled",
+      "given": {
+        "status": "draft",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-016",
+      "why": "draft \u00b7 archived \u00b7 2 live ref(s) \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "draft",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-017",
+      "why": "draft \u00b7 posted",
+      "given": {
+        "status": "draft",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": true,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-018",
+      "why": "draft \u00b7 posted \u00b7 delete disabled",
+      "given": {
+        "status": "draft",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-019",
+      "why": "draft \u00b7 posted \u00b7 cancel disabled",
+      "given": {
+        "status": "draft",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": true,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-020",
+      "why": "draft \u00b7 posted \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "draft",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-021",
+      "why": "draft \u00b7 posted \u00b7 2 live ref(s)",
+      "given": {
+        "status": "draft",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": true,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-022",
+      "why": "draft \u00b7 posted \u00b7 2 live ref(s) \u00b7 delete disabled",
+      "given": {
+        "status": "draft",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-023",
+      "why": "draft \u00b7 posted \u00b7 2 live ref(s) \u00b7 cancel disabled",
+      "given": {
+        "status": "draft",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": true,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-024",
+      "why": "draft \u00b7 posted \u00b7 2 live ref(s) \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "draft",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-025",
+      "why": "everPosted on a draft is contradictory but must still refuse \u2014 the flag is read from approvedAt, never from the status",
+      "given": {
+        "status": "draft",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-026",
+      "why": "draft \u00b7 posted \u00b7 archived \u00b7 delete disabled",
+      "given": {
+        "status": "draft",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-027",
+      "why": "draft \u00b7 posted \u00b7 archived \u00b7 cancel disabled",
+      "given": {
+        "status": "draft",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-028",
+      "why": "draft \u00b7 posted \u00b7 archived \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "draft",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-029",
+      "why": "draft \u00b7 posted \u00b7 archived \u00b7 2 live ref(s)",
+      "given": {
+        "status": "draft",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-030",
+      "why": "draft \u00b7 posted \u00b7 archived \u00b7 2 live ref(s) \u00b7 delete disabled",
+      "given": {
+        "status": "draft",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-031",
+      "why": "draft \u00b7 posted \u00b7 archived \u00b7 2 live ref(s) \u00b7 cancel disabled",
+      "given": {
+        "status": "draft",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-032",
+      "why": "draft \u00b7 posted \u00b7 archived \u00b7 2 live ref(s) \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "draft",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-033",
+      "why": "pending",
+      "given": {
+        "status": "pending",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-034",
+      "why": "pending \u00b7 delete disabled",
+      "given": {
+        "status": "pending",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-035",
+      "why": "pending \u00b7 cancel disabled",
+      "given": {
+        "status": "pending",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-036",
+      "why": "pending \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "pending",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-037",
+      "why": "pending \u00b7 2 live ref(s)",
+      "given": {
+        "status": "pending",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-038",
+      "why": "pending \u00b7 2 live ref(s) \u00b7 delete disabled",
+      "given": {
+        "status": "pending",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-039",
+      "why": "pending \u00b7 2 live ref(s) \u00b7 cancel disabled",
+      "given": {
+        "status": "pending",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-040",
+      "why": "pending \u00b7 2 live ref(s) \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "pending",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-041",
+      "why": "an archived pending voucher that never posted and has nothing linked IS erasable \u2014 stage two asks about the ledger, not about approval",
+      "given": {
+        "status": "pending",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": true
+      }
+    },
+    {
+      "id": "V-042",
+      "why": "pending \u00b7 archived \u00b7 delete disabled",
+      "given": {
+        "status": "pending",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-043",
+      "why": "pending \u00b7 archived \u00b7 cancel disabled",
+      "given": {
+        "status": "pending",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": true
+      }
+    },
+    {
+      "id": "V-044",
+      "why": "pending \u00b7 archived \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "pending",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-045",
+      "why": "pending \u00b7 archived \u00b7 2 live ref(s)",
+      "given": {
+        "status": "pending",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-046",
+      "why": "pending \u00b7 archived \u00b7 2 live ref(s) \u00b7 delete disabled",
+      "given": {
+        "status": "pending",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-047",
+      "why": "pending \u00b7 archived \u00b7 2 live ref(s) \u00b7 cancel disabled",
+      "given": {
+        "status": "pending",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-048",
+      "why": "pending \u00b7 archived \u00b7 2 live ref(s) \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "pending",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-049",
+      "why": "pending \u00b7 posted",
+      "given": {
+        "status": "pending",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-050",
+      "why": "pending \u00b7 posted \u00b7 delete disabled",
+      "given": {
+        "status": "pending",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-051",
+      "why": "pending \u00b7 posted \u00b7 cancel disabled",
+      "given": {
+        "status": "pending",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-052",
+      "why": "pending \u00b7 posted \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "pending",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-053",
+      "why": "pending \u00b7 posted \u00b7 2 live ref(s)",
+      "given": {
+        "status": "pending",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-054",
+      "why": "pending \u00b7 posted \u00b7 2 live ref(s) \u00b7 delete disabled",
+      "given": {
+        "status": "pending",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-055",
+      "why": "pending \u00b7 posted \u00b7 2 live ref(s) \u00b7 cancel disabled",
+      "given": {
+        "status": "pending",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-056",
+      "why": "pending \u00b7 posted \u00b7 2 live ref(s) \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "pending",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-057",
+      "why": "pending \u00b7 posted \u00b7 archived",
+      "given": {
+        "status": "pending",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-058",
+      "why": "pending \u00b7 posted \u00b7 archived \u00b7 delete disabled",
+      "given": {
+        "status": "pending",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-059",
+      "why": "pending \u00b7 posted \u00b7 archived \u00b7 cancel disabled",
+      "given": {
+        "status": "pending",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-060",
+      "why": "pending \u00b7 posted \u00b7 archived \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "pending",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-061",
+      "why": "pending \u00b7 posted \u00b7 archived \u00b7 2 live ref(s)",
+      "given": {
+        "status": "pending",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-062",
+      "why": "pending \u00b7 posted \u00b7 archived \u00b7 2 live ref(s) \u00b7 delete disabled",
+      "given": {
+        "status": "pending",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-063",
+      "why": "pending \u00b7 posted \u00b7 archived \u00b7 2 live ref(s) \u00b7 cancel disabled",
+      "given": {
+        "status": "pending",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-064",
+      "why": "pending \u00b7 posted \u00b7 archived \u00b7 2 live ref(s) \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "pending",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-065",
+      "why": "approved",
+      "given": {
+        "status": "approved",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": true,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-066",
+      "why": "approved \u00b7 delete disabled",
+      "given": {
+        "status": "approved",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": true,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-067",
+      "why": "approved \u00b7 cancel disabled",
+      "given": {
+        "status": "approved",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-068",
+      "why": "approved \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "approved",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-069",
+      "why": "approved \u00b7 2 live ref(s)",
+      "given": {
+        "status": "approved",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-070",
+      "why": "approved \u00b7 2 live ref(s) \u00b7 delete disabled",
+      "given": {
+        "status": "approved",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-071",
+      "why": "approved \u00b7 2 live ref(s) \u00b7 cancel disabled",
+      "given": {
+        "status": "approved",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-072",
+      "why": "approved \u00b7 2 live ref(s) \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "approved",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-073",
+      "why": "approved \u00b7 archived",
+      "given": {
+        "status": "approved",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": true
+      }
+    },
+    {
+      "id": "V-074",
+      "why": "approved \u00b7 archived \u00b7 delete disabled",
+      "given": {
+        "status": "approved",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-075",
+      "why": "approved \u00b7 archived \u00b7 cancel disabled",
+      "given": {
+        "status": "approved",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": true
+      }
+    },
+    {
+      "id": "V-076",
+      "why": "approved \u00b7 archived \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "approved",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-077",
+      "why": "approved \u00b7 archived \u00b7 2 live ref(s)",
+      "given": {
+        "status": "approved",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-078",
+      "why": "approved \u00b7 archived \u00b7 2 live ref(s) \u00b7 delete disabled",
+      "given": {
+        "status": "approved",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-079",
+      "why": "approved \u00b7 archived \u00b7 2 live ref(s) \u00b7 cancel disabled",
+      "given": {
+        "status": "approved",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-080",
+      "why": "approved \u00b7 archived \u00b7 2 live ref(s) \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "approved",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-081",
+      "why": "the cancellable case: approved, nothing linked",
+      "given": {
+        "status": "approved",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": true,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-082",
+      "why": "allowDelete does not govern cancellation",
+      "given": {
+        "status": "approved",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": true,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-083",
+      "why": "cancellation switched off for this type",
+      "given": {
+        "status": "approved",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-084",
+      "why": "approved \u00b7 posted \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "approved",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-085",
+      "why": "rule 1 \u2014 a live dependent blocks cancel, or it would be left pointing at a voucher not in the books",
+      "given": {
+        "status": "approved",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-086",
+      "why": "approved \u00b7 posted \u00b7 2 live ref(s) \u00b7 delete disabled",
+      "given": {
+        "status": "approved",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-087",
+      "why": "approved \u00b7 posted \u00b7 2 live ref(s) \u00b7 cancel disabled",
+      "given": {
+        "status": "approved",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-088",
+      "why": "approved \u00b7 posted \u00b7 2 live ref(s) \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "approved",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-089",
+      "why": "approved \u00b7 posted \u00b7 archived",
+      "given": {
+        "status": "approved",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-090",
+      "why": "approved \u00b7 posted \u00b7 archived \u00b7 delete disabled",
+      "given": {
+        "status": "approved",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-091",
+      "why": "approved \u00b7 posted \u00b7 archived \u00b7 cancel disabled",
+      "given": {
+        "status": "approved",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-092",
+      "why": "approved \u00b7 posted \u00b7 archived \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "approved",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-093",
+      "why": "approved \u00b7 posted \u00b7 archived \u00b7 2 live ref(s)",
+      "given": {
+        "status": "approved",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-094",
+      "why": "approved \u00b7 posted \u00b7 archived \u00b7 2 live ref(s) \u00b7 delete disabled",
+      "given": {
+        "status": "approved",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-095",
+      "why": "approved \u00b7 posted \u00b7 archived \u00b7 2 live ref(s) \u00b7 cancel disabled",
+      "given": {
+        "status": "approved",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-096",
+      "why": "approved \u00b7 posted \u00b7 archived \u00b7 2 live ref(s) \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "approved",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-097",
+      "why": "cancelled",
+      "given": {
+        "status": "cancelled",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": true,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-098",
+      "why": "cancelled \u00b7 delete disabled",
+      "given": {
+        "status": "cancelled",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-099",
+      "why": "cancelled \u00b7 cancel disabled",
+      "given": {
+        "status": "cancelled",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": true,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-100",
+      "why": "cancelled \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "cancelled",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-101",
+      "why": "cancelled \u00b7 2 live ref(s)",
+      "given": {
+        "status": "cancelled",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-102",
+      "why": "cancelled \u00b7 2 live ref(s) \u00b7 delete disabled",
+      "given": {
+        "status": "cancelled",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-103",
+      "why": "cancelled \u00b7 2 live ref(s) \u00b7 cancel disabled",
+      "given": {
+        "status": "cancelled",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-104",
+      "why": "cancelled \u00b7 2 live ref(s) \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "cancelled",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-105",
+      "why": "cancelled but never posted IS erasable \u2014 rule 2 asks about the ledger, and this one never reached it",
+      "given": {
+        "status": "cancelled",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": true
+      }
+    },
+    {
+      "id": "V-106",
+      "why": "cancelled \u00b7 archived \u00b7 delete disabled",
+      "given": {
+        "status": "cancelled",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-107",
+      "why": "cancelled \u00b7 archived \u00b7 cancel disabled",
+      "given": {
+        "status": "cancelled",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": true
+      }
+    },
+    {
+      "id": "V-108",
+      "why": "cancelled \u00b7 archived \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "cancelled",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-109",
+      "why": "cancelled \u00b7 archived \u00b7 2 live ref(s)",
+      "given": {
+        "status": "cancelled",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-110",
+      "why": "cancelled \u00b7 archived \u00b7 2 live ref(s) \u00b7 delete disabled",
+      "given": {
+        "status": "cancelled",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-111",
+      "why": "cancelled \u00b7 archived \u00b7 2 live ref(s) \u00b7 cancel disabled",
+      "given": {
+        "status": "cancelled",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-112",
+      "why": "cancelled \u00b7 archived \u00b7 2 live ref(s) \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "cancelled",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-113",
+      "why": "cancelled \u00b7 posted",
+      "given": {
+        "status": "cancelled",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": true,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-114",
+      "why": "cancelled \u00b7 posted \u00b7 delete disabled",
+      "given": {
+        "status": "cancelled",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-115",
+      "why": "allowCancel does not govern deletion",
+      "given": {
+        "status": "cancelled",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": true,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-116",
+      "why": "cancelled \u00b7 posted \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "cancelled",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-117",
+      "why": "rule 1 again, on the archive of a cancelled voucher",
+      "given": {
+        "status": "cancelled",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-118",
+      "why": "cancelled \u00b7 posted \u00b7 2 live ref(s) \u00b7 delete disabled",
+      "given": {
+        "status": "cancelled",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-119",
+      "why": "cancelled \u00b7 posted \u00b7 2 live ref(s) \u00b7 cancel disabled",
+      "given": {
+        "status": "cancelled",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-120",
+      "why": "cancelled \u00b7 posted \u00b7 2 live ref(s) \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "cancelled",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-121",
+      "why": "everPosted is what forbids the erase, not the current status \u2014 a cancelled voucher posted and was reversed, and both sets of rows still name it",
+      "given": {
+        "status": "cancelled",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-122",
+      "why": "cancelled \u00b7 posted \u00b7 archived \u00b7 delete disabled",
+      "given": {
+        "status": "cancelled",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-123",
+      "why": "cancelled \u00b7 posted \u00b7 archived \u00b7 cancel disabled",
+      "given": {
+        "status": "cancelled",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-124",
+      "why": "cancelled \u00b7 posted \u00b7 archived \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "cancelled",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-125",
+      "why": "cancelled \u00b7 posted \u00b7 archived \u00b7 2 live ref(s)",
+      "given": {
+        "status": "cancelled",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-126",
+      "why": "cancelled \u00b7 posted \u00b7 archived \u00b7 2 live ref(s) \u00b7 delete disabled",
+      "given": {
+        "status": "cancelled",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-127",
+      "why": "cancelled \u00b7 posted \u00b7 archived \u00b7 2 live ref(s) \u00b7 cancel disabled",
+      "given": {
+        "status": "cancelled",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-128",
+      "why": "cancelled \u00b7 posted \u00b7 archived \u00b7 2 live ref(s) \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "cancelled",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-129",
+      "why": "rejected",
+      "given": {
+        "status": "rejected",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": true,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-130",
+      "why": "rejected \u00b7 delete disabled",
+      "given": {
+        "status": "rejected",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-131",
+      "why": "rejected \u00b7 cancel disabled",
+      "given": {
+        "status": "rejected",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": true,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-132",
+      "why": "rejected \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "rejected",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-133",
+      "why": "rejected \u00b7 2 live ref(s)",
+      "given": {
+        "status": "rejected",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": true,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-134",
+      "why": "rejected \u00b7 2 live ref(s) \u00b7 delete disabled",
+      "given": {
+        "status": "rejected",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-135",
+      "why": "rejected \u00b7 2 live ref(s) \u00b7 cancel disabled",
+      "given": {
+        "status": "rejected",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": true,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-136",
+      "why": "rejected \u00b7 2 live ref(s) \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "rejected",
+        "everPosted": false,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-137",
+      "why": "rejected \u00b7 archived",
+      "given": {
+        "status": "rejected",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": true
+      }
+    },
+    {
+      "id": "V-138",
+      "why": "BUG-0024, the rejected case",
+      "given": {
+        "status": "rejected",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-139",
+      "why": "rejected \u00b7 archived \u00b7 cancel disabled",
+      "given": {
+        "status": "rejected",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": true
+      }
+    },
+    {
+      "id": "V-140",
+      "why": "rejected \u00b7 archived \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "rejected",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-141",
+      "why": "rejected \u00b7 archived \u00b7 2 live ref(s)",
+      "given": {
+        "status": "rejected",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-142",
+      "why": "rejected \u00b7 archived \u00b7 2 live ref(s) \u00b7 delete disabled",
+      "given": {
+        "status": "rejected",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-143",
+      "why": "rejected \u00b7 archived \u00b7 2 live ref(s) \u00b7 cancel disabled",
+      "given": {
+        "status": "rejected",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-144",
+      "why": "rejected \u00b7 archived \u00b7 2 live ref(s) \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "rejected",
+        "everPosted": false,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-145",
+      "why": "rejected \u00b7 posted",
+      "given": {
+        "status": "rejected",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": true,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-146",
+      "why": "rejected \u00b7 posted \u00b7 delete disabled",
+      "given": {
+        "status": "rejected",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-147",
+      "why": "rejected \u00b7 posted \u00b7 cancel disabled",
+      "given": {
+        "status": "rejected",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": true,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-148",
+      "why": "rejected \u00b7 posted \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "rejected",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-149",
+      "why": "rejected \u00b7 posted \u00b7 2 live ref(s)",
+      "given": {
+        "status": "rejected",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": true,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-150",
+      "why": "rejected \u00b7 posted \u00b7 2 live ref(s) \u00b7 delete disabled",
+      "given": {
+        "status": "rejected",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-151",
+      "why": "rejected \u00b7 posted \u00b7 2 live ref(s) \u00b7 cancel disabled",
+      "given": {
+        "status": "rejected",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": true,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-152",
+      "why": "rejected \u00b7 posted \u00b7 2 live ref(s) \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "rejected",
+        "everPosted": true,
+        "isArchived": false,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-153",
+      "why": "rejected \u00b7 posted \u00b7 archived",
+      "given": {
+        "status": "rejected",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-154",
+      "why": "rejected \u00b7 posted \u00b7 archived \u00b7 delete disabled",
+      "given": {
+        "status": "rejected",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-155",
+      "why": "rejected \u00b7 posted \u00b7 archived \u00b7 cancel disabled",
+      "given": {
+        "status": "rejected",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-156",
+      "why": "rejected \u00b7 posted \u00b7 archived \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "rejected",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 0,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-157",
+      "why": "rejected \u00b7 posted \u00b7 archived \u00b7 2 live ref(s)",
+      "given": {
+        "status": "rejected",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-158",
+      "why": "rejected \u00b7 posted \u00b7 archived \u00b7 2 live ref(s) \u00b7 delete disabled",
+      "given": {
+        "status": "rejected",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": null,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-159",
+      "why": "rejected \u00b7 posted \u00b7 archived \u00b7 2 live ref(s) \u00b7 cancel disabled",
+      "given": {
+        "status": "rejected",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": null
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    },
+    {
+      "id": "V-160",
+      "why": "rejected \u00b7 posted \u00b7 archived \u00b7 2 live ref(s) \u00b7 cancel disabled \u00b7 delete disabled",
+      "given": {
+        "status": "rejected",
+        "everPosted": true,
+        "isArchived": true,
+        "activeReferences": 2,
+        "allowCancel": false,
+        "allowDelete": false
+      },
+      "expect": {
+        "cancel": false,
+        "archive": false,
+        "erase": false
+      }
+    }
+  ],
+  "recall": [
+    {
+      "id": "RC-01",
+      "why": "the maker pulls their own pending voucher back",
+      "given": {
+        "status": "pending",
+        "userId": 7,
+        "makerId": 7,
+        "submitterId": null
+      },
+      "expect": {
+        "recall": true
+      }
+    },
+    {
+      "id": "RC-02",
+      "why": "the submitter may recall it too \u2014 they are the person who sent it",
+      "given": {
+        "status": "pending",
+        "userId": 9,
+        "makerId": 7,
+        "submitterId": 9
+      },
+      "expect": {
+        "recall": true
+      }
+    },
+    {
+      "id": "RC-03",
+      "why": "a third party may not recall \u2014 a checker who disagrees rejects, which is recorded against them",
+      "given": {
+        "status": "pending",
+        "userId": 11,
+        "makerId": 7,
+        "submitterId": 9
+      },
+      "expect": {
+        "recall": false
+      }
+    },
+    {
+      "id": "RC-04",
+      "why": "only a voucher waiting for approval can be recalled",
+      "given": {
+        "status": "approved",
+        "userId": 7,
+        "makerId": 7,
+        "submitterId": 7
+      },
+      "expect": {
+        "recall": false
+      }
+    },
+    {
+      "id": "RC-05",
+      "why": "a draft is already where recall would put it",
+      "given": {
+        "status": "draft",
+        "userId": 7,
+        "makerId": 7,
+        "submitterId": 7
+      },
+      "expect": {
+        "recall": false
+      }
+    },
+    {
+      "id": "RC-06",
+      "why": "a cancelled voucher is not recallable",
+      "given": {
+        "status": "cancelled",
+        "userId": 7,
+        "makerId": 7,
+        "submitterId": 7
+      },
+      "expect": {
+        "recall": false
+      }
+    },
+    {
+      "id": "RC-07",
+      "why": "no maker and no submitter recorded: nobody may recall it",
+      "given": {
+        "status": "pending",
+        "userId": 7,
+        "makerId": null,
+        "submitterId": null
+      },
+      "expect": {
+        "recall": false
+      }
+    }
+  ]
+}

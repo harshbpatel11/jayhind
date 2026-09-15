@@ -1,0 +1,183 @@
+{
+  "$comment": [
+    "P5c‑2 — the bill register's two shared rules, as a table both repos run.",
+    "",
+    "`planBillSettlement` is what the reference grid draws: how much of each",
+    "selected bill this voucher closes, and — when it cannot — the sentence the",
+    "operator is shown. Every message here is user-facing, so the check compares",
+    "the TEXT, not only the verdict: a mirror that agrees about whether to refuse",
+    "and disagrees about why leaves one wording on the screen and another in the",
+    "toast the same click produces.",
+    "",
+    "`billSettlementSign` is the smaller rule underneath it, and the reason the",
+    "grid can offer a bill no document made (D-55's opening balance): it reads the",
+    "side the bill was POSTED on, where `settlementRole` can only switch on a",
+    "`TrxType`. Its four rows are the whole fact space.",
+    "",
+    "A case's `given` holds arrays; the cross-product is expanded by the checker,",
+    "so one hand-written case is a statement about a REGION."
+  ],
+
+  "messages": {
+    "empty": "Select at least one document to settle.",
+    "negative": "Amount cannot be negative.",
+    "mixed": "A single voucher cannot mix supplier (payable) and customer (receivable) documents.",
+    "closed": "One of the selected documents has nothing left to settle.",
+    "refund": "The selected returns are a refund — record them on a ${opposite} voucher instead.",
+    "exceedsReturns": "The selected returns exceed the invoices — collect the difference on a ${opposite} voucher.",
+    "exceedsDue": "Amount exceeds due. Max allowed: ${max}"
+  },
+
+  "sign": [
+    {
+      "id": "receipt-settles-debit",
+      "why": "A receipt credits the party, so it settles what debits them — an invoice, or a customer's opening balance.",
+      "given": { "voucher": "receipt", "side": "debit" },
+      "expect": 1
+    },
+    {
+      "id": "receipt-offset-by-credit",
+      "why": "A credit note credits the customer, the same way the receipt does; it offsets the collection rather than being settled by it.",
+      "given": { "voucher": "receipt", "side": "credit" },
+      "expect": -1
+    },
+    {
+      "id": "payment-settles-credit",
+      "why": "A payment debits the party, so it settles what credits them — a purchase, or a supplier's opening balance.",
+      "given": { "voucher": "payment", "side": "credit" },
+      "expect": 1
+    },
+    {
+      "id": "payment-offset-by-debit",
+      "why": "A debit note debits the supplier, the same way the payment does.",
+      "given": { "voucher": "payment", "side": "debit" },
+      "expect": -1
+    }
+  ],
+
+  "plan": [
+    {
+      "id": "nothing-selected",
+      "why": "A voucher MAY name no bill (P5c‑1), but that is the caller short-circuiting before it gets here; asked to plan an empty selection, the rule still says so.",
+      "given": { "voucher": ["payment", "receipt"], "bills": [], "cash": 100 },
+      "expect": { "error": "empty" }
+    },
+    {
+      "id": "negative-cash",
+      "why": "Checked before anything about the bills, so the message is about what the caller actually got wrong.",
+      "given": { "voucher": ["payment", "receipt"], "bills": [{ "billId": 1, "sign": 1, "controlSide": "debtor", "open": 500 }], "cash": -1 },
+      "expect": { "error": "negative" }
+    },
+    {
+      "id": "one-invoice-exact",
+      "why": "The ordinary case, and 2,759 of the 2,759 approved vouchers on the development books are this shape.",
+      "given": { "voucher": "receipt", "bills": [{ "billId": 7, "sign": 1, "controlSide": "debtor", "open": 2000 }], "cash": 2000 },
+      "expect": { "mappings": [{ "billId": 7, "amount": 2000 }], "direction": "debtor" }
+    },
+    {
+      "id": "oldest-first",
+      "why": "§3.6's 'Agst Ref rows for every open bill oldest-first' — the feed is sorted, and the fill follows the order given rather than re-sorting.",
+      "given": {
+        "voucher": "receipt",
+        "bills": [
+          { "billId": 1, "sign": 1, "controlSide": "debtor", "open": 1200 },
+          { "billId": 2, "sign": 1, "controlSide": "debtor", "open": 800 }
+        ],
+        "cash": 1500
+      },
+      "expect": { "mappings": [{ "billId": 1, "amount": 1200 }, { "billId": 2, "amount": 300 }], "direction": "debtor" }
+    },
+    {
+      "id": "note-offsets",
+      "why": "A note is consumed in full and the cash clears the rest — the arithmetic BUG-0070 is about, seen from the settlement side rather than the register's.",
+      "given": {
+        "voucher": "receipt",
+        "bills": [
+          { "billId": 9, "sign": -1, "controlSide": "debtor", "open": 1000 },
+          { "billId": 1, "sign": 1, "controlSide": "debtor", "open": 2000 }
+        ],
+        "cash": 1000
+      },
+      "expect": { "mappings": [{ "billId": 9, "amount": 1000 }, { "billId": 1, "amount": 2000 }], "direction": "debtor" }
+    },
+    {
+      "id": "notes-only",
+      "why": "A selection of returns alone is a refund; it belongs on the other voucher, and the message names which.",
+      "given": {
+        "voucher": ["payment", "receipt"],
+        "bills": [{ "billId": 9, "sign": -1, "controlSide": "debtor", "open": 1000 }],
+        "cash": 0
+      },
+      "expect": { "error": "refund" }
+    },
+    {
+      "id": "notes-exceed",
+      "why": "Distinct from `notes-only`: there IS an invoice, it is just smaller than the credit standing against it.",
+      "given": {
+        "voucher": ["payment", "receipt"],
+        "bills": [
+          { "billId": 9, "sign": -1, "controlSide": "debtor", "open": 3000 },
+          { "billId": 1, "sign": 1, "controlSide": "debtor", "open": 1000 }
+        ],
+        "cash": 0
+      },
+      "expect": { "error": "exceedsReturns" }
+    },
+    {
+      "id": "over-the-net",
+      "why": "The cap is the NET of the selection, and the message states the number — which is what the entry screen shows beside the amount box.",
+      "given": {
+        "voucher": "receipt",
+        "bills": [{ "billId": 1, "sign": 1, "controlSide": "debtor", "open": 500 }],
+        "cash": 900
+      },
+      "expect": { "error": "exceedsDue", "max": 500 }
+    },
+    {
+      "id": "mixed-control-sides",
+      "why": "One voucher cannot settle a customer and a supplier at once. After D3 a party has ONE ledger, so this arises from the DOCUMENTS rather than from the bills' ledger.",
+      "given": {
+        "voucher": "receipt",
+        "bills": [
+          { "billId": 1, "sign": 1, "controlSide": "debtor", "open": 500 },
+          { "billId": 2, "sign": 1, "controlSide": "creditor", "open": 500 }
+        ],
+        "cash": 100
+      },
+      "expect": { "error": "mixed" }
+    },
+    {
+      "id": "unknown-control-side-never-conflicts",
+      "why": "A bill with no document has no control side to state. `null` must read as 'not known', never as a second side — otherwise an opening balance beside an invoice would refuse for a reason that is not true.",
+      "given": {
+        "voucher": "receipt",
+        "bills": [
+          { "billId": 1, "sign": 1, "controlSide": "debtor", "open": 500 },
+          { "billId": 2, "sign": 1, "controlSide": null, "open": 500 }
+        ],
+        "cash": 1000
+      },
+      "expect": { "mappings": [{ "billId": 1, "amount": 500 }, { "billId": 2, "amount": 500 }], "direction": "debtor" }
+    },
+    {
+      "id": "closed-bill-selected",
+      "why": "The feed drops a fully-settled bill, so reaching this means the caller sent one anyway — an edit whose target closed underneath it.",
+      "given": {
+        "voucher": ["payment", "receipt"],
+        "bills": [{ "billId": 1, "sign": 1, "controlSide": "debtor", "open": 0 }],
+        "cash": 0
+      },
+      "expect": { "error": "closed" }
+    },
+    {
+      "id": "part-payment",
+      "why": "Cash short of the bill leaves the rest open; the remainder of the LINE is what becomes advance/on-account, and that is a different question (`unappliedRemainder`).",
+      "given": {
+        "voucher": "payment",
+        "bills": [{ "billId": 4, "sign": 1, "controlSide": "creditor", "open": 5000 }],
+        "cash": 1500
+      },
+      "expect": { "mappings": [{ "billId": 4, "amount": 1500 }], "direction": "creditor" }
+    }
+  ]
+}

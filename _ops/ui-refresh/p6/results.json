@@ -1,0 +1,1217 @@
+[
+  {
+    "name": "hr-dashboard/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 1 ds-status-chip"
+  },
+  {
+    "name": "hr-dashboard/light no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 1 ds-status-chip"
+  },
+  {
+    "name": "hr-dashboard/light KPI strip rendered",
+    "pass": true,
+    "detail": "7 figure(s)"
+  },
+  {
+    "name": "hr-dashboard/light old fund-card grid + mini-stat row gone",
+    "pass": true,
+    "detail": "0 fund card(s), 0 ministat(s)"
+  },
+  {
+    "name": "hr-dashboard/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-dashboard/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-dashboard/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-dashboard/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-self-service/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 1 ds-status-chip"
+  },
+  {
+    "name": "hr-self-service/light no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 1 ds-status-chip"
+  },
+  {
+    "name": "hr-self-service/light calendar rendered with real days",
+    "pass": true,
+    "detail": "42 cell(s)"
+  },
+  {
+    "name": "hr-self-service/light attendance statuses render more than one fill",
+    "pass": true,
+    "detail": "color(srgb 0.101961 0.105882 0.121569 / 0.03) | color(srgb 0.027451 0.34902 0.521569 / 0.16) | color(srgb 0.603922 0.290196 0.0313726 / 0.16) | color(srgb 0.729412 0.101961 0.101961 / 0.16)"
+  },
+  {
+    "name": "hr-self-service/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-self-service/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-self-service/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-self-service/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-employees/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 8 ds-status-chip"
+  },
+  {
+    "name": "hr-employees/light no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 8 ds-status-chip"
+  },
+  {
+    "name": "hr-employees/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-employees/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-employees/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-employees/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-attendance-daily/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-attendance-daily/light no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-attendance-daily/light calendar rendered with real days",
+    "pass": true,
+    "detail": "42 cell(s)"
+  },
+  {
+    "name": "hr-attendance-daily/light attendance statuses render more than one fill",
+    "pass": true,
+    "detail": "rgb(227, 244, 233) | rgb(255, 228, 224) | rgb(239, 237, 240)"
+  },
+  {
+    "name": "hr-attendance-daily/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-attendance-daily/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-attendance-daily/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-attendance-daily/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-attendance-reports/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-attendance-reports/light no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-attendance-reports/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-attendance-reports/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-attendance-reports/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-attendance-reports/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-shifts/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "2 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "hr-shifts/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-shifts/light no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-shifts/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-shifts/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-shifts/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-shifts/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-leave-apps/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "6 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "hr-leave-apps/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 3 ds-status-chip"
+  },
+  {
+    "name": "hr-leave-apps/light no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 3 ds-status-chip"
+  },
+  {
+    "name": "hr-leave-apps/light status chips carry more than one tone",
+    "pass": true,
+    "detail": "chip--warning, chip--success, chip--error"
+  },
+  {
+    "name": "hr-leave-apps/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-leave-apps/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-leave-apps/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-leave-apps/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-leave-calendar/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-leave-calendar/light no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-leave-calendar/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-leave-calendar/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-leave-calendar/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-leave-calendar/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-leave-types/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "4 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "hr-leave-types/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-leave-types/light no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-leave-types/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-leave-types/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-leave-types/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-leave-types/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-holidays/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-holidays/light no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-holidays/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-holidays/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-holidays/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-holidays/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-payroll-runs/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-payroll-runs/light no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-payroll-runs/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-payroll-runs/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-payroll-runs/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-payroll-runs/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-salary-structures/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-salary-structures/light no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-salary-structures/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-salary-structures/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-salary-structures/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-salary-structures/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-salary-components/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "10 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "hr-salary-components/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 10 ds-status-chip"
+  },
+  {
+    "name": "hr-salary-components/light no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 10 ds-status-chip"
+  },
+  {
+    "name": "hr-salary-components/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-salary-components/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-salary-components/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-salary-components/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-departments/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "6 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "hr-departments/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-departments/light no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-departments/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-departments/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-departments/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-departments/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-designations/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "6 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "hr-designations/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-designations/light no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-designations/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-designations/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-designations/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-designations/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-employment-types/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "5 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "hr-employment-types/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-employment-types/light no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-employment-types/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-employment-types/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-employment-types/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-employment-types/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-dashboard/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 1 ds-status-chip"
+  },
+  {
+    "name": "hr-dashboard/dark no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 1 ds-status-chip"
+  },
+  {
+    "name": "hr-dashboard/dark KPI strip rendered",
+    "pass": true,
+    "detail": "7 figure(s)"
+  },
+  {
+    "name": "hr-dashboard/dark old fund-card grid + mini-stat row gone",
+    "pass": true,
+    "detail": "0 fund card(s), 0 ministat(s)"
+  },
+  {
+    "name": "hr-dashboard/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-dashboard/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-dashboard/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-dashboard/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-self-service/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 1 ds-status-chip"
+  },
+  {
+    "name": "hr-self-service/dark no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 1 ds-status-chip"
+  },
+  {
+    "name": "hr-self-service/dark calendar rendered with real days",
+    "pass": true,
+    "detail": "42 cell(s)"
+  },
+  {
+    "name": "hr-self-service/dark attendance statuses render more than one fill",
+    "pass": true,
+    "detail": "color(srgb 0.890196 0.886275 0.901961 / 0.03) | color(srgb 0.435294 0.764706 0.941176 / 0.16) | color(srgb 0.941176 0.701961 0.341176 / 0.16) | color(srgb 1 0.705882 0.670588 / 0.16)"
+  },
+  {
+    "name": "hr-self-service/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-self-service/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-self-service/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-self-service/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-employees/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 8 ds-status-chip"
+  },
+  {
+    "name": "hr-employees/dark no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 8 ds-status-chip"
+  },
+  {
+    "name": "hr-employees/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-employees/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-employees/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-employees/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-attendance-daily/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-attendance-daily/dark no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-attendance-daily/dark calendar rendered with real days",
+    "pass": true,
+    "detail": "42 cell(s)"
+  },
+  {
+    "name": "hr-attendance-daily/dark attendance statuses render more than one fill",
+    "pass": true,
+    "detail": "rgb(18, 48, 31) | rgb(58, 21, 18) | rgb(31, 32, 34)"
+  },
+  {
+    "name": "hr-attendance-daily/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-attendance-daily/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-attendance-daily/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-attendance-daily/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-attendance-reports/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-attendance-reports/dark no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-attendance-reports/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-attendance-reports/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-attendance-reports/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-attendance-reports/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-shifts/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "2 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "hr-shifts/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-shifts/dark no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-shifts/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-shifts/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-shifts/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-shifts/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-leave-apps/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "6 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "hr-leave-apps/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 3 ds-status-chip"
+  },
+  {
+    "name": "hr-leave-apps/dark no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 3 ds-status-chip"
+  },
+  {
+    "name": "hr-leave-apps/dark status chips carry more than one tone",
+    "pass": true,
+    "detail": "chip--warning, chip--success, chip--error"
+  },
+  {
+    "name": "hr-leave-apps/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-leave-apps/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-leave-apps/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-leave-apps/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-leave-calendar/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-leave-calendar/dark no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-leave-calendar/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-leave-calendar/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-leave-calendar/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-leave-calendar/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-leave-types/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "4 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "hr-leave-types/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-leave-types/dark no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-leave-types/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-leave-types/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-leave-types/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-leave-types/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-holidays/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-holidays/dark no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-holidays/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-holidays/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-holidays/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-holidays/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-payroll-runs/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-payroll-runs/dark no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-payroll-runs/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-payroll-runs/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-payroll-runs/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-payroll-runs/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-salary-structures/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-salary-structures/dark no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-salary-structures/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-salary-structures/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-salary-structures/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-salary-structures/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-salary-components/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "10 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "hr-salary-components/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 10 ds-status-chip"
+  },
+  {
+    "name": "hr-salary-components/dark no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 10 ds-status-chip"
+  },
+  {
+    "name": "hr-salary-components/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-salary-components/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-salary-components/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-salary-components/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-departments/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "6 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "hr-departments/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-departments/dark no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-departments/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-departments/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-departments/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-departments/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-designations/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "6 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "hr-designations/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-designations/dark no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-designations/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-designations/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-designations/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-designations/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-employment-types/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "5 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "hr-employment-types/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-employment-types/dark no hand-rolled HR pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "hr-employment-types/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "hr-employment-types/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "hr-employment-types/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "hr-employment-types/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "hr-dashboard card surface follows the theme",
+    "pass": true,
+    "detail": "light rgb(250, 249, 253)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgb(18, 19, 22)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "hr-dashboard chip surface follows the theme",
+    "pass": true,
+    "detail": "light rgb(253, 238, 224)|rgb(154, 74, 8) / dark rgb(51, 36, 14)|rgb(240, 179, 87)"
+  },
+  {
+    "name": "hr-self-service card surface follows the theme",
+    "pass": true,
+    "detail": "light color(srgb 0 0.360784 0.733333 / 0.12)|rgb(0, 92, 187)|rgb(0, 92, 187) / dark color(srgb 0.670588 0.780392 1 / 0.12)|rgb(171, 199, 255)|rgb(171, 199, 255)"
+  },
+  {
+    "name": "hr-self-service chip surface follows the theme",
+    "pass": true,
+    "detail": "light rgb(253, 238, 224)|rgb(154, 74, 8) / dark rgb(51, 36, 14)|rgb(240, 179, 87)"
+  },
+  {
+    "name": "hr-self-service calendar surface follows the theme",
+    "pass": true,
+    "detail": "light color(srgb 0.101961 0.105882 0.121569 / 0.03)|color(srgb 0.027451 0.34902 0.521569 / 0.16)|color(srgb 0.603922 0.290196 0.0313726 / 0.16)|color(srgb 0.729412 0.101961 0.101961 / 0.16) / dark color(srgb 0.890196 0.886275 0.901961 / 0.03)|color(srgb 0.435294 0.764706 0.941176 / 0.16)|color(srgb 0.941176 0.701961 0.341176 / 0.16)|color(srgb 1 0.705882 0.670588 / 0.16)"
+  },
+  {
+    "name": "hr-employees card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "hr-employees chip surface follows the theme",
+    "pass": true,
+    "detail": "light rgb(239, 237, 240)|rgb(68, 71, 78) / dark rgb(31, 32, 34)|rgb(162, 163, 173)"
+  },
+  {
+    "name": "hr-attendance-daily calendar surface follows the theme",
+    "pass": true,
+    "detail": "light rgb(227, 244, 233)|rgb(255, 228, 224)|rgb(239, 237, 240) / dark rgb(18, 48, 31)|rgb(58, 21, 18)|rgb(31, 32, 34)"
+  },
+  {
+    "name": "hr-shifts card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "hr-leave-apps card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "hr-leave-apps chip surface follows the theme",
+    "pass": true,
+    "detail": "light rgb(253, 238, 224)|rgb(154, 74, 8) / dark rgb(51, 36, 14)|rgb(240, 179, 87)"
+  },
+  {
+    "name": "hr-leave-calendar card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "hr-leave-types card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "hr-holidays card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "hr-payroll-runs card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "hr-salary-structures card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "hr-salary-components card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "hr-salary-components chip surface follows the theme",
+    "pass": true,
+    "detail": "light rgb(239, 237, 240)|rgb(68, 71, 78) / dark rgb(31, 32, 34)|rgb(162, 163, 173)"
+  },
+  {
+    "name": "hr-departments card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "hr-designations card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "hr-employment-types card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "no console errors",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "no failed requests",
+    "pass": true,
+    "detail": ""
+  }
+]

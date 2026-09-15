@@ -1,0 +1,3849 @@
+# Jayhind ERP — AI Working Guide
+
+Orientation for any AI (or human) making changes in this repo. Read the sections
+relevant to what you're touching **before** editing; the invariants here are the
+ones that, if broken, cause silent cross-tenant data leaks, permission bypasses,
+or corrupted books.
+
+**Golden rule of this codebase:** the source files carry unusually detailed doc
+comments explaining *why* a thing is the way it is, often naming the exact bug
+that motivated it. When a comment says "deliberately", "⚠️", "do not resurrect",
+or "keep the two in sync" — believe it and read the whole comment before
+changing that line. This file is the map; the comments are the territory.
+
+---
+
+## 1. What this is
+
+A multi-tenant, GST-compliant ERP for the Indian market, split into a licensing
+control plane ("Master Hub") and a client-facing ERP, each with its own Angular
+frontend, plus a local invoice-OCR sidecar.
+
+This repo (`jayhind/`) is **orchestration only** — this guide, `README.md`,
+`dev.sh`. All application code lives in six git submodules, each an independent
+repo pinned to a commit here (`.gitmodules`).
+
+| Directory | Role | Stack | Port | Database |
+|---|---|---|---|---|
+| [jayhind-admin-back/](jayhind-admin-back/) | **Master Hub API** — licensing, subscriptions/billing, GSP gateway (e-Way Bill / e-Invoice), OCR proxy + archive, HSN/SAC master, file storage, support desk | NestJS 11 + Sequelize 6 | 3100 | `master_hub` (+ read/write on `jayhind_client`) |
+| [jayhind-client-back/](jayhind-client-back/) | **Client ERP API** — accounting, inventory, HR, GST documents, job work, invoice scanning, chat, imports | NestJS 11 + Sequelize 6 | 3000 | `jayhind_client` |
+| [jayhind-admin-front/](jayhind-admin-front/) | Hub admin console | Angular 21 (standalone, zoneless, signals) + Material | 4500 | — |
+| [jayhindi-client-front/](jayhindi-client-front/) | Client ERP web app (PWA) | Angular 21 (standalone, zoneless, signals) + Material | 4300 | — |
+| [jayhind-ocr-service/](jayhind-ocr-service/) | Invoice OCR + extraction sidecar, fully offline CPU | FastAPI + RapidOCR (ONNX) + Qwen3-8B (llama.cpp) | 8100 | — |
+| [qa-artifacts/](qa-artifacts/) | E2E / UI QA harnesses and fixtures | Node + Playwright | — | — |
+
+> ⚠️ The client frontend's **directory** is `jayhindi-client-front` (extra "i")
+> while its repo/package is `jayhind-client-front`. Other services' CORS and
+> `dev.sh` expect the directory spelling. Don't "fix" it.
+
+Everything runs natively — **no Docker anywhere**. Branches in every repo:
+`main` = development, `production` = production.
+
+### Service topology
+
+```
+        ┌──────────────────┐              ┌───────────────────┐
+        │ jayhind-admin-   │  4500        │ jayhindi-client-  │  4300
+        │ front (console)  │              │ front (ERP app)   │
+        └────────┬─────────┘              └─────────┬─────────┘
+                 │ JWT                              │ JWT
+                 ▼                                  ▼
+        ┌──────────────────┐   INTERNAL_    ┌───────────────────┐
+        │ jayhind-admin-   │◄──SERVICE_────►│ jayhind-client-   │
+        │ back  (Hub) 3100 │    KEY         │ back  (ERP)  3000 │
+        └───┬──────────┬───┘  (both ways)   └─────────┬─────────┘
+            │          │                              │
+   master_hub DB   ┌───▼──────────┐            jayhind_client DB
+            └─────►│ CLIENT_      │◄───────────────────┘
+                   │ SEQUELIZE    │ (hub's 2nd connection, read/write
+                   └──────────────┘  on `companies` only)
+            │
+            ├──► GST portals / NIC e-Way Bill / IRP e-Invoice  (GSP)
+            └──► jayhind-ocr-service :8100 (loopback)
+```
+
+**The client backend never calls a government API or the OCR sidecar directly.**
+All external integration credentials live only in the hub; the ERP goes through
+it. That separation is the reason the hub is a separate process at all.
+
+---
+
+## 2. Running the stack
+
+```bash
+./dev.sh                          # start everything that's set up, foreground
+./dev.sh start admin-back client-back
+./dev.sh start -d                 # detached
+./dev.sh status                   # what's set up / running / listening
+./dev.sh logs client-back         # tail one service
+./dev.sh stop
+```
+
+Project names: `admin-back client-back admin-front client-front ocr`.
+Logs land in `.dev-logs/`, PIDs in `.dev-pids/` (both gitignored).
+Each project can still be run its own way (`npm start`, or `./scripts/serve.sh`
+for OCR). Prerequisites: Node ≥ 24, MySQL 8, Redis (optional — queues degrade to
+in-process), Python 3.12 (OCR only).
+
+A typical full-stack session needs only `admin-back client-back admin-front
+client-front`. Skip OCR unless working on OCR — it loads Qwen3-8B on CPU.
+
+Per-service setup (migrations, seeders, `.env`) is in [README.md](README.md#per-project-setup).
+
+### Commands you'll actually use
+
+| Task | admin-back / client-back | admin-front / client-front | ocr |
+|---|---|---|---|
+| Run | `npm start` | `npm start` | `./scripts/serve.sh` |
+| Build | `npm run build` | `npm run build` | — |
+| Lint (fix) | `npm run lint` | `npm run lint` | `ruff check --fix .` |
+| Lint (CI) | `npm run lint:ci` | `npm run lint:ci` | `ruff check .` |
+| Unit tests | `npm test` (Jest) | `npm test` (Karma, client only) | `pytest` |
+| Migrate | `npm run migrate` | — | — |
+| Seed | `npm run seed:all` | — | — |
+| New migration | `npm run migration:create <name>` | — | — |
+
+`client-front`'s `lint` also runs `scripts/breakpoint-guard.js` (see §9).
+
+From **this** repo (the only place that sees every submodule at once):
+
+```bash
+node scripts/check-mirrors.js     # cross-repo constant drift, data AND behaviour
+```
+
+It compares the mirrored **constants** as data, and the mirrored
+`voucher-lifecycle` **rules** as behaviour — running both implementations against
+`scripts/vectors/voucher-lifecycle.vectors.json`, one shared table living here
+rather than copied into each submodule. Add vectors in the same commit as a rule.
+It needs esbuild from one submodule's `node_modules` (any of them) and **fails
+rather than falling back** to the old name-only check, because a mirror rule that
+cannot fail reads as coverage.
+
+Once the backends are up, their OpenAPI is at `http://localhost:3000/api/docs`
+and `http://localhost:3100/api/docs` (schema JSON at `…/api/docs-json`).
+
+---
+
+## 3. `.env` and the shared secret
+
+Both backends read `.env` (never committed; `.env.example` is the template).
+
+**`INTERNAL_SERVICE_KEY` must be byte-identical in
+`jayhind-admin-back/.env` and `jayhind-client-back/.env`.** It authenticates
+every call *in both directions* between the two servers. Generate once with
+`openssl rand -hex 64`. If it's missing or mismatched, internal calls **fail
+closed with a clear error** (never a silent no-op) — including the hub's
+"Create company" action, which asks the ERP to provision the company.
+
+Both backends **fail to boot** on a missing/placeholder `JWT_SECRET`
+(`main.ts`). `client-back` additionally fails boot if `PUSH_ENABLED=true` with
+missing VAPID keys.
+
+Notable keys:
+
+| Key | Where | Notes |
+|---|---|---|
+| `INTERNAL_SERVICE_KEY` | both backs | shared secret, both directions, fails closed |
+| `JWT_SECRET` | both backs | boot-time validated; separate per service |
+| `MASTER_URL` | client-back | where the hub is (`http://localhost:3100`) |
+| `CLIENT_API_URL` | admin-back | where the ERP is — **must be set on multi-host deploys** |
+| `CLIENT_DB_NAME` | admin-back | the ERP's DB, for the hub's second connection |
+| `ALLOWED_ORIGINS` | both backs | CSP + CORS list |
+| `ALLOW_LOCALHOST_ORIGINS` | client-back | defaults on except under `NODE_ENV=production` |
+| `OCR_SERVICE_URL` / `_KEY` / `_TIMEOUT_MS` | admin-back | the OCR sidecar |
+| `AUDIT_QUEUE_ENABLED`, `INVOICE_SCAN_QUEUE_ENABLED` | client-back | BullMQ/Redis; both degrade gracefully — **and the degradation is a 2s deadline, not a rejection** (§4.10, BUG-0062): ioredis buffers a command issued while Redis is down and retries it for ever, so an unbounded `await queue.add(...)` is a hang rather than a fallback |
+| `RATE_LIMIT_IP_PER_MIN`, `RATE_LIMIT_COMPANY_PER_MIN` | client-back | ThrottlerModule's two dimensions, **defaulting to the production literals** (100 and 600) — unset behaves exactly as before they were tunable. ⚠️ The per-IP one is a protection against a single bad actor; the only environment with any business raising it is one whose traffic is known to come from one machine, i.e. a test harness (`qa-artifacts`' browser lanes are ~112 serial tests from one IP and sit 2–3× over 100/min) |
+| `STORAGE_DRIVER`, `UPLOAD_ROOT` | both backs | file storage |
+| `API_DOCS_ENABLED`, `API_DOCS_PATH` | both backs | OpenAPI/Swagger; **off by default under `NODE_ENV=production`** |
+
+> ⚠️ **Rotate the OCR service key.** `admin-back/.env.example` previously
+> committed a real-looking `OCR_SERVICE_KEY` and a live Cloudflare-tunnel
+> `OCR_SERVICE_URL`. Both are now placeholders, but the old value remains in git
+> history, so treat it as disclosed and issue a new one.
+
+---
+
+## 4. Backend architecture — `jayhind-client-back` (the big one)
+
+~700 TS files. **Read this section before touching anything here.**
+
+### 4.1 Layout
+
+```
+src/
+├── main.ts               bootstrap: helmet+CSP, compression, CORS, ValidationPipe,
+│                         global exception filter, socket adapter, shutdown hooks
+├── app.module.ts         COMPOSITION ONLY — guard chain, interceptors, middleware
+├── modules/<domain>/     thin feature modules that register controllers+services
+├── controllers/          flat, one file per resource (+ controllers/internal/)
+├── services/             flat, one file per concern (~140 files)
+├── entities/             Sequelize models (~125)
+├── dto/                  class-validator DTOs
+├── guards/ decorators/ interceptors/ middleware/
+├── const/                domain rules as PURE functions + `.spec.ts` beside them
+├── database/             connection providers + tenant-scoping hooks
+├── migrations/ seeders/
+├── socket/               Socket.IO gateway
+└── utility/              ApiException, BaseCrudService, exception filter, TenantContext
+```
+
+**Where a new controller/service goes:** register it in its feature module under
+`src/modules/<domain>/`, **not** in `app.module.ts`. The only exception is a
+genuinely global provider, which belongs in `SharedModule` (`@Global`, and it
+re-exports `DatabaseModule` so the `SEQUELIZE` token stays injectable app-wide).
+
+### 4.2 The request pipeline — order matters
+
+```
+TenantContextMiddleware   opens an EMPTY AsyncLocalStorage store for every request
+CorrelationMiddleware     requestId / sessionId
+        ↓
+ThrottlerGuard            rate limit before any work — two dimensions:
+                          'default' 100/min per IP, 'company' per companyId
+AuthGuard                 verifies JWT → request.user   (skipped on @Public())
+TenantContextGuard        re-verifies companyId against a LIVE company_members row,
+                          then TenantContext.populate({companyId, licence, …})
+RolesGuard                coarse @Roles() check
+ModuleLicenceGuard        is this company licensed for this module?
+BillingRestrictionGuard   read-only grace: refuses non-GET/HEAD/OPTIONS
+        ↓
+AuditInterceptor          writes an audit row for @Audit()-tagged handlers
+CompanyConcurrencyInterceptor
+        ↓
+ValidationPipe            whitelist + forbidNonWhitelisted + transform
+        ↓
+controller → service → Sequelize (tenant-scoping hooks fire here)
+        ↓
+CustomExceptionFilter     maps Sequelize errors to 4xx, audits failures
+```
+
+`RoleMenuGuard` (fine-grained permissions) is **opt-in per controller** via
+`@UseGuards(RoleMenuGuard)` — it is *not* in the global chain.
+
+### 4.3 Multi-tenancy — the single most dangerous thing to get wrong
+
+Three layers, all in play at once:
+
+**Layer 1 — `TenantContext`** (`src/utility/tenant-context.ts`)
+A module-level singleton wrapping `AsyncLocalStorage`. **Deliberately not a
+NestJS request-scoped provider** — that would force ~128 services request-scoped,
+and Sequelize hooks registered at bootstrap aren't in the DI graph at all.
+
+- `TenantContextMiddleware` opens an empty store on **every** request.
+- `TenantContextGuard` fills the *same object* in place via `populate()` once
+  `request.user` exists, carrying `companyId`, `membershipId`,
+  `membershipVersion`, `identityId`, `userKind`, `licence`, `billingRestricted`.
+- `licence` and `billingRestricted` ride along **because the `companies` row is
+  already loaded** — so a licence/billing change made in the hub console is live
+  on the very next request, with no cache TTL to wait out.
+
+**Layer 2 — Sequelize connection-level hooks**
+(`src/database/tenant-scoping.hooks.ts`, registered once in `database.providers.ts`)
+
+Hooks on `beforeFind`, `beforeCount`, `beforeValidate`, `beforeCreate`,
+`beforeBulkCreate`, `beforeUpdate`, `beforeBulkUpdate`, `beforeDestroy`,
+`beforeBulkDestroy`, `beforeUpsert`. A model is "scoped" if its `rawAttributes`
+actually declare a `companyId` column — asked of the ORM, so it can never drift
+from the schema.
+
+- Reads get `companyId` AND-composed into `where`; nested `include` trees are
+  recursively scoped too (that's the only thing scoping a scoped child of an
+  unscoped parent, e.g. `User.findOne({ include: 'membership' })`).
+- Writes are stamped with the active `companyId`; a **mismatched** explicit
+  `companyId` is refused, never silently overwritten.
+- No active context + no `crossCompany` = hard `TenantIsolationViolation`.
+
+**Layer 3 — registries + CI guards** (`src/const/tenant-scope-registry.const.ts`,
+`src/const/ci-guards/`). A new entity that isn't classified is a failing test.
+
+> **`user_details` is company-scoped** (migration
+> `20260820000000-user-details-company-scope`, 2026-08-20). The party master —
+> address, GSTIN, PAN — is one row per (company, identity), because the same
+> real supplier legitimately trades with several of our customers and each
+> holds their own copy. GSTIN uniqueness is `UNIQUE(companyId, gstNo)`, **never
+> global**; the old global unique is what produced "A record with this gstNo
+> already exists" when a second company registered a party the first already
+> had. Adding the column is also the only thing that put the table under the
+> hooks at all (they key off `rawAttributes.companyId`), so removing it would
+> silently un-scope every read and write of the party master.
+
+`company_parties` still owns the per-company **balances**; the two tables now
+agree on grain. D-02's full split (moving every reader onto `company_parties`)
+remains unfinished, but the isolation gap it was meant to close is shut.
+
+#### Rules you must follow
+
+1. **Never** add `{ crossCompany: true }` to make an error go away. It is legal in
+   exactly two situations: (a) the query that *establishes* tenant context
+   (`TenantContextGuard`), and (b) genuinely company-agnostic reads. Every use
+   needs a comment saying why — and the comment should name **the caller**, not
+   the query, because that is where the safety actually lives. Whether the flag
+   is safe depends entirely on where the id came from: off a membership the guard
+   has already verified, or typed into a URL by whoever made the request.
+   > ⚠️ The dangerous shape is a **shared private reader** with `crossCompany`
+   > inside it. `role-permission.service.ts` had one, correctly justified for the
+   > guard (its `roleId` comes from a verified membership, and it may run with no
+   > context at all). A second caller then reused it from
+   > `GET /role-permissions/:roleId`, where the id is caller-supplied — and any
+   > company could read any other's role permission matrix, while the comment
+   > went on being true. Nothing at the call site says the hooks are off. When a
+   > route takes an id and the read underneath it is cross-company, look up the
+   > owning row through the **scoped** model first and 404 on a miss; that is
+   > what the matching write path was already doing, which is why only the read
+   > was exposed.
+2. Code that runs **outside an HTTP request** — cron ticks, queue workers,
+   seeders, `scripts/*.ts` — has **no store**. It must wrap work in
+   `TenantContext.run({ companyId, … }, fn)` (see `due-reminder.service.ts`,
+   `job-work-alerts.service.ts`, `maintenance.service.ts`) or pass
+   `crossCompany` explicitly. There is no third option.
+3. **Raw SQL is not covered by the hooks.** Every `sequelize.query(...)` must
+   carry an explicit `companyId` bind — `TenantContext.requireCompanyId()`
+   threaded into `replacements`. `npx ts-node scripts/ci-guard-raw-sql.ts`
+   enforces this and judges *new* sites automatically.
+   > ⚠️ **The guard used to judge only a STATEMENT, and a statement can scope one
+   > table while joining three others unscoped** (BUG-0047; the guard now checks
+   > the joins too, and the sweep that added it closed 53 of them). `HrDashboardService`'s
+   > four breakdowns bind `companyId` on `employees`/`leave_applications` — so
+   > the guard passes — and then `LEFT JOIN departments d ON d.id =
+   > e.departmentId` with no predicate at all, likewise `designations`,
+   > `employment_types` and `leave_types`. Feed it an `employeeId` satellite
+   > belonging to another company (rule 7, unchecked on `EmployeeService`) and
+   > **that company's department NAME renders on this one's dashboard**.
+   >
+   > This is where BUG-0019's consolation stops applying. A rule-7 bug on a
+   > company-scoped table is normally *silent*, because the read joins the
+   > association through the same hooks and answers `null` — but **raw SQL is
+   > not under the hooks**, so the join resolves and answers with a name. So
+   > BUG-0022's question (*what does this id point at?*) has a second half:
+   > **how is it READ?** The same unchecked id is invisible through Sequelize
+   > and a disclosure through `sequelize.query`.
+   >
+   > `UsersDashboardService` is the one that gets it right and says why —
+   > every `roles` join there carries its own `AND r.companyId = :companyId`
+   > — and `FinancialDashboardService` scopes all of its. **Scope every joined
+   > company-scoped table, not just the driving one.**
+4. **Never keep per-company state in a service field.** `@Injectable()` is a
+   process singleton; a `private cache = new Map()` means the first company to
+   populate an entry decides what every other company reads. If a cache is
+   genuinely needed, key it `` `${companyId}:${…}` `` and expect
+   `scripts/ci-guard-cached-state.ts` to require an allow-list entry.
+   > ⚠️ **A single row is worse than a Map, and the guard used to miss it**
+   > (BUG-0036). `PrintConfigurationService` held `private cached:
+   > PrintConfiguration | null = null` — no Map, so nothing flagged it — and
+   > `print_configurations` is company-scoped. The first company to call
+   > `GET /print-config` after a boot decided what every other company read,
+   > and that route is the **one shared read a trading party may call** (D-46),
+   > so what leaked was a tenant's `bankDetails` to another tenant's customers.
+   > The write half was refused by `assertInstanceInScope` — layer 2 doing its
+   > job — which turned it into a 500 nobody connected to the read. The guard
+   > now also flags a class field whose **name** claims a lifetime (`cache`,
+   > `cached`, `memo`, `snapshot`) whatever it holds. **The cheapest correct
+   > answer is usually no cache**: one indexed read per request beats being
+   > wrong, and it is the only shape that stays right when the row is edited.
+5. `where` composition: use `andCompose`-style AND nesting, and count keys with
+   `Reflect.ownKeys`, **not** `Object.keys` — an `Op.and`/`Op.or` where (search
+   clauses, and Sequelize's own paranoid-delete wrapper) is keyed by a *symbol*,
+   and `Object.keys` reports it as empty. That exact mistake once made
+   `Model.update({…},{where:{id}})` update every row in the company.
+6. When adding a `where` to an `include`, set `required` explicitly if the caller
+   didn't. Sequelize silently flips `required: true` when an include carries a
+   `where`, turning LEFT JOINs into INNER JOINs and making rows with nullable FKs
+   vanish. The hooks already default it to `false`; don't undo that.
+   > ⚠️ **That default cuts both ways, and the second direction is the quiet
+   > one.** The hooks pin `required: false` on any include the caller left
+   > unset — which is right for a read, and wrong for an include whose `where`
+   > **is** the filter. Sequelize's own flip is what such a query is relying on;
+   > the hook removes it, the predicate lands in the `ON` clause of a LEFT JOIN,
+   > and it filters *nothing*. `assertKeepsAnAdmin` counted every active member
+   > of the company instead of every active **admin**, so FR-017 never once
+   > refused and the Hub could remove a company's last administrator (BUG-0018);
+   > `resolveBillingAdminUserId` named whichever member sorted first — usually a
+   > trading party — as a subscription invoice's preparer. Neither query was
+   > wrong on its face and neither threw. **If an include's `where` decides
+   > which rows come back, say `required: true` out loud.**
+7. **The hooks scope by `companyId`. They do not scope by *parentage*.** A
+   caller-supplied **parent id** — an `employeeId`, a `productId`, a `trxId` off
+   the URL or the body — must be checked by the service before anything is
+   written against it. Both hooks will behave perfectly while the row you create
+   crosses the boundary:
+
+   ```ts
+   // GET /leave/balance/:employeeId, with employeeId belonging to ANOTHER company
+   await LeaveBalance.findOrCreate({ where: { employeeId, leaveTypeId, year }, defaults: {…} });
+   // beforeFind  → AND companyId = <mine>  → correctly finds nothing
+   // beforeCreate → stamps  companyId = <mine> → creates a row pointing at THEIR employee
+   ```
+
+   That was a **read** writing four rows with a cross-company foreign key, on a
+   route that provisions on read. The check is one line and belongs at the
+   service's entry point, not in the shared helper underneath it:
+
+   ```ts
+   const employee = await Employee.findByPk(employeeId, { attributes: ['id'] });
+   if (!employee) throw new ApiException('Employee not found', HttpStatus.NOT_FOUND);
+   ```
+
+   `findByPk` runs under the hooks, so "not found" already means "not this
+   company's" — the two are the same sentence, and the 404 tells someone poking
+   at ids nothing they did not know. Look for this shape wherever a service
+   takes a parent id from the caller and a `findOrCreate`, a `create` or an
+   `update` follows.
+
+   > ⚠️ **The version that leaks is the easy one. Watch for the version that does
+   > not** (BUG-0019). `POST|PUT /products` took **five** satellite ids from the
+   > body — `measurementUnitId`, `manufacturerId`, `returnPolicyId`,
+   > `productConditionId`, `productWarrantyId` — and checked none of them, and
+   > `POST /product-tags` took three more. Nothing leaked, because the read path
+   > includes those associations through the same hooks and answers `null`: the
+   > only symptom was a product whose unit and manufacturer were **silently
+   > blank** on the grid, on the Edit form, on the print preview and on the GST
+   > invoice line, with no error anywhere. It also wedges the company hard delete
+   > (§6.5) — those columns are `ON DELETE RESTRICT`, so erasing the *other*
+   > company is refused by a row in this one. `ProductService
+   > .assertSatellitesAreOurs` and `ProductTagsService.assertMappingIsOurs` are
+   > the explicit checks; the latter runs **before** the `destroy` that clears the
+   > existing mapping, because a guard placed after it wipes the product's tags on
+   > the way to the 404.
+
+   > ⚠️ **Which table the foreign key points at decides whether the same bug is
+   > invisible or a leak** (BUG-0022). The job-work masters took **seven**
+   > caller-supplied ids and checked none — `machines.operationTypeId` and
+   > `.vendorUserId`, `vendor_capabilities`' two, and a route template's
+   > `items[].operationTypeId` / `.defaultMachineId` / `.defaultVendorUserId` —
+   > and `PUT /transaction-config/:trxType` took `defaultPaymentTermsId`. Five of
+   > those name a **company-scoped** table and were silent in exactly BUG-0019's
+   > way. The three naming **`users.id`** were not: `users` is the global identity
+   > table (§4.4) and has **no `companyId` for the hooks to scope by**, so the
+   > read resolved the association and answered it — `POST /vendor-capabilities`
+   > with a stranger's identity id came back with that person's **name**, making a
+   > master's create an enumeration oracle over every identity on the platform. So
+   > when you audit a parent id, ask what it points at: a `*UserId` has no hook
+   > behind it at all and needs a `CompanyMember` lookup
+   > (`assertPartyIsOurs`, and `JobWorkPartySettingsService.assertParty` before
+   > it), not a `findByPk`.
+
+   > ⚠️ **It reached the voucher line, which is the busiest write in the product**
+   > (BUG-0015). `productItems[].productId` and `productItems[].taxes[].taxId`
+   > were both accepted from another company: the row was stamped with the
+   > caller's `companyId` while its foreign key pointed into somebody else's
+   > catalogue, and on approve stock moved and a price was captured against
+   > *their* item. The product half looked guarded and was not — a foreign id
+   > missed the tenant-scoped catalogue lookup and the voucher was refused by the
+   > **HSN branch**, because the product it could not find had no `hsnCode`. So
+   > the refusal depended on the client not sending the optional `hsnCode`, and
+   > sending it walked straight through. **A check that exists as a side-effect of
+   > an unrelated one is not a check**, and a refusal whose message does not
+   > describe the actual problem ("HSN/SAC code missing for: Item #1663") is the
+   > tell. `TrxWriteService.assertLineReferencesAreOurs` is the explicit one.
+
+   > ⚠️ **And then it reached the same write's HEADER, where the unchecked id
+   > decides which ledger the money lands in** (BUG-0025 — rule 7's sixth, and the
+   > first whose symptom is a `journal_lines` row). `trx.groupId`,
+   > `charges[].groupId` and a journal voucher's `lines[].trxGroupId` were all
+   > accepted from another company and all **posted**: the line carried the
+   > caller's `companyId` and the other tenant's `trxGroupId`. BUG-0019's
+   > consolation — that a rule-7 bug on a company-scoped table leaks nothing,
+   > because the read joins through the same hooks and answers `null` — **does not
+   > apply here**, because `ReportsService.trialBalance` and `.profitAndLoss`
+   > aggregate on `journal_lines.trxGroupId` and then `JOIN trx_groups g ON g.id =
+   > agg.trxGroupId` with no `companyId` predicate: the other tenant's ledger NAME
+   > is what this company's own trial balance renders, and their group's
+   > `accountNature` decides whether the figure lands in income or in expenses.
+   > `TrxWriteService.assertHeaderReferencesAreOurs`,
+   > `TrxPaymentReceiptController.assertReferencesAreOurs` and the two account
+   > checks at the top of `TrxContraController.saveContra` are the explicit ones.
+   >
+   > Two of that write's ids were already refused **by accident**, which is the
+   > part worth remembering: a foreign `trxAccountId` failed `preApprove`'s funds
+   > guard because `trxAccountService.findOne` runs under the hooks, so `!acc` and
+   > "not enough money" share a branch — the answer was *"Low Balance To Settle
+   > This Voucher"*, the draft stayed in the table with its cross-company FK, and
+   > the TO side of a contra was not covered at all. **A check that exists as a
+   > side-effect of an unrelated one is not a check.**
+   >
+   > Two more header ids are safe and deliberately have **no** added check, so
+   > don't add one and assume it was missing: `supplierUserId` has
+   > `assertSupplierIsCompanyMember` (it names `users.id` — §4.4 — so a `findByPk`
+   > would prove nothing), and `supplierUserDetailsId` is *resolved* rather than
+   > trusted by `resolveSupplierDetails`, which drops a foreign id and substitutes
+   > the party's own row. `preparedByUserId` never reaches the row: the controller
+   > overwrites it with the authenticated caller.
+
+   > ⚠️ **The seventh was in the SAME MODULE as the fifth, and that is the part to
+   > learn from** (BUG-0032). The job-work *masters* were fixed by BUG-0022; its
+   > three ownership checks were written as **module-local functions** in
+   > `job-work-masters.service.ts`, and nothing carried them the twenty lines to
+   > the module's **transactional** writes. So the order, its inline operations,
+   > the dispatch, the split, the challan and the material issue took **nine**
+   > caller-supplied ids between them and checked none. Six named `users.id` and
+   > `POST /job-work/board/list` — the module's landing screen — rendered the
+   > stranger's own **name** (and the list its phone), because it reads them from a
+   > raw `LEFT JOIN users` with no `companyId` predicate, correctly, since `users`
+   > has none to predicate on.
+   >
+   > Two consequences worth carrying:
+   >
+   > - **Put the check where a new route cannot fail to import it.**
+   >   `src/services/job-work-ownership.ts` is now the single definition of all of
+   >   them (`assertMemberIsOurs` for a `*UserId`, `findByPk`-based helpers for the
+   >   company-scoped tables), and it is wired at the **seams** rather than the
+   >   call sites: `writeRouting`, which every routing write funnels through, and
+   >   `split`, which `create` delegates to. This is the same failure as BUG-0024
+   >   and BUG-0028 — **one rule enforced at the places somebody thought of** — so
+   >   when a fix adds a check, ask what else in that module takes the same id.
+   > - **The silent kind is not always harmless.** A foreign `operationTypeId`
+   >   reads back `null` in BUG-0019's usual way, and that *also* empties the
+   >   board's `progressLabel` and every refusal message that names the step
+   >   (*"Nothing is ready for Shaping"* names nothing). One field's ownership check
+   >   was load-bearing for the module's error messages.
+   >
+   > `job_work_orders.productId` is safe and deliberately has **no** added check —
+   > `resolvePartName`'s `Product.findByPk` runs under the hooks — and the material
+   > issue's `productId` was refused only **by accident**, by
+   > `product_quantity`'s `UNIQUE(productId)`, answering *"A record with this
+   > productId already exists"*. Rule 7's refrain, for the third time: **a check
+   > that exists as a side-effect of an unrelated one is not a check.**
+
+### 4.4 Identity vs. membership (ADR-004)
+
+- `users` = one **identity** per email, global (no `companyId`).
+- `company_members` = one row per (identity, company), carrying **`roleId`,
+  `userKind`, `status`, `membershipVersion`**.
+
+Role/kind/status are **per membership**, never on `User`. `User.roleId` is
+retired — do not resurrect it. Switching company switches all of them.
+
+Existing `*UserId` foreign keys across the schema (`preparedByUserId`,
+`supplierUserId`, …) point at `users.id`, **never** at `company_members.id`.
+Don't "tidy" that.
+
+#### Roles are TWO populations on one table (2026-09-01)
+
+`roles` was a fixed set — seeded, `isSystem = 1`, no create/edit/delete route at
+all. It is now two populations, and every rule about a role turns on which:
+
+| | Built-in (`isSystem = 1`) | Company-defined (`isSystem = 0`) |
+|---|---|---|
+| Who creates them | `CompanyProvisioningService`, seven per company | an **Admin**, through `POST /roles` |
+| Rename / delete / restore | **refused** (`RoleService.assertNotSystem`) | allowed |
+| Permission matrix | editable (except Admin's) | editable, and **starts empty** |
+| Extra profile fields | derived from the NAME | the role's own `profileSatellite` |
+
+⚠️ **Only an Admin may create, edit, delete or restore a role, and that is a
+hard rule rather than a matrix grant** (`user-protection.const.ts`
+`roleMutationViolation`, called by every write on `RoleController`). The matrix
+lets an Admin hand `roles:canAdd` to another role, and the moment custom roles
+exist that is **a self-escalation path with one extra step**:
+`rolePermissionEditViolation` stops you widening your OWN role's matrix, and
+stopped nothing about creating a NEW role, granting it everything and moving
+into it — the new role is not yours until you take it. Verified against a real
+Manager token holding `roles` FULL: all four writes answer 403, both reads still
+work.
+
+It is deliberately **not** expressed by adding `roles` to
+`ADMIN_ONLY_PERMISSION_KEYS`, which locks a key **whole** — HR and Manager are
+seeded with view-only access to that screen on purpose, and reading who may do
+what is not the power to decide it.
+
+⚠️ **A built-in role's protection is about NAME-keyed lookups, not foreign
+keys.** `RoleMenuGuard`'s Admin bypass, `SAFE_DEFAULT_ROLE_NAME`,
+`satelliteForRoleName`, `role-matrix.const.ts`' seeding and the Tally import's
+party-role lookup all match `roles.name`. Renaming a built-in breaks those
+silently — nothing throws.
+
+**Deleting a role asks two different questions, one per stage.**
+`BaseCrudService.remove` archives on the first call and erases on the second;
+`company_members.roleId` is `ON DELETE RESTRICT` while `role_menu_permissions
+.roleId` is `ON DELETE CASCADE`. So archiving counts **live** memberships
+("move them to another role first") and erasing counts **all** of them,
+soft-deleted included, because that is what the constraint counts. ⚠️ Measured:
+asking the erase question at the archive stage means a role whose only holder
+has since been deleted **can never be archived at all** — the count is 1 for
+ever and no operator action changes it.
+
+**`isActive = false` is a lockout, not a label.** `AuthService` refuses a
+sign-in to anyone holding an inactive role (three call sites), so the role form
+warns before switching it off. `RoleService.update` bumps `membershipVersion`
+on a change to `name`, `isActive` or `profileSatellite` — §4.4/D-40's mechanism,
+for the same reason the matrix does — and deliberately **not** on a
+`description`-only edit, which no session depends on.
+
+#### What extra fields a role's holders get — `roles.profileSatellite` (2026-09-01)
+
+`satelliteForRoleName` decides the Add User form's extra-field block from the
+role NAME: Admin → none, Party User → the address & GST block, everything else →
+the employee block. That is complete for the seven seeded names and **cannot
+answer for a role somebody invents** — it takes the `default:` arm, so
+"JobViewRole" is asked for a department, a designation and a joining date.
+
+So a role may declare it. `satelliteForRole(role)` in
+`src/const/role-satellite.const.ts` is **the resolver every call site now uses**
+(six of them: both `UsersService` writes, `users.controller`'s create and
+update, `InvitationService`, `UserProfileService`); the name rule survives as
+its **fallback arm**, not as a legacy path — it is what keeps a custom role's
+declaration optional and the seeded roles' behaviour a derivation rather than
+seven stored decisions that can drift from it.
+
+⚠️ **`null` means opposite things on the two sides.** On the column it is
+*"nothing declared, ask the name"*; as a RESULT it is *"no extra fields at
+all"*. `'none'` is how a role says the second on purpose. The migration ships
+the column NULL on every existing row and **does not backfill** — writing
+`'employee'` onto the five roles the name rule already answers that way would
+state as a decision something that is currently a derivation.
+
+⚠️⚠️ **`'party'` is not a form-layout choice.** `UsersService
+.applyRoleDrivenKind` derives `company_members.userKind` from the resolved
+satellite, so a role declaring `'party'` mints **trading parties** — subject to
+`PartyOnlyGuard`, `SharedReadPartyGuard` (D-46) and `party-file-access.const.ts`.
+Verified end to end: a user created on a custom `'party'` role comes back
+`userKind: 'party'`. The seeded-name lookups that hunt for *the* Party User role
+(`SubscriptionBillingService`, `ImportCommitService`) are unaffected — they name
+the built-in, which always exists.
+
+Mirrored in `jayhindi-client-front/src/utils/role-satellite.util.ts`. ⚠️ The two
+disagree on a **missing** name — `null` here, `'employees'` on the server — and
+that is deliberate, not drift: on the client "no role chosen yet" is a form
+state, and answering `'employees'` would sprout department fields on a blank
+form. The server never reaches its own fallback with a null role. The util's
+own comment says so; don't "align" them.
+
+**A role name may be TWO characters** (`CreateUpdateRoleDto`, and the form's
+mirror). It was `@Length(3, 100)`, which refuses `CA` — the first custom role
+anybody asks for — and also refuses `HR`, **a role this application itself
+seeds**. A floor that rejects the product's own data is the tell that the number
+was picked rather than measured.
+
+⚠️ `CA`, `CS` and `CMA` are on `NAME_ACRONYMS` (`display-case.const.ts`, both
+copies + `scripts/vectors/display-case.vectors.json`). Without them
+`TitleCaseNameDirective` silently saved the role as **"Ca"** on blur — the same
+way `HR`, `ESI` and `MD` got on that list, and the reason it is a curated list
+rather than a heuristic. The vectors include `cathy` and `cab service`, which
+are the guard proving `CA` is matched as a whole **token** and never a prefix.
+
+**Admin-only config modules render locked in the matrix, and are refused a
+stored grant.** `getRolePermissionMatrix` sends `adminOnly` per row from
+`ADMIN_ONLY_PERMISSION_KEYS` (beside the guard that enforces it, so the SPA
+keeps no second copy of that list), and `upsertRolePermissions` **drops** those
+keys rather than writing a permission `RoleMenuGuard` will never honour — an
+inert row in that table is a row that lies to the next reader. Dropped silently,
+not 400'd, because the client sends the whole matrix in one PUT and one inert
+row must not block every real one beside it. ⚠️ The reason is on the row's
+LABEL cell, never on the checkboxes: Material renders **no tooltip on a disabled
+control**, so it would be invisible on exactly the rows that need it.
+
+`membershipVersion` makes a permission change take effect without waiting out
+the token TTL: bump it on any role/permission change, and the guard returns
+`409 MEMBERSHIP_STALE`, which the frontend turns into a silent refresh.
+
+> **"Any permission change" includes the permission MATRIX, not just the role
+> assignment** (D-40). `RolePermissionService.upsertRolePermissions` busts its
+> own 5-minute server cache, and for a long time that was all it did — so the
+> server enforced the new matrix immediately while every holder of the role kept
+> drawing its nav rail and its buttons from the map it fetched at sign-in, for
+> the rest of the token's life. It now bumps `membershipVersion` on **every**
+> membership holding the role, so the next request refreshes. Two consequences
+> worth knowing before you read a `409` as a bug: a caller in flight when the
+> matrix is saved trades an in-flight `403` for a `409` (both frozen contracts,
+> §4.7 — the refreshed token answers `403` on the retry anyway), and **a test
+> that edits a matrix and then reuses a cached token must follow the 409 with a
+> refresh**, which is what the SPA does. The increment states `companyId`
+> explicitly because `Model.increment` fires `beforeIncrement`, which the
+> tenant-scoping hooks do not register for (§4.3).
+
+**Access transitions are written to the MEMBERSHIP; only the Hub bars an
+identity** (D-39). `PUT /users/:id/lifecycle`, the `status` field on
+`PUT /users/:id`, and `DELETE /users/:id` all used to write the global `users`
+row — the one ADR-004 gives no `companyId` and shares with every company the
+person belongs to. One tenant's admin deactivating a shared person refused their
+login *everywhere*; one tenant's admin deleting them removed them from another
+tenant's Users grid, whose admin was never consulted, could not see why, and
+could not undo it (the restore route belongs to the company that deleted them).
+Meanwhile both `company_members` rows sat there `active` — so the column
+`TenantContextGuard` actually enforces was never written by the endpoints named
+for the job, and `NO_MEMBERSHIP` (§4.7, frozen) was **unreachable from the ERP**.
+
+| Grain | Column | Written by | Read by |
+|---|---|---|---|
+| per company | `company_members.status` | the ERP's Users screen — lifecycle, edit-form `status`, delete | `TenantContextGuard` → `NO_MEMBERSHIP`; `listActiveMemberships` |
+| platform-wide | `users.isActive` / `users.status` | **the Hub's `/internal/*` plane only** | `AuthService.login` |
+| credential | `users.lockedUntil`, `failedLoginCount`, `mustChangePassword` | `AuthService.validateLogin` (5 failed sign-ins); *cleared* by activate/unlock | `AuthService.validateLogin` |
+
+Three things that fall out of it, all deliberate:
+
+- **`lock` and `deactivate` now do the same thing.** The only difference was
+  ever the `users.status` label the ERP no longer writes, and both mean "not in
+  this company". A lockout proper is the credential row, set by five failed
+  sign-ins, and activate/unlock is what clears it.
+- **A delete tombstones the `company_members` row**, and follows it with the
+  identity **only when that was its last live membership anywhere** — which
+  keeps the single-company case (nearly everyone) exactly as it was: archived
+  view, `deletedBy`, restore. A shared identity just leaves this company's grid;
+  re-adding them through `POST /users` revives the soft-deleted membership in
+  place. Because Sequelize does not propagate `paranoid: false` into an include,
+  `UsersService.findAll`/`findOne` pass it down to the `membership` join
+  explicitly — without that the archived view and `loadTarget` both answer empty.
+  > ⚠️ **The same omission cost a whole print route** (BUG-0038).
+  > `JobWorkChallanPrintService.loadChallan` read with `paranoid: false` —
+  > correctly, because a challan outlives its order and an archived one still
+  > has to print — and did not pass it into the `order` include. An archived
+  > order came back `null`, a cast to `JobWorkOrder` got it past the compiler,
+  > and the next line dereferenced `order.id`: **every** challan's Rule 55 print
+  > was a 500, because most finished orders are archived. Its sibling
+  > `groupForPrint` wrote `order?.partyUserId`, so it did not throw — an
+  > archived companion just **dropped off the printed sheet**. When you write
+  > `paranoid: false`, write it on the includes too, and ask which of the two
+  > shapes you are in: the one that throws, or the one that quietly returns less.
+- **`CreateUpdateUserDto.status` accepts `active | inactive | exited` only.**
+  `locked` is not a membership state, and `pending` belongs to
+  `InvitationService`, which mints the token that makes it recoverable.
+
+> ⚠️ **D-39 was applied to every WRITER of those columns and to the guard. It was
+> not applied to the READERS, and one of them is still counting the wrong one**
+> (BUG-0046). `UsersDashboardService` answers *"Active users"* with
+> `SUM(u.isActive = 1)` — the platform-wide column the ERP no longer writes,
+> on a row it shares with every other company the person belongs to. So the
+> Users **dashboard** and the Users **grid** on the next screen disagree about
+> who is active, and the dashboard is wrong in **both** directions at once:
+> people this company deactivated are counted Active, and people barred by
+> another tenant's Hub operator are counted Inactive. Its `deletedUsers` is the
+> complement of the right answer — it counts globally-deleted identities who are
+> still live members here, and misses every membership this company actually
+> tombstoned, which the population filter has already dropped.
+>
+> The three counters that genuinely belong on the identity are `lockedUsers`
+> (a **credential** fact, set by five failed sign-ins), `neverLoggedIn` and
+> `activeLast30Days` (properties of the login, which is platform-wide). Everything
+> else about *this company's* roster is `company_members.status`.
+>
+> **When a decision moves a column's meaning, grep for its readers, not only its
+> writers.**
+
+**`users.tokenVersion` is the same pattern for the identity, and it is what makes
+sign-out actually end a session** (SEC-021). `AuthGuard` verifies a signature and
+consults nothing else, so a signed-out access token used to keep reading the API
+until it expired. The counter is minted into the token as a `tokenVersion` claim
+and compared by `TenantContextGuard` against the live column — off the membership
+row it already loads, so the check costs nothing extra — and answers
+`401 SESSION_REVOKED` when they differ. Bump it on logout, logout-all and any
+password change; a token minted before the column existed carries no claim and
+reads as version 0, so a deploy signs nobody out.
+
+> ⚠️ **There are exactly TWO minters of a JWT in this backend, and for a while
+> only one of them set the claim** (BUG-0056, fixed 2026-08-25). `AuthService`
+> did; `ImpersonationService.start` builds its payload by hand and did not, so an
+> absent claim read as 0 and every support token was refused
+> `401 SESSION_REVOKED` the moment the impersonated administrator's counter left
+> zero — i.e. the first time they signed out or changed their password. The
+> session opened, was audited in the customer's own trail as somebody having come
+> in, and then could not read a single row.
+>
+> **A logout or password change now deliberately ENDS an in-flight support
+> session**, which is what carrying the *live* counter implements. There is no
+> snapshot-and-exempt: that would make a support token the one credential a
+> sign-out cannot revoke. The customer can cut a session they can see in their
+> own trail; the operator re-opens one, audited again.
+>
+> `grep -rn "signAsync\|jwtService.sign" src` names both minters — and that grep
+> is now a **test**: `src/const/ci-guards/jwt-claims-guard.const.ts` fails
+> `npm test` if any minter omits a claim `TenantContextGuard` enforces. **When
+> you add such a claim, add it to `REQUIRED_JWT_CLAIMS` in the same commit** and
+> the guard tells you which minters need it.
+
+**A session is two credentials, and they are revoked at different grains.** The
+access token dies identity-wide (above); the refresh chain dies **per device**,
+by `refresh_tokens.familyId` — the id of the first token in a rotation chain,
+carried forward on each rotation and minted into the access token as
+`sessionFamilyId`. So signing out on the laptop leaves the phone able to refresh:
+it takes one 401 and recovers by itself. Presenting an **already-rotated** refresh
+token is treated as reuse and revokes the whole family (SEC-022).
+
+**`User.create()` may only be called in `services/users.service.ts`** — enforced
+by `src/user-module-boundary.spec.ts`. Everything else goes through
+`UsersService.create` / `UserProfileService.findOrLinkUser`.
+
+#### Access is by invitation only — there is no sign-up
+
+`POST /auth/register`, `AuthService.register`, `AuthUserDto`, the `/auth/signup`
+screen and the `signupAllowed` flag on the public site-configuration response
+were **all removed on 2026-08-20**. A user arrives one of two ways: an
+authenticated admin creates them (`UsersService.create`), or they are invited
+(`InvitationService` — in-app, or the Hub's "add an admin"). Public self sign-up
+had no company to join, so it minted an identity that could authenticate and
+then failed `NO_MEMBERSHIP` on every request.
+
+`user_configurations.allowSignup` outlived the flag it gated by a few hours;
+the whole table went next (below). Don't wire self sign-up back up without a
+company-selection story for whoever signs up.
+
+#### The User Configuration module is gone — how a new user gets its defaults
+
+Removed outright on **2026-08-20**: the screen (`/users-roles/configuration/
+settings`), the nav item, `GET|PUT /user-configuration`, the service,
+controller, DTO and entity, the `user-configuration` permission key (out of
+`permission-registry.ts`, `ALWAYS_AVAILABLE_PERMISSION_KEYS`,
+`ADMIN_ONLY_PERMISSION_KEYS` and `CONFIG_URLS`), and the table itself
+(migration `20260820100000-drop-user-configurations`, which also stopped
+company provisioning seeding a row). Its three settings each had exactly one
+defensible value, and `UsersService.addUserDefaultValue` is now where all
+three live:
+
+| Was | Is |
+|---|---|
+| `defaultPassword` — one company-wide literal every colleague already knew | a password **generated per user** (`src/const/generated-password.const.ts`), which the Add User form pre-fills, shows and lets the admin copy |
+| `defaultUserVerified` | **always verified.** Switching it off only produced accounts that could not log in and no screen to fix them |
+| `defaultRoleId` | the Add User form **requires** a role; the callers with no human choosing (Tally import parties, a voucher's quick-add party, HR onboarding) fall back to `SAFE_DEFAULT_ROLE_NAME`, resolved by NAME per company — `resolveDefaultRoleId` no longer takes a configured candidate |
+
+The generator's alphabet is exactly what `CreateUpdateUserDto.password`
+accepts, and one character of each required class is placed explicitly, so a
+generated password can never be refused by the endpoint it was generated for.
+`jayhindi-client-front/src/utils/password-generator.util.ts` is the form's own
+copy — the two need not agree on output, only on that rule.
+
+#### One identity, many companies — adding someone who already exists
+
+`UsersService.create` with an e-mail that already belongs to a platform
+identity **adds a membership to that identity** (`linkExistingIdentity`); it
+never mints a second one. This applies to **every** role — party and staff
+alike — because the person, not the role, is what is shared. It is the same
+thing `CompanyAdminService.add` (the hub's "add an admin") has always done,
+extended to the in-app *Add User* form.
+
+- Already an **active** member of this company → `400`, "already a member".
+  A Pending/Exited/soft-deleted membership is revived in place instead, with
+  `membershipVersion` bumped.
+- The linked membership is **never** `isDefault` — this company's admin does
+  not get to decide where someone else's login lands.
+- The identity row (`name`, `password`, `phone`, …) is **not touched**. Only
+  the per-company records are written: `company_members`, `company_parties`,
+  and `user_details` (see §4.3's note — the party master is company-scoped).
+
+> ⚠️ This **replaced** the previous §11.3 enumeration-safety rule, which
+> swapped a colliding party e-mail for a `@tally-import.invalid` placeholder
+> and created a duplicate identity. That bought secrecy at the cost of making
+> multi-company membership unreachable: a person who administered one company
+> and was a party of another got two unrelated logins and could only sign into
+> one. Product decision, 2026-08-20 — the login company chooser depends on it.
+> Do not re-introduce the placeholder swap for a caller-supplied e-mail.
+>
+> **The bulk Tally import is the deliberate exception** and still never links:
+> `ImportCommitService.resolvePartyEmail` resolves a colliding address to a
+> placeholder *before* `UsersService.create` sees it, so a 500-ledger import
+> cannot attach memberships to real people. Keep it that way.
+
+An **edit** (`UsersService.update`) meeting a colliding e-mail **asks, then
+merges** (2026-08-26). It used to refuse outright, on the argument that pointing
+an existing row at another identity is a merge rather than a membership — right
+about what it is, wrong about whether it should be possible. Refusing left an
+admin unable to give a party its real address (a party booked without one gets a
+`<slug>@tally-import.invalid` placeholder) and the platform holding one business
+twice under two ids, while `users.email` being UNIQUE **platform-wide in the
+database** means one identity with two memberships is the only shape available.
+
+- The first save answers **`409 EMAIL_BELONGS_TO_IDENTITY`** carrying the
+  owner's `ownerName`. **The name only** — their name becomes visible here the
+  moment a link happens, but listing the companies they belong to would let any
+  admin probe addresses to learn who else is on the platform and where.
+- Only a caller returning `linkToExistingIdentity: true` performs it. A merge
+  moves every voucher, challan and journal line that names the record, so it is
+  something a human states — never inferred, never a default.
+- `PartyIdentityLinkService` is the entry point; the merge itself is
+  `src/services/identity-merge.ts`, **shared with
+  `scripts/fix-duplicate-party-identities.ts`** so the operation has one
+  definition rather than two. It refuses whole (`describeMergeClashes`) when
+  both identities already hold a row in one company, since the three party
+  tables collide on `(companyId, identityId)` the moment they repoint.
+- It does **not** write the surviving identity's `name`, `phone` or password —
+  the same rule `linkExistingIdentity` follows on create. The local name is kept
+  in `company_parties.displayName` instead.
+  > ⚠️ **That column is written and not yet read.** A party's name resolves from
+  > `users.name` in ~54 Sequelize includes and 11 raw SQL joins across job work,
+  > vouchers, reports, prints, the dashboard and the export; sweeping some of
+  > them would show one party under two names on two screens of the *same*
+  > company, which is worse than one shared name honestly applied. Until that
+  > sweep lands — in one pass — the link's confirmation states plainly which
+  > name the company will show.
+
+### 4.5 Permissions — four independent gates
+
+| Gate | Where | Grain | Admin bypass? |
+|---|---|---|---|
+| `RolesGuard` + `@Roles()` | global | role name | n/a |
+| `RoleMenuGuard` + `@Permissions(key, actions)` | **opt-in** `@UseGuards` | per module key × action | **yes** — Admin is never locked out |
+| `ModuleLicenceGuard` | global | licensed module | **no** — provider's decision |
+| `BillingRestrictionGuard` | global | HTTP method | no |
+| `PartyOnlyGuard` | **opt-in** `@UseGuards` (the party portal, class-level) | identity **kind** | **no** — an admin is not a party |
+
+**`@Permissions('<key>', ['canView'|'canAdd'|'canEdit'|'canDelete'|'canViewDelete'|'canApprove'])`**
+keys are stable strings listed in `src/const/permission-registry.ts` — the single
+source of truth, consumed by the seeder, the Admin full-access grant, the
+editable permission matrix, and upsert validation. Rows live in
+`role_menu_permissions` keyed by `(companyId, roleId, permissionKey)`; the guard
+caches a role's whole map for 5 minutes.
+
+**`@SharedRead()`** is the second lane: a **read-only** data source any
+authenticated **colleague** may call (the product picker feeding voucher lines,
+the chart of accounts feeding posting, employees feeding payroll). It bypasses
+both `RoleMenuGuard`'s module check and `ModuleLicenceGuard` — otherwise
+Transaction couldn't be sold without Product. **Security contract: only ever on
+read-only handlers (GET, or POST `list`/search). Never on
+create/update/delete/restore.** It is handler-scoped on purpose; a controller may
+not claim it wholesale.
+
+> ⚠️ **"Any authenticated user" never meant a trading party** (D-46, BUG-0031).
+> Customers log into the same ERP as the staff who invoice them — that is the
+> premise of the party portal — so that phrase quietly handed a customer every
+> shared lookup in the application. **38 endpoints answered a party**, including
+> the company's bank accounts with their **account numbers and IFSC codes**, the
+> full staff list, the salary-component structure, the inventory valuation, the
+> job-work machines' hourly cost rates, and **every other party's GSTIN, PAN and
+> outstanding balance** — one customer reading another's tax identity inside the
+> same tenant. Four of them had been filed separately (SEC-051/053/054/055)
+> before anyone counted the rest.
+>
+> So `@SharedRead()` takes `{ parties?: boolean }`, defaulting to **false**, and
+> `SharedReadPartyGuard` — **global**, unlike `RoleMenuGuard` — answers a party
+> `403 PARTY_FORBIDDEN`. Global on purpose: `RoleMenuGuard` is opt-in per
+> controller, which is right for a rule that *widens* access, and this one
+> **narrows** it. A narrowing rule a controller can forget to install is not a
+> rule. It is the mirror of `PartyOnlyGuard`, so "is this caller a party?" is now
+> asked on both sides of the boundary.
+>
+> **The allow-list is one route** — `GET /print-config`, because the party portal
+> prints the invoice they are entitled to. Before adding a second, ask the
+> question this decorator got wrong the first time: **not "does a party need to
+> read this?" but "would I put this figure in an e-mail to a customer?"**
+
+**`PartyOnlyGuard`** (`src/guards/party-only.guard.ts`) is the one gate that asks
+*who the caller is* rather than *what their role may do*. `/party-portal/*` is
+written for a trading party reading their own documents — the self-scope comes
+from `req.user.id`, not from a permission — so a permission key would have been
+the wrong instrument (an admin could grant it to a staff role and aim the portal
+at nobody). It reads `userKind` off `TenantContext`, i.e. off the live
+`company_members` row, **not** off the JWT, so a kind change does not wait out the
+token TTL. `403 { code: 'PARTY_ONLY' }`. It is class-level on purpose: unlike
+`@SharedRead()`/`@ReadOnlyRequest()`, which are handler-scoped because they
+*widen*, this one narrows. Mirrored on the frontend by
+`guards/party-user.guard.ts`, which also does not exempt admins.
+
+**`ADMIN_ONLY_PERMISSION_KEYS`** (`src/const/admin-only-permissions.const.ts`)
+denies every non-admin outright, even one the permission table grants — used for
+config surfaces holding credentials (`eway-bill-config`, `einvoice-config`, …).
+
+Both `RoleMenuGuard` and `ModuleLicenceGuard` read metadata with
+`reflector.getAllAndOverride([handler, class])`, **not** `get(handler)` — several
+controllers declare `@Permissions(...)` once on the class. A handler-only read
+returns `undefined` there and waves the whole module through. Never downgrade
+those calls.
+
+### 4.6 Module licensing
+
+Nine licensed modules (`LicensedModule`): `product`, `transaction`, `chat`,
+`files`, `hr`, `jobwork`, and — since **2026-08-26** — `branding`, `audit`,
+`export`. Plus three gateway capabilities (`ewb`, `einvoice`, `ocr`) that gate
+calls the hub makes rather than nav subtrees. Flags are columns on the
+`companies` row (`productEnabled`, …), mapped by a **total** `Record` so adding
+an enum member without a column is a compile error.
+
+> ⚠️ **`branding` is the one module `ModuleLicenceGuard` does not enforce, and
+> that is deliberate.** Branding's permission key `site-configrations` also
+> guards `GET /site-configuration/gst-profile` and `PUT /site-configuration`,
+> which **Transaction ▸ Configuration ▸ Company & GST** calls — the two screens
+> share one endpoint (§7). Gating the key would refuse a company its own name,
+> GSTIN, PAN and address for want of a *logo* licence, so the key stays in
+> `ALWAYS_AVAILABLE_PERMISSION_KEYS` and the flag is enforced in the SPA by URL
+> segment alone (`MODULE_BY_URL_SEGMENT`), which hides the screen and refuses
+> its route. If the branding half of that PUT is ever split onto its own route
+> and key, gate it in `module-licence.const.ts` and delete the note there.
+>
+> `audit` and `export` have no such entanglement and are gated end-to-end. They
+> and `site-configrations` all **left** `ALWAYS_AVAILABLE_PERMISSION_KEYS`,
+> where they sat on arguments that were real and were overruled rather than
+> refuted — the audit trail is a compliance record of what already happened,
+> and the export bundle is a data-portability right. Both arguments are kept in
+> that file so nobody re-adds the keys by rediscovering them; the owner sells
+> all three, and the Hub is where that is decided per company.
+
+- Unlicensed → `403 { code: 'FEATURE_DISABLED', module }`.
+- **A missing/unknown flag reads as ON** (`ALL_ON`) — a company row predating a
+  newly-added module must never go dark.
+  > ⚠️ **The fail-open is not uniform any more** (ruled 2026-08-25, closing
+  > §13's still-open #3). When the `companies` **read throws**, the nine nav
+  > modules still resolve ON — a database hiccup must not black out a working
+  > ERP — but the three *billable* gateway capabilities (`ewb`, `einvoice`,
+  > `ocr`) resolve **OFF**: an outage is not authorisation to spend money at a
+  > government portal on a customer's behalf. `MODULES_ON_GATEWAYS_OFF` in
+  > `company-licence.service.ts` carries the whole argument. A company row that
+  > is simply **missing** is deliberately still `ALL_ON` — that is a stale id or
+  > a deleted company, not an outage.
+- Mirrored on the frontend in
+  `jayhindi-client-front/src/core/navigation/module-licence.ts`. **Keep the two
+  in sync.** The server is the enforcement; the frontend copy exists only so the
+  menu doesn't offer something the server will refuse.
+
+### 4.7 Frozen error contracts
+
+These status+code pairs are contracts the frontend recognises. Don't change them.
+
+| Code | Status | Meaning | Client behaviour |
+|---|---|---|---|
+| `NO_MEMBERSHIP` | 403 | membership deactivated/exited, or token has no `companyId` | sign in again |
+| `MEMBERSHIP_STALE` | 409 | role/permissions changed since token was minted | silent `/auth/refresh` + retry |
+| `COMPANY_SUSPENDED` | 403 | company suspended/archived | blocked |
+| `FEATURE_DISABLED` | 403 | module not licensed | "your provider turned this off" |
+| `SUBSCRIPTION_PAST_DUE` | 402 | billing read-only grace | reads still work |
+| `PARTY_ONLY` | 403 | a staff/system account called a `/party-portal/*` route | the SPA never routes staff there (`partyUserGuard`) |
+| `PARTY_FORBIDDEN` | 403 | a trading party called a `@SharedRead()` handler that is not party-readable (D-46) | not offered on screen; the party SPA calls only `/party-portal/*` and `GET /print-config` |
+| `SESSION_REVOKED` | 401 | the access token predates the identity's last sign-out / password change (`users.tokenVersion`) | refresh, which succeeds on a device that did not sign out and fails on the one that did |
+
+### 4.8 Data layer
+
+- **Sequelize 6 + sequelize-typescript**, injected via the `SEQUELIZE` token
+  (`src/const/config-const.ts`).
+- **Soft deletes**: `paranoid: true` + `SoftDeletableModel`. `BaseCrudService`
+  gives `remove` (first call soft-deletes and stamps `deletedBy`; second call on
+  an already-deleted row hard-deletes), `restore`, `bulkRemove`, `bulkRestore`
+  (best-effort — a refused row lands in `skipped` with its own service's reason
+  rather than failing the batch).
+- **Migrations**: a squashed `00000000000000-initial-schema.ts` baseline in both
+  backends, plus incremental migrations on top of it in `client-back`
+  (`20260820000000-user-details-company-scope`, then
+  `20260820100000-drop-user-configurations`, and the chart-of-accounts chain
+  `20260828100000-acc-ledgers` → `…200000-journal-line-ledger` →
+  `…300000-voucher-head-ledger` → `…400000-import-resolved-acc-group` →
+  `…500000-ledger-nature-fallback-repair`). Add new ones with
+  `npm run migration:create <name>`; never edit the squashed baseline. Write
+  each step idempotently (check `information_schema` before altering) so a
+  re-run is a no-op rather than an error.
+  > ⚠️ **Write the SQL for MySQL 8's DEFAULT `sql_mode`, which includes
+  > `ONLY_FULL_GROUP_BY`.** A non-aggregated column beside a `GROUP BY` is an
+  > *error* there, not an arbitrary pick — D-52's `rcm-payable-head` selected
+  > `n.id` beside `GROUP BY n.companyId` and **aborted on every stock MySQL 8**,
+  > so `RCM_PAYABLE` existed in no company and the ruling was code-only
+  > (BUG-0051; `MIN(n.id)` is the fix). A migration that cannot run is not a late
+  > schema change, it is a release that does not install — and nothing in the
+  > loop compares the applied set against the directory, so `npm run migrate`
+  > after pulling is on you.
+- **The DB session runs in UTC**, and that is why **raw SQL binds the day
+  instead of asking for it** (BUG-0050, fixed 2026-08-25). No `timezone` is set
+  on the Sequelize config, so its `+00:00` default applies and `CURDATE()` is the
+  **UTC** day. Against a business `DATE` column — `trx.date`, `dueDate`,
+  `journal_entries.date` — that names *yesterday* between 00:00 and 05:30 IST:
+  the dashboard's "Today" tiles, its month-to-date windows and the overdue cut
+  were all a day out for 5½ hours of every 24, and on the 1st of a month inside
+  that window "this month" reported the whole of last month.
+
+  Thirteen sites across seven services now thread `today: todayIso()` into
+  `replacements` and compare against `:today` — the shape §4.3 rule 3 already
+  requires for `companyId`. Setting `timezone` on the config was the one-line
+  alternative and was **rejected**: it also changes how Sequelize *serialises*
+  every `Date` on the way IN, a wider blast radius than the defect.
+  `ci-guard-raw-sql` enforces it, with no allow-list — no statement here
+  legitimately wants the UTC calendar day.
+
+  ⚠️ **`NOW()` and `CURRENT_TIMESTAMP` are deliberately NOT flagged.** Against a
+  stored UTC timestamp — `updatedAt`, `lockedUntil`, `lastLoginAt` — asking the
+  database for the current instant is correct, and is a different question from
+  the calendar day.
+- **Transactions**: controllers open `await this.sequelize.transaction()` for
+  multi-step writes and pass `{ transaction }` down. Commit on success, rollback
+  and rethrow as `ApiException` on failure — see
+  [product.controller.ts](jayhind-client-back/src/controllers/product.controller.ts)
+  `create()` for the canonical shape.
+- **Domain rules live in `src/const/*.const.ts` as pure, dependency-free
+  functions**, each with a `.spec.ts` beside it. This is why the API guards and
+  the UI buttons can read the same table
+  (e.g. `voucher-lifecycle.const.ts` ↔ frontend `utils/voucher-lifecycle.util.ts`).
+  Put new business rules there, not inline in a service.
+
+### 4.9 Accounting core (don't improvise here)
+
+**The leg table is DATA, not a switch** (§3.4, P8a). `buildLegs` used to be a
+`switch` over the fourteen `PostingVoucherKind`s; it is now
+`src/const/posting-rules.const.ts` — **38 `PostingRule` rows** plus an interpreter,
+each row an inclusive validity window, so *"from this date this kind also credits
+X"* is a row rather than a branch. Four things to know before touching it:
+
+- **`buildLegs` is exported from `posting-rules.const.ts`, and is deliberately
+  NOT re-exported from `posting.const.ts`.** The latter holds the vocabulary the
+  rules are written in (`PostingVoucherKind`, `LegRole`, `LegAmounts`, `round2`),
+  so the rules import *it*; a re-export makes the pair a **cycle**, and
+  `POSTING_RULES` is built at module-evaluation time out of those enums — loaded
+  one way round it throws at boot, loaded the other it works. §14's job-work
+  provider cycle, one layer down.
+- ⚠️ **A rule's `effectiveFrom` is the date the LAW changed, never the date we
+  shipped the code.** Reverse charge (§9(3)/§9(4)) has applied since 2017, so
+  dating D-52's rows to their own deployment day would make a back-dated RCM
+  purchase post the pre-D-52 shape — the exact defect D-52 was filed to fix,
+  restored inside the rule table where it reads as deliberate. The 15 pre-D-52
+  purchases in the development books are a **declared exception in the gate**,
+  recognised by the shape the books hold, not papered over with a date.
+- **`POSTING_EFFECT` is what keeps the switch's `default: throw`.** A rule table
+  cannot tell *"this kind posts nothing"* from *"nobody wrote this kind's rules"* —
+  both are an empty row set — and losing that distinction approves a voucher into
+  no ledger. It is a total `Record`, and its spec ties it to `POSTING_RULES` in
+  both directions so it cannot become a stale list beside them.
+- **`resolveStatutoryLedger` keeps its narrow, undated signature**, and that is
+  now a ruling rather than a deferral: `acc_ledgers.systemKey` holds exactly one
+  row per key per company (23 × 14, measured), and a new levy needs a new
+  `SystemGroupKey` *and* a rule emitting it — a code change either way. §3.4's
+  `statutory_heads` table is retired; a second table mapping code + date → ledger
+  would be a second definition of what `systemKey` already states.
+
+`posting.service.ts` + `src/const/posting.const.ts` turn vouchers into
+double-entry `journal_entries` / `journal_lines`, resolving accounts by
+`systemKey` from the seeded chart of accounts, splitting GST intra/inter-state
+from GSTIN state codes.
+
+> **A journal line names a GROUP, not an account.** `journal_lines` carries both
+> `trxGroupId` and `trxAccountId`, and in this schema the **group** is the
+> postable leaf of the chart of accounts: every ordinary leg (party control, the
+> GST heads, sales/purchase, an expense) names a `trx_groups` row and leaves
+> `trxAccountId` **NULL**. Only the cash/bank leg of a payment, receipt, journal
+> or contra names an account — and it names a group too. Anything that aggregates
+> the ledger therefore groups by `trxGroupId`; keying by `trxAccountId` collapses
+> the whole book into one anonymous bucket while every total stays right, which is
+> how it goes unnoticed (it did, in the QA harness's own trial balance, until
+> Phase 6B).
+>
+> ⚠️ **As of D5 (2026-08-28) it also names a LEDGER, and that is what it will
+> name.** `journal_lines.ledgerId` is `NOT NULL` against `acc_ledgers` — the
+> postable leaf of the Tally-shaped chart (TALLY-PARITY-PLAN.md §3.1) — where a
+> group is now a container whose balance is the sum of its children. All 41,690
+> existing lines were backfilled by `resolveLedgerForLine`'s precedence.
+>
+> **And as of D6 (2026-08-28) so does the VOUCHER.** `trx.ledgerId`,
+> `trx_charges.ledgerId`, `trx_payment_receipts.ledgerId` and
+> `trx_payment_receipt_lines.ledgerId` sit beside the four group columns
+> BUG-0025 was filed about, and `persistLines` **believes a leg that carries
+> one** rather than re-deriving it — so the document and the general ledger are
+> one statement, not two derivations that agree until something moves. Three
+> consequences worth knowing:
+>
+> - **`ledgerId` is on no DTO, and must not be put on one.** It is derived from
+>   the head in the **one writer of each table** (`TrxService`,
+>   `TrxChargeService`, `TrxPaymentReceiptService`,
+>   `TrxPaymentReceiptLineService`) — not in `TrxWriteService.saveTrx` or
+>   `TrxPaymentReceiptController.saveReceipt`, because `ImportVoucherCommitService`
+>   reaches the receipt writer directly and would have walked past a check placed
+>   in the controller (§13 still-open #3). Declaring the field would hand a
+>   caller a cross-company ledger id to aim at — §12's rule, and rule 7's own
+>   three columns are exactly these.
+> - **D6 is not a second resolution rule.** A voucher head is a journal line
+>   with no party and no instrument, so `voucherHeadRefs` hands
+>   `resolveLedgerForLine` the degenerate line its third precedence arm already
+>   answers. Do not add a `resolveLedgerForHead` to `ledger.const.ts`; a mirror
+>   of a rule ten lines above it is still a mirror.
+> - **A control head is refused, never provisioned** (`controlHeadNotPostable`).
+>   The two heads that became groups have no ledger deliberately; creating one
+>   would resurrect the head as a leaf beside the party ledgers that replaced it,
+>   reported back under the very head it vacated, with every total still adding
+>   up.
+>
+> ⚠️ `trx_payment_receipts.ledgerId` is **nullable while the column beside it is
+> not**, and that is the honest shape: `postPaymentReceipt` reads `trxGroupId`
+> only for a Journal, and two of the QA world's 3,308 rows name a control head.
+> The rule is *"set for a Journal, null for a Payment or Receipt"* —
+> `qa-p2-ledgers` (16) asserts it that way rather than as "not null", which is
+> what caught a backfill handing 3,035 payment/receipt rows a ledger nothing
+> would ever read.
+>
+> **A reversal carries its original line's `ledgerId`**, copied rather than
+> re-resolved: re-resolving answers the same ledger today and a different one
+> the moment a party ledger is re-parented, leaving a cancelled voucher that
+> nets to zero overall and to something non-zero on two ledgers.
+>
+> **And since P2b‑3b the STATUTORY legs ask the statutory chart directly.**
+> `PostingService.resolveStatutoryLedger(key, tx)` answers
+> `{ trxGroupId, ledgerId }` from `acc_ledgers.systemKey`, and the tax,
+> GST-component, RCM, payroll, salaries-payable, closing-stock and
+> opening-balance-equity legs all go through it. `resolveSystemGroup` stays for
+> the **party** legs (whose ledger is the party's, not the head's) and for the
+> five non-posting callers.
+>
+> ⚠️ **Do not "simplify" it back to letting `persistLines` resolve.** That path
+> walks `acc_ledgers.legacyTrxGroupId` back to the head — D2's *correspondence*,
+> which is exactly what D9 removes — and when the correspondence is broken it
+> does not fail, it **provisions a new ledger**: with one company's
+> `IGST_OUTPUT` ledger de-linked, the old code created `"IGST Output (467)"` and
+> posted the whole of that company's output IGST into it, balanced and
+> unremarkable. Measured.
+>
+> ⚠️⚠️ The two **control** heads are deliberately not resolvable through it: after
+> D3 they hold one ledger per party and have none of their own (0 of 14
+> companies, against 14 for every other key), so asking for one is a programming
+> error and answers as such rather than plausibly.
+>
+> **Every figure-bearing report reads `ledgerId`** (P2b‑2, 2026-08-28), and
+> **since P3b (2026-08-29) the three statements read the TREE** — the Trial
+> Balance, the Balance Sheet and the Profit & Loss are `acc_groups` with
+> `acc_ledgers` leaves, collapsed by default and expanding through
+> `GET /reports/group-summary/:groupId`, with no presentation rule in the path
+> at all.
+>
+> **And since P6 (2026-08-31) the P&L is TWO stacked statements** — a **Trading
+> Account** (Sales · Direct Incomes against Purchases · Direct Expenses) closing
+> at a **Gross Profit** carried down into a **Profit & Loss Account** met by the
+> indirect halves. `src/const/trading-account.const.ts` is the rule, and it is
+> four group `systemKey`s: the split *arrives with the hierarchy* P1 seeded
+> rather than being a column or a per-company setting.
+>
+> ⚠️ **Net Profit does not move, and that is P6's whole gate.** The line is
+> drawn *through* the same Income- and Expense-natured rows the one-statement
+> P&L always summed, so `income`, `expense`, `totalIncome`, `totalExpense` and
+> `netProfit` are byte-identical and the parity diff is empty over every figure.
+> `netProfit` is nonetheless computed **through** the gross (`netProfitFrom`),
+> because a statement whose subtotal does not feed its total is BUG-0040's two
+> derivations inside one screen.
+>
+> ⚠️⚠️ **An unrecognised P&L primary falls BELOW the line**, deliberately: a
+> group that has not said it is part of the trade must not move Gross Profit on
+> a guess. And the four trading groups are **restated, not imported**, in
+> `scripts/qa-p6-trading.ts` — the first cut of that gate imported them and its
+> first injection **passed**, because the oracle moved with the rule it was
+> checking (§13's standing shape, the P2b‑3c variant).
+>
+> ⚠️⚠️ **And since P3c‑1 (2026-08-29) NOTHING presents through the legacy
+> chart.** `src/const/ledger-presentation.const.ts` — the transitional rule that
+> mapped a ledger back to the legacy head it was reported under — is **deleted**,
+> along with `ReportsService.legacyTrialBalance` / `.legacyBalanceSheet` /
+> `.legacyProfitAndLoss`, the `?view=legacy` parameter, the Trial Balance's
+> `natureShift` annotation, and the parity harness's `exceptions` generator.
+> The last three product callers moved onto `acc_groups`
+> (`party-statement.service.ts`'s `controlBalance`, `trx.service.ts`'s two
+> Outstanding reads, `financial-dashboard.service.ts`'s two panels), and
+> `GET /reports/group-statement/:groupId` takes an **`acc_groups`** id reporting
+> its whole subtree.
+>
+> Three things fall out of that, and the second is the one to carry:
+>
+> - **Every read that asks *"which side of the books is this party on?"* matches
+>   the control group DIRECTLY** — `PARTY_SIDE_ACC_GROUP_KEY` in
+>   `ledger.const.ts`, which did not retire with the rule because which group a
+>   party hangs under is a fact about the new chart. The four are the two
+>   Outstanding reports, the party summary and the Business Dashboard's
+>   `partyPositions`. D3 parents every party ledger straight onto the control
+>   group and `describeLedgerMoveBlock` refuses to move a posted one across a
+>   nature, which is the only move that could take it out.
+> - ⚠️ **The parity harness's question changed with it.** `qa-coa-parity` existed
+>   to ask *"did a figure move as the mechanism changed underneath a report whose
+>   shape is fixed?"*, and the flat statements were the fixed shape. There is no
+>   second derivation left, so that question is finished — the harness now asks
+>   the ordinary one of the reports a customer reads, and **`diff --rebased
+>   <prefix>`** is how a capture pair straddling a shape change declares it. It
+>   is **not** an allowance: an allowance is a statement about the books, judged
+>   per path; a re-basing is a statement about the tape measure, drops the paths
+>   under a prefix from BOTH sides, prints how many it dropped, and fails a
+>   prefix matching nothing.
+> - **Every gate's second opinion was the flat report, so five were re-based**
+>   (`qa:p1-group-tree`, `qa:p2-ledgers`, `qa:p3-ledger-report`,
+>   `qa:p3b-statements`, `qa:p2c-import-tree`). Each tie is now against **Σ over
+>   `journal_lines`**, restated in the gate — the discipline `qa-artifacts` has
+>   always used, and one that does not depend on a second report being right.
+>
+> **`trxGroupId` survives as a shadow** for the reads whose heads are 1:1 with a
+> D2 ledger and for `trx_groups.currentBalance`, which is its own cache. The two
+> *label* reads it was also kept for — the Day Book's line label and the cash
+> book's `particulars` — **crossed over in P3b**: 13,471 of the development
+> database's 41,690 lines are now named by their own ledger, and `particulars`
+> is the contra ledger's name or `(as per details)` rather than a silently
+> truncating `GROUP_CONCAT` of head names. D9 drops the column, a separate
+> release.
+>
+> ⚠️ **Two figures move on a customer's Balance Sheet at P3b, both decided.**
+> The four GST **input** heads become liabilities (₹1,54,85,553.06 across the
+> fourteen companies) because Tally parents Duties & Taxes under Current
+> Liabilities and nature is inherited (§3.3). And **a loss moves to the Assets
+> side** — the sheet places the Profit & Loss A/c by the sign of its own
+> balance, which is what Tally shows, where the flat sheet printed a loss as a
+> negative liability. Both totals move by both, and the sheet balances
+> throughout — which is exactly why *"does it still balance?"* is not a check.
+>
+> ⚠️ **One figure moved when the reports crossed over, and exactly one**: a party
+> who both buys and sells has one ledger under one control head (D3), so
+> **Sundry Debtors falls by ₹2,51,44,323.21 and Sundry Creditors rises by exactly
+> that**, and 4,281 journal lines are reported under a different head than they
+> were posted to. That was the single declared exception to the parity gate, and
+> it was a **list** — 513 entries, each naming the party or the head it was
+> about. ⚠️ The generator that wrote it retired at P3c‑1 with the flat reports
+> whose rows it named; the movement was applied and diffed at P2b‑2, and a later
+> phase that moves figures wholesale wants its own list rather than that one
+> taught a third report shape. Both columns are written from the
+> same leg in the same statement by `PostingService.persistLines`, which is the
+> one place they cannot come apart — the same reason §4.9's *"if you add a writer
+> of `journal_lines`, it must go through `persistLines`"* now has a third cache
+> riding on it (`acc_ledgers.currentBalance`, BUG-0042's shape a third time).
+
+**Closing stock is a POSTED credit, and P6 moved where it prints** (§3.8, F3).
+`postClosingStock` writes `Dr Stock-in-Hand / Cr Closing Stock (P&L)`, and that
+credit's ledger fell to **Indirect Incomes** through `fallbackGroupForNature`
+because §3.2 had mapped `CLOSING_STOCK_INCOME` to `null` — *retired*. It cannot
+be retired the way that mapping imagined: Tally derives closing stock from its
+inventory subsystem and shows it on both statements with no voucher, while
+§3.10 commits this report layer to `journal_lines` and nothing else — so
+`Dr Stock-in-Hand` has to be posted for the Balance Sheet to show stock at all,
+and a journal entry balances. It is filed under **`Direct Incomes`** now
+(migration `20260831000000-closing-stock-trading-placement`), which is inside
+the Trading Account on its credit side, which is where §3.8 asks for it.
+
+> ⚠️ **A line of its own — Tally's actual shape — was refused**, and the reason
+> generalises: a figure inside a statement that is not the sum of a group's
+> subtree breaks the invariant `qa:p3b-statements` (5) holds, and a 29th group
+> breaks §3.2's premise that the tree is Tally's 28.
+>
+> ⚠️⚠️ **It moved no figure**: `sourceType = 'closing-stock'` has **zero rows**
+> across all 14 companies, so the whole mechanism has never been exercised and
+> both closing-stock ledgers carry no journal lines. That is why it was repaired
+> rather than deferred — the first company to run a close would have got an
+> understated Gross Profit and a correct Net Profit, found by a customer reading
+> a Trading Account rather than by a gate. `qa:p6-trading` (10) posts a real
+> close in a rolled-back transaction, because a census over rows that do not
+> exist asserts nothing.
+
+**CGST and SGST are two levies, not one figure halved** (BUG-0026). Each is
+imposed at **half the rate on the line's own taxable value**, so on any one line
+they are the same figure computed twice and are equal by construction.
+`gstLineTax` in `src/const/gst.const.ts` is the primitive that charges them;
+`splitGst` only divides a total that has already been arrived at. Computing one
+full-rate tax per line and halving the *document* total instead made the two heads
+differ by a paisa whenever the full-rate figure was odd — 882 of 2,534 intra-state
+vouchers in the QA world — and GSTR-1, GSTR-3B and the recipient's ITC all carry
+the heads separately, so a return whose CGST and SGST differ does not reconcile.
+Charging each head separately also makes a line total exactly `2 × half`, which is
+why `PostingService.computeTrxTaxAmounts` can still halve the document total with
+**no rounding at all**; don't reintroduce a full-rate line tax and expect that
+division to stay exact. Mirrored in `jayhindi-client-front/src/services/
+pricing-engine.ts`, because the voucher form's preview is written to equal what
+the server stores to the paisa.
+
+**A voucher line snapshots its CLASSIFICATION from the item master, and both
+halves of that are load-bearing** (BUG-0034). `trx_items` carries two facts
+copied off `products` at save time — `hsnCode` and `gstSupplyClass` — and
+`TrxWriteService.applyCatalogueSnapshots` is the one place that stamps them,
+from a single read, deliberately together. Neither may be trusted from the
+client: a stated `gstSupplyClass` let a **taxed** line be declared exempt, so
+the ledger said taxable while GSTR-1 table 8 and GSTR-3B 3.1(c) said exempt
+about the same line. And neither may be left to be resolved later: the column
+was NULL on 21,554 of 21,569 lines (the SPA sets the field only on the product
+form), so `GstReturnAssemblyService`'s fallback read the product's **live**
+class and re-classifying an item rewrote the classification of invoices already
+raised — and already filed. The fallback stays, because it is what keeps those
+rows readable; the fix is forward-only, the same doctrine D-19 set for the
+CGST/SGST split. **When you copy a fact from a master onto a document, ask what
+reads it if you don't.**
+
+**The rate schedule has a date, and this schema has nowhere to put it**
+(GST-002/003, D-50). The 56th GST Council replaced 12 % and 28 % with 5 % and
+18 % and added a **40 %** demerit rate, effective **22-09-2025**. Two
+consequences that look like tidiness invitations and are not:
+
+- `TAX_SLABS` (`src/const/provisioning/company-defaults.const.ts`) seeds
+  **both** schedules, superseded rates included. A voucher is taxed by the
+  schedule in force on its **own document date**, so a credit note against a
+  pre-reform invoice and a Tally opening import both need 12 % and 28 % to
+  resolve — `voucher-import.const.ts` can only map a rate it finds a slab for.
+  Deleting a superseded rate is not a cleanup; it breaks history.
+- **Both masters now carry `effectiveFrom`/`effectiveTo`** (D-50), inclusive
+  document dates with NULL open at either end. `tax-validity.const.ts` is the
+  pure rule and `GET /tax/active?asOfDate=` is how a picker asks; the hub's
+  `hsn_codes` is keyed `(code, effectiveFrom)` so one code can carry a row per
+  schedule — `effectiveFrom` is NOT NULL with a `1900-01-01` sentinel because
+  MySQL treats NULLs in a unique index as *distinct*, which would have silently
+  dropped the duplicate-code guarantee. What limits the blast radius either way
+  is that the rate charged comes from the line's own tax **citation**, not from
+  the master — a line citing 5 % on an 18 % product is charged 5 % — so documents
+  already raised are safe whatever the master says next. Validity decides what a
+  picker **offers**.
+  ⚠️ **The hub's HSN data is still the pre-reform schedule** (598 codes at 12 %,
+  185 at 28 %, none at 40 % — GST-002). The dating that makes a safe re-import
+  possible has landed; the import itself needs the current CBIC file.
+
+**Reverse charge is modelled, and the recipient owes the tax** (D-52). Under
+§9(3)/§9(4) the supplier charges nothing, so an RCM **purchase** carries two
+obligations where an ordinary one carries a single creditor balance: `buildLegs`
+credits the party `net + charges` and credits `SystemGroupKey.RcmPayable` the
+tax, leaving the input-GST legs on the debit side (GSTR-3B declares the same tax
+twice — 3.1(d) as the liability, 4(A)(3) as the credit — so the books carry
+both). `RCM_PAYABLE` is its **own** head, never a `*_OUTPUT` one: an RCM
+liability is discharged in cash and may not be set off against ITC, so netting it
+into output GST would let it be paid with credit on the very report someone
+computes the cash payment from. It carries no `partyUserId` — the creditor is the
+government. Reverse charge is **purchase-only**, matching the scope
+`gstr3b.const.ts` already uses, so the ledger, the return and §31(3)(f)'s
+self-invoice (`gst-returns/self-invoice.const.ts`, rendered by the print payload)
+all agree about what an RCM document is. Forward-only: vouchers posted before
+this are not re-posted.
+
+**Round off is a CHARGE, and a line round-off is not** (2026-09-01). Two
+different roundings, deliberately not one rule (`src/const/voucher-round-off.const.ts`):
+
+- A **line** round-off takes the line's *taxable net* to the whole rupee, and GST
+  is charged on the rounded figure — so `net + tax` still ties exactly, nothing
+  is left over and no ledger is involved. It is expressed through the line's own
+  `unitPrice`, because the server derives every net as
+  `round2(quantity × unitPrice)`: a rounded amount the rate cannot express would
+  not survive the save.
+- A **bill** round-off rounds the grand total *after* tax, so it cannot be folded
+  into a taxable value. It is an ordinary `trx_charges` row on the company's
+  Round Off head — the shape the Tally import has always produced for a "Round
+  Of" ledger line — so it posts through `PostingService` with no special case and
+  the entry balances by construction.
+
+⚠️ **It is the one charge that is NOT part of the taxable value.** §15(2)(c) puts
+an incidental expense charged on the invoice *into* the transaction value, which
+is why every other charge is a return line (GST-021) — and rounding is not an
+incidental expense, it is the total being presented to the rupee.
+`trx_charges.isRoundOff` is what `GstReturnAssemblyService` reads to keep it out
+of GSTR-1's line details while leaving it inside the invoice `val` the customer
+pays. Read off the **row**, never off the head: a company may point its rounding
+at any head, and that head can carry ordinary charges beside it.
+
+⚠️⚠️ **No DTO declares `isRoundOff`**, so `forbidNonWhitelisted` strips it — a
+caller cannot mark a real charge as rounding and take a taxable figure out of the
+return. The client states only `trx.roundOffMode`; the adjustment, its row and
+its flag are all derived (BUG-0030's rule). `TrxWriteService` also **drops any
+charge a caller sends against the round-off head**, because the form loads a
+voucher's charges on edit and re-sending the derived row would persist it as an
+ordinary charge *and* add a fresh adjustment beside it — the total drifting by the
+rounding on every save. Filtering in the form would work until the next caller
+(§13 still-open #3); filtering at the writer cannot be forgotten.
+
+⚠️ The head is `Indirect Expenses`, where the four other charge heads are
+**Direct** — and that is a figure, not a preference: P6 draws the Trading Account
+through Direct Expenses, so filing a rounding adjustment there would move **Gross
+Profit** by the paise a company rounds off. It carries **no `systemKey`**
+deliberately (the posting engine never resolves it — the charge names its own
+group, exactly as Freight does); which head to use is stated on
+`transaction_configurations.roundOffGroupId`, and a company with none is offered
+no whole-bill rounding rather than a guessed head.
+
+**A voucher line's RATE carries four decimals; its money carries two**
+(`RATE_DECIMALS`, 2026-09-01). The server derives every net as
+`round2(quantity × unitPrice)`, so the rate is the only lever a client has for
+making a line come out at a stated figure — and at two decimals, typing a
+supplier's own line total and back-solving `amount / quantity` rounded the rate
+to paise **first**, so `quantity × that` missed the figure on the paper invoice.
+A purchase voucher could not be made to equal the purchase invoice, which is the
+entire job of a purchase voucher. ⚠️ **It is exact up to a quantity of 100 and
+best-effort above it**: the error is `0.00005 × quantity`, so at 10,000 units the
+arithmetic can still miss by 22 paise. That is a property of the number of
+decimals, not of the code — moving the boundary is one edit to `RATE_DECIMALS`
+and one `ALTER` on `trx_items.unitPrice`, and the co-located spec asserts both
+the guarantee and the limit rather than leaving the limit to be found on a
+customer's invoice.
+
+**Compensation cess is not modelled** (D-53). `trx_items.cessAmount` is dropped —
+it was a client-stated figure the server never derived, never billed and posted
+to no head, read straight into GSTR-1's `csamt`. The **portal** field stays at a
+literal `0`, because GSTR-1's schema requires `csamt`. Don't reintroduce a
+client-supplied cess: if it is ever wanted, it is a rate on the item master
+derived beside `gstLineTax`, not a column the client fills in.
+
+**An additional charge is part of the taxable value, and the RETURNS have to load
+it** (GST-021, fixed 2026-08-30). A `trx_charges` row carries its own head, rate
+and tax; `computeTrxTaxAmounts` folds that tax into the same CGST/SGST/IGST split
+as the line taxes and `resolveLegs` expands the aggregate charges leg into one
+journal line per charge. `GstReturnAssemblyService` loaded `TrxItem` and **nothing
+else**, so neither the charge's value nor its tax reached GSTR-1 or GSTR-3B: on 49
+of the development database's invoices the ledger declared one figure and the
+portal was told another, and the payload did not close against **itself** — `val`
+is `grandTotal` and carries the charge while the line details did not. CGST Act
+**§15(2)(c)** settles it: an incidental expense charged on the invoice is part of
+the transaction value. Both loaders now include `trxCharge` and
+`chargeToLineInput` maps each row to a line.
+
+Three things to carry:
+
+- **The rate declared is the one actually charged.** An untaxed charge on a
+  taxable invoice is arguably an under-charge; a *return* states what the document
+  says and does not re-rate it — the same doctrine as the line's own tax citation.
+- ⚠️ **A charge still has no HSN/SAC**, so it groups under `UNSPECIFIED_HSN` in
+  GSTR-1 table 12 — deliberately, on that constant's own argument that dropping a
+  line understates turnover. A real SAC belongs on the charge **head**, snapshotted
+  the way `applyCatalogueSnapshots` snapshots a product's; that is a `trx_groups`
+  column and a screen, not part of the fix.
+- ⚠️⚠️ **`qa-artifacts`' own oracle was blind in the identical way and passed.**
+  `return-rules.ts` recomputes GSTR-1 from its own SQL and read `trx_items` alone,
+  and every charge-bearing voucher is dated after the twelve reconciled periods —
+  so a missing rule reconciled against a missing rule for a whole financial year.
+  **Teaching one derivation and not the other is how a reconciliation suite comes
+  to agree with a defect**; both are taught now, independently, and the test
+  asserts they meet.
+
+**A cancelled voucher leaves a PAIR in BOTH ledgers, and only one of them has a
+shared primitive for saying so** (BUG-0044). `journal_entries` carries
+`isReversal` + `reversedEntryId`, and `liveEntrySql` in `posting.const.ts` is the
+one definition of "this entry did not happen" — `FinancialDashboardService` uses
+it on all five of its queries. `stock_movements` carries the **identical** two
+columns, `isReversal` + `reversedMovementId`, and has **no such primitive**, so
+every reader has to remember on its own. `DashboardService.stockInOutTrend` did
+not: it buckets movements by raw `direction`, so a cancelled purchase adds its
+value to *received* (its original IN) **and** to *issued* (its reversal OUT) —
+the chart reports material issued that was never received, and on the QA world
+that is ₹250bn over twelve months. `cogsMtd`, 44 lines above it in the same file,
+signs by direction for exactly this reason and its comment says so.
+
+Two things fall out of it. **The rule only bites on a GROSS figure** — a balance,
+a running total or a signed sum cancels the pair by itself, which is why
+forgetting it survives so long. And a reversal belongs in **neither** bucket of a
+two-series chart: it cancels the one its *original* was filed under, so the
+correction is a sign, not an exclusion (dropping `isReversal = 1` alone leaves
+the original, which is what inflated the bar). When you add a gross aggregate over
+`stock_movements`, ask what `liveEntrySql` would have done.
+
+**A KPI card and the breakdown drawn under it must count the same rows, and a
+doc comment saying so is not a mechanism** (BUG-0043, BUG-0045, D-56).
+`DashboardService` answers "what is our stock worth" and "what is in the bank"
+from more than one query each, and twice the narrow one sat directly beneath a
+comment promising the wide one. `stockValueByCategory` joined `products ON
+deletedAt IS NULL` while `inventoryValue` summed every bucket; `cashByAccount`
+filtered `isActive: true` while `cashBankBalance` summed the ledger unfiltered —
+under the words *"same scope … so the breakdown always sums to the KPI card
+above it"*. D-56's ruling covers both: **archiving a product does not empty the
+warehouse and deactivating an account is not a withdrawal**, so the money stays
+counted and the panel adds up. Two things to carry — the second half of a fix
+like this lives in a *different method of the same file*, so the check is *which
+other reads answer this question* (a grep, not a review); and **a filter with
+nothing to exclude is not a tested filter**, which is why the cash half survived
+nine QA phases in a world where no tenant had an inactive account.
+
+**Stock is sequenced by DOCUMENT DATE, not by insertion** (BUG-0012, D-17).
+`replayStockLedger` / `byDateThenId` in `src/const/inventory.const.ts` is the one
+place that defines the sequence, and the live buckets, each movement's stored
+`runningBalance` / `valuationCost`, the closing-stock valuation and the
+"what if this were reversed" preview all go through it, so they cannot disagree
+about a product's weighted average. Two consequences worth knowing before
+touching `InventoryService`:
+
+- **A back-dated movement re-costs everything after it**, inside the same
+  transaction — `writeMovement` asks `hasLaterMovement` and calls
+  `rebuildBalances(productId, tx)` when the answer is yes. The ordinary case
+  (today's voucher, a run of same-day lines) skips the replay, which is what keeps
+  a 200-line invoice from rewriting a whole history 200 times. `MovementLike.date`
+  is **required** for exactly this reason: a caller that selects movements without
+  it cannot replay them.
+- **An OUT's `unitCost` is derived and is re-written by the replay; an IN's is
+  not.** A receipt's cost is the price on the document, a fact. An issue's is the
+  average prevailing on its own date — which is what back-dating changes.
+  Re-costing touches no journal entry, because stock valuation has **no leg in
+  this ledger** (the goods head takes the line net; there is no COGS leg and no
+  stock leg). That is what makes it a repair rather than a re-posting exercise, and
+  `qa-artifacts/tests/transactions/recosting.spec.ts` asserts it rather than
+  assuming it — if the ledger ever grows a stock leg, that test is what notices.
+- **A conversion is costed AS OF ITS OWN DATE, and that is not a detail**
+  (BUG-0033). A stock conversion is component OUTs *and* one finished IN, so both
+  halves of the rule above apply to it at once — and it used to price the
+  finished good's IN from `onHandFor`, i.e. the average at the **end** of the
+  ledger, while the engine re-costed its OUTs to the average prevailing on the
+  conversion's date. The two agreed only while the conversion sat last in every
+  component's ledger; back-dated by a day past a purchase that moved an average,
+  a conversion silently destroyed or invented inventory value, with no error and
+  no GL trace (a conversion has no journal entry, so nothing reconciles it).
+  `InventoryService.applyAsOfDateCost` is the fix, called from
+  `planAndValidate` (create **and** edit, the latter excluding the conversion's
+  own movements) and from `preview`, so the screen and the save agree.
+  ⚠️ **It moves `avgCost` only.** Availability stays a question about *now* — a
+  component bought last week can pay for an assembly back-dated to last month,
+  and a shortage check against the older balance would refuse a run the company
+  can plainly perform. The two questions have different tenses; conflating them
+  is what caused the bug. The general form is worth keeping: **when a service
+  snapshots a derived figure, ask what else the derivation depends on** — here
+  `date`, which had become load-bearing in a different file two decisions
+  earlier.
+- **The replay emits EVERY movement, and a cancelled pair carries a `tookPart`
+  flag** (BUG-0049, fixed 2026-08-25). It used to drop the pair — correctly for
+  the totals, and fatally for the one caller that writes rows back:
+  `writeMovement` creates a reversal with `runningBalance: 0` and the comment
+  *"backfilled by `rebuildBalances` below"*, `rebuildBalances` iterates
+  `replay.rows`, and the pair was dropped before it got there. So **every
+  reversal row in the database read `0`**, the row it reversed kept a figure that
+  stopped being true when it was cancelled, and where the pair was last the stock
+  ledger's visible closing contradicted the product's own bucket.
+
+  A cancelled row now carries the balance **prevailing around it** — the pair
+  moved nothing, so the balance beside it is the balance that was already there.
+  `quantity` and `avgCost` still exclude it.
+
+  > ⚠️ **The flag is what separates the two kinds of consumer, and the
+  > distinction is the thing to carry.** Anything that asks a QUESTION about the
+  > sequence — was the product ever short, what did this issue consume at —
+  > considers only `tookPart` rows. Anything that WRITES a row's stored columns
+  > writes all of them. `negativeOnDates` therefore filters **inside itself**
+  > rather than at its call site, so a second reader cannot forget; that is the
+  > same reasoning that made `cancelledMovementIds` shared in the first place.
+- ⚠️ **The negative-stock check is order-blind** and is a known open finding
+  (BUG-0027): it compares against the product's *current total*, so an issue
+  back-dated before the receipt that supplied it is accepted, and the ledger is
+  negative in the middle of its own history while ending up correct. Don't read a
+  negative running balance as corruption without checking the dates first.
+
+Two lifecycle rules (`voucher-lifecycle.const.ts`):
+1. **Nothing leaves the books while a live document depends on it** — an active
+   payment, return note or e-Way Bill blocks cancel; a cancelled one doesn't.
+2. **A voucher that ever posted is never erased.** `journal_entries` and
+   `stock_movements` reference vouchers by a `sourceType`/`sourceId` pair, not a
+   FK, so a hard delete silently orphans them. Such a voucher **archives**.
+
+**The financial-period gate is on POSTING, not on the document** (BR-ACC-5, D-30).
+`FinancialYearService.assertPostingAllowed` refuses a date that no year covers, one
+in a `closed` year, or one on/before a year's soft `lockedUpTo`. A **draft** dated
+inside a closed year is legitimate and `POST /trx` allows it deliberately —
+somebody is capturing an invoice found in a drawer; it simply may not be approved.
+
+> ⚠️ **Un-posting is a posting event too, and that cost a High** (BUG-0028). Three
+> code paths write a reversal into a voucher's own period —
+> `ApprovalService`'s Cancel boundary, `TrxWriteService`'s **approved-edit** branch
+> (which reverses the live GL and stock before superseding the row with a draft),
+> and `StockConversionService`. The gate was on the first only. So editing an
+> approved voucher dated inside a closed year answered `200`, moved that closed
+> year's books, left the voucher a draft — and the re-approve was then refused by
+> the very gate the edit had walked past. A posted voucher in a closed period,
+> silently un-posted and stranded, by someone correcting a remark. The edit branch
+> now checks **both** dates: the existing one because that is where the reversal
+> lands, the new one because the replacement has to be able to post on it (which
+> turns a half-finished edit into a clean refusal).
+>
+> **`stock_movements` has a period too, on all FOUR of its writers** (D-49,
+> ruled 2026-08-24). `grep -rn "reverseSource\|inventoryService.reverse"` names
+> `ApprovalService`, `TrxWriteService`, `StockConversionService` and
+> **`JobWorkMaterialService.cancel`** — the last of which was documented nowhere
+> until Phase 6D counted them. The old reasoning for exempting a conversion was
+> real as far as it went (it is value-neutral and posts no GL, so a closed year's
+> *books* cannot move) and stopped one step short: its **stock** can, and closing
+> stock is a figure the accounts the year was closed to fix actually carry. So a
+> conversion is gated on create, on edit (**both** dates, BUG-0028's shape) and on
+> cancel; and `JobWorkMaterialService.cancel` is gated on the **original
+> movement's date**, because that is where its reversal lands — its `issue` dates
+> the movement `new Date()` and so cannot be back-dated, but cancelling an issue
+> made before a year closed used to write into that closed year.
+>
+> **When you add a writer of `journal_entries` or `stock_movements`, ask what
+> gates the existing ones clear** — and that grep is the check, not a code
+> review. This list must name every writer.
+
+**`trx.paidAmount` is DERIVED and the client may not state it** (BUG-0030).
+`CreateUpdateTrxDto` declares it required, so it arrives on every request, and for
+a long time nothing between the DTO and Sequelize touched it — any caller who
+could raise a voucher could mark it paid, with **no allocation row, no payment
+voucher, no cash leg and no audit trail**, while the trial balance still balanced
+(the receivable control head carried the full amount). `TrxWriteService` now forces
+it to 0 alongside the four totals it already re-derives;
+`ApprovalService.applyReceiptSettlement` is the only writer, exactly as it is the
+only writer of the allocation rows it must agree with. That method also takes
+`FOR UPDATE` on each target and **re-checks the over-payment cap inside the
+transaction** — the create-time cap in `TrxPaymentReceiptController.buildAllocation`
+reads a snapshot outside any lock, so two receipts of 60% each against one invoice
+both landed (BUG-0029). The create-time cap is the courtesy; the approve-time one
+is the enforcement.
+
+**What a document owes is `outstanding.const.ts`, and it has two signs** (D-18,
+BUG-0013). `allocated = Σ payments + Σ (note.grandTotal − note.paidAmount)` — a
+return note reduces what is owed exactly as a payment does, but only **while it is
+unrefunded**, because a note is itself a settleable document and settling it *is*
+refunding it. Where the allocation exceeds the document, the excess is a **refund
+due**, reported beside the receivable and never netted into it: a party with
+₹50,000 of 90-day debt who is owed ₹50,000 back is not a party with nothing
+outstanding, and the ageing buckets total the receivable alone. A note attached to
+a document is **not** an open item of its own — listing it as one, on the positive
+side, while the invoice it offset read as closed, is what made a party's total come
+out overstated by the note's full value and pointing the wrong way.
+
+> ⚠️ **A party's position exists TWICE, and reconciling them needs every term
+> accounted for** (BUG-0040 — the opening-balance term closed by D-55, the
+> reverse-charge term by BUG-0069). The ledger side is `journal_lines.partyUserId` on
+> the two control heads (`SUNDRY_DEBTORS_CONTROL` / `SUNDRY_CREDITORS_CONTROL`) —
+> what the party statement, the summary's `receivable`/`payable` and the
+> Vendor/Customer Outstanding reports all read. The document side is `trx` and its
+> allocation rows — what the bill-wise annexure and the list summary strips read.
+> Neither is derived from the other, so they reconcile only if every term is
+> accounted for, and one is not: a party's **opening balance** is posted straight
+> to the control head (`sourceType: 'party-opening'`) with **no `trx` row behind
+> it**. A report built from `trx` alone therefore lost it silently — the annexure
+> showed no bills and every ageing bucket at zero for a party whose statement
+> closes at ₹5,000 Dr.
+>
+> **D-55 makes it an open item of its own**, aged from the opening entry's own
+> date. `PartyStatementService.openingBalanceBill` synthesised the row from
+> `journal_lines`, deliberately rather than from `company_parties.openingBalance`:
+> both sides then derive from the same rows and cannot drift, and it honours
+> `liveEntrySql`, which the stored column would not — re-editing a party re-posts
+> the opening entry as a reversal plus a replacement. The row carries `source:
+> 'party-opening'` and `id: 0`, because there is no document to open.
+>
+> ⚠️ **That method is gone since P5d, and its absence is the point.** An opening
+> balance is an ordinary `bill_references` row now (P5b writes it, named
+> *"Opening Balance"*), so the annexure reads it like any other bill instead of
+> reconstructing it. The rule D-55 states is unchanged; what went is the second
+> place it had to be stated.
+>
+> ⚠️⚠️ **The SECOND missing term was reverse charge, and it is the one that says
+> how to find the third** (BUG-0069, fixed 2026-08-30). Under D-52 an RCM
+> purchase credits the supplier `net + charges` and the government the tax — so a
+> ₹944 document owes its supplier ₹800. `pendingBills` built every bill, ageing
+> bucket and annexure total from `trx.grandTotal`, so it said ₹944 while
+> `vendorOutstanding`, reading `journal_lines`, said ₹800: two screens in one
+> product disagreeing about one supplier by exactly the RCM tax, and the tax
+> billed to the supplier a second time when `RCM_PAYABLE` already carries it.
+>
+> ⚠️ **Deriving the share from the FLAG is the fix that looks right and is not.**
+> D-52 is forward-only, so the books hold both eras under one flag: on the
+> development database 15 purchases dated 2026-08-23 carry the **full** grand
+> total on the party leg and 4 dated 2026-08-30 carry `net + charges`. Restating
+> from `reverseCharge` turned a ₹468 gap into a ₹2,160 one — fifteen vouchers
+> rewritten, against books already filed, to fix four.
+> `PartyStatementService.postedPartyShare` read what the voucher actually
+> **posted**; `partyOwedOn` in `outstanding.const.ts` is the pure rule for a
+> voucher that has not posted yet, scoped to a purchase exactly as `buildLegs`
+> scopes it. **Where a figure has been posted, read the posting.**
+>
+> ⚠️ **That method is gone since P5d too**, for the same reason
+> `openingBalanceBill` is: the register's bill IS the posted share, because
+> `billRow` writes the line's own amount. Its surviving half is
+> `BillReferenceService.postedBillAmounts`, which answers the same question for
+> the **settlement** path — where `isPaid` and the over-payment cap needed the
+> same denominator, and had been using `grandTotal`.
+>
+> The annexure's **RCM Tax** column exists for the reason `credited`'s did: the
+> reader is matching the row against a paper invoice that says ₹944, and
+> `944 · settled 0 · outstanding 800` with nothing naming the ₹144 reads as a
+> part-payment that never happened.
+>
+> ⚠️⚠️ **Since P5d (2026-08-31) there is only ONE side, and this whole note is
+> about how it got there.** `PartyStatementService.pendingBills` reads
+> `bill_references` — a partition of the very journal lines the ledger side is
+> made of (§3.6) — so a term cannot go missing any more: the term is a row. The
+> three the annexure used to reconstruct by hand are gone with the derivation
+> that needed them, D-18's note netting and BUG-0069's `postedPartyShare` and
+> D-55's synthesised opening balance, and `Σ outstanding − Σ owed back` **is**
+> the party ledger's balance on all 381 ledgers of the development database.
+> `qa:p5d-annexure` (1) is that sentence as a test.
+>
+> Three things fall out, and the first is a visible change to a customer-facing
+> sheet:
+>
+> - **A return note is a bill of its own, on the opposite side**, instead of
+>   being folded into the document it names — 180 of 802 parties' totals moved.
+>   D-18 and BUG-0013 are **not** reversed: the defect they record is a note on
+>   the **positive** side while its invoice read as closed, and here the note is
+>   signed by the side it was *posted* on. What decided it is that the entry
+>   screen's reference grid has drawn it that way since P5c‑2 — one party's open
+>   items rendered two ways in one session is the defect, and the register is the
+>   side that reconciles.
+> - **`credited` is gone and `paidAmount` became `settled`** (Σ of the `against`
+>   references on the bill), and an `advance` or `on-account` amount reaches a
+>   party's sheet for the first time.
+> - ⚠️ **`refundDue` means "owed back", not always "a refund".** On a party who
+>   both buys and sells it is a receivable sitting inside a payable ledger, which
+>   is why the column is labelled *Owed Back*: the direction is what is true in
+>   both readings. `splitBillOpen` is the rule and it asks the **posting**, never
+>   `trxType` — signing by document type reported company 15's party 137 as
+>   ₹55,907.10 owed against a ledger saying ₹36,654.36 Cr.
+>
+> When you write a report about what a party owes, read the register, and say
+> which side of their ledger each figure is on.
+
+**`trx_accounts.balance`, `trx_groups.currentBalance` and — since D5 —
+`acc_ledgers.currentBalance` are CACHES of `journal_lines`, not facts**
+(BUG-0042). `PostingService.persistLines` increments
+all three by exactly the figures it writes to the ledger, in the same
+transaction, and nothing else writes them — so each column is a duplicate of a Σ. Every statement
+in `ReportsService` reads the lines (its header says the caches are *"deliberately
+not consulted"*); `getFundsSummary` and the Financial Dashboard read the caches.
+Two consequences:
+
+- **A divergence is invisible to every ledger-derived report**, which is how nine
+  drifted caches across two tenants survived eight QA phases. What sees it is one
+  query comparing the column with the Σ — `qa-artifacts/tests/reports/
+  outstanding.spec.ts` now runs it over every account and every group of every
+  company.
+- **The repair is `PostingService.rebuildBalances`**, reachable through
+  `POST /trx-accounts/rebuild-balances` (`trx-accounts` `canEdit`) — the door
+  `POST /inventory/rebuild-balances` has always had for the stock buckets. It had
+  **no caller at all** until 2026-08-24, so a drifted cache could not be fixed
+  through the application. If you add a writer of `journal_lines`, it must go
+  through `persistLines`, or all three caches are wrong from that moment on and
+  nothing will tell you. **And since P5b `bill_references` rides the same
+  seam** — the bill register — for the identical reason: it is a statement
+  *about journal lines*, so the one place that writes them is the only place
+  that can hold it. ⚠️ **A cache and its rebuild are one change, not two** —
+  D5 added `acc_ledgers.currentBalance` to `rebuildBalances` in the same commit
+  as the writer, precisely because BUG-0042 is the case where a derived column
+  had no repair door at all for months.
+
+### 4.10 Async work
+
+- **BullMQ + Redis** for the audit queue and the invoice-scan queue, registered
+  via `AuditQueueModule.register()` / `InvoiceScanQueueModule.register()`. Both
+  gated by env flags and both **degrade to in-process** when Redis is absent.
+  > ⚠️ **A flag saying the queue is on is not evidence that it is**, and
+  > `@Optional() @InjectQueue()` is what makes the difference invisible.
+  > `BullModule.registerQueue()` does not mark its own module global, so the
+  > token silently resolved to `undefined` regardless of
+  > `INVOICE_SCAN_QUEUE_ENABLED` and every upload ran inline with **no queueing,
+  > no fairness and no concurrency cap** — which is why
+  > `invoice-scan-queue.module.ts` sets `global: true` and its comment calls that
+  > flag load-bearing. The only honest test is a **side effect the queue path has
+  > and the inline path does not**: `enqueueExtraction` `INCR`s
+  > `ocr-fairness:company:<id>` before `queue.add`, and `runInline` never opens a
+  > Redis connection. `qa-artifacts/tests/cross-service/ocr-pipeline.spec.ts`
+  > asserts that counter, deliberately not the flag.
+  > ⚠️ **A deterministic `jobId` makes every re-submission a duplicate**
+  > (BUG-0060). The id is `scan-<id>` so `queuePosition` can look it up, and
+  > BullMQ answers `add()` with an id it already holds by returning the existing
+  > job and adding nothing — no error. A *failed* job is kept by
+  > `removeOnFail: 100`, which is exactly the state somebody clicks **Re-extract**
+  > from: `retry()` had already reset the row to `uploaded` and cleared
+  > `errorReason`, so the caller was told *"Re-extraction queued"*, the failure
+  > vanished from the screen, and the scan sat in `uploaded` for ever. It bit only
+  > the path that needs it — a `needs_review` job is gone
+  > (`removeOnComplete: true`), so its id is free — and `removeOnFail: 100` made
+  > it non-deterministic, because the id frees itself once a hundred *other* scans
+  > have failed behind it. `discardFinishedJob` clears the old job, and it sits in
+  > **`enqueueExtraction`** rather than in `retry()`: three callers reach the queue
+  > and only one showed the symptom (§13's still-open #4). An **active** job is
+  > deliberately left alone — BullMQ throws on a locked job, and whatever the
+  > running extraction concludes is the truth about that scan.
+- **`@nestjs/schedule`** for cron work (due reminders, job-work alerts,
+  maintenance, subscription billing) — **eleven `@Cron` methods**, every one of
+  which takes the single-runner claim before doing any work
+  (`ScheduledJobRunnerService.runOnce`, keyed by a *truncated*
+  `startOfUtcDay`/`startOfUtcWeek` so two processes waking milliseconds apart race
+  the identical value) and iterates tenants through
+  `CompanyIterationService.forEachActiveCompany`, which opens the
+  `TenantContext.run` each company needs. Remember §4.3 rule 2: cron code has no
+  tenant store of its own. The guarantee is the plain
+  `UNIQUE (jobKey, scheduledFor)` index — the service catches
+  `UniqueConstraintError` and reads it as *"another process owns this run"*, so
+  dropping that index would let every process win with nothing saying so.
+- **Socket.IO** (`src/socket/socketGateWay.ts`) for live notifications, chat,
+  scan progress, active-user counts. **This is the one delivery path in the
+  product with no guard chain at all** — no `TenantContextGuard`, no
+  `RoleMenuGuard`, no `SharedReadPartyGuard` — so the room name
+  (`company:<id>:invoice-scan`) and `emitToUserInCompany`'s company filter *are*
+  the whole of the tenant enforcement. The gateway's own doc records what the
+  last version cost: a socket map keyed by user with no company on it, so *"a
+  message raised in company A reached a tab open in company B"*. A socket with a
+  missing or unverifiable token is **disconnected**, never registered into no
+  company — which would exempt it from every company-scoped check rather than
+  failing loudly. Note the refusal comes *after* the handshake, so a client sees
+  `connect` and then a disconnect.
+  > ⚠️ **The emitters were scoped and the SUBSCRIBERS were not** (BUG-0063), and
+  > the two look alike enough that reviewing one reads as reviewing both.
+  > `@SubscribeMessage('event')` let **any** authenticated socket emit an
+  > arbitrary payload to every client of **every tenant** (`Broadcast` →
+  > `server.emit`) and to any caller-supplied user id (`UtoUmessage` — §4.3
+  > rule 7, with no hooks behind it); a **trading party** could do both, and the
+  > SPA rendered the first as a **toast**. `TotalActiveUsersUpdate` broadcast the
+  > *installation's* socket count, and `system-metrics` streamed the **host's**
+  > hostname, CPU, load, memory, disk and network to any socket. All deleted or
+  > scoped; `system-metrics` now refuses a party by a `userKind` recorded at
+  > connection time, because on this plane there is nothing else to ask.
+  >
+  > Two rules fall out. **There is deliberately no `broadcast()` helper in that
+  > class any more** — a bare `server.emit` in a multi-tenant gateway makes
+  > forgetting the scope the default, and every other emitter there scopes by
+  > remembering to. And when you add a `@SubscribeMessage`, answer both
+  > questions: *which company does this go to*, and *may a customer ask for it?*
+  > That second one is D-46 on its third plane, after `@SharedRead()` (BUG-0031)
+  > and file delivery (BUG-0057).
+
+---
+
+## 5. Backend architecture — `jayhind-admin-back` (Master Hub)
+
+Deliberately smaller and **single-module**: every controller and service is
+registered by hand in `app.module.ts`. No `src/modules/`.
+
+### Two planes
+
+| Plane | Routes | Auth |
+|---|---|---|
+| **Admin** | `/auth`, `/companies`, `/plans`, `/subscriptions`, `/hsn-codes`, `/integration-settings`, `/ocr-review`, `/files`, `/dashboard`, `/support` | JWT (`AuthGuard`) |
+| **Tenant/service** | `/api/v1/ewb`, `/api/v1/einvoice`, `/api/v1/ocr`, `/api/v1/gst`, `/api/v1/hsn`, `/internal/*` | `x-api-key` = `INTERNAL_SERVICE_KEY` (`InternalServiceGuard`) |
+
+`/api/v1/*` and `/internal/*` handlers are `@Public()`, which here means **"no
+user JWT"**, *not* "no auth" — `InternalServiceGuard` authenticates them with a
+sha256-widened, timing-safe compare and **fails closed when the key is unset**.
+These routes carry **no user and no tenant context**, so any handler must be
+company-agnostic or state `companyId` explicitly in every write.
+
+### Two database connections
+
+- `SEQUELIZE` → `master_hub` (plans, subscriptions, invoices, usage, HSN master,
+  error codes, integration config, OCR archive, stored files).
+- `CLIENT_SEQUELIZE` → the **ERP's own** `jayhind_client` DB, used only for the
+  `companies` table. The hub's `Company` entity is a **thin projection** — only
+  identity, status, and the nine licence flags. **Do not grow it into a second
+  definition of the ERP's row**; drift between two Sequelize models over one
+  table is silent and nasty. Sequelize selects exactly the declared attributes,
+  so a column added ERP-side needs no change here.
+- The retired `tenants` table keyed installations by a **UNIQUE** GSTIN, which
+  blocked one owner running several companies on one registration. `companies`
+  inverts it: `UNIQUE(name)`, `UNIQUE(slug)`, plain index on `gstin`.
+
+### Subscriptions & billing
+
+`SubscriptionService` (lifecycle) → every write that could change effective
+flags/quotas ends by calling `SubscriptionProjectionService`, so "the
+subscription changed" and "the company's row reflects it" can't drift into two
+steps someone forgets to do together. `UNIQUE(companyId)` prevents a second
+subscription fragmenting billing history. `past_due` sets `billingRestricted` on
+the company row → ERP `BillingRestrictionGuard` → `402 SUBSCRIPTION_PAST_DUE`.
+
+> ⚠️ **A licence switch has TWO names, and only one of them is on the wire**
+> (BUG-0066, fixed 2026-08-26). The `companies` **column** is `productEnabled`;
+> the **capability** — what `UpdateCompanyFeaturesDto` declares, what
+> `subscriptions.featureOverrides` stores as JSON keys, what `GET /companies/:id`
+> answers under `features`, and what `COMPANY_FEATURE_COLUMN` maps between — is
+> `product`. The console posted the column names, `ValidationPipe` runs with
+> `forbidNonWhitelisted: true`, and **every save of the Modules & services dialog
+> was a 400** reciting *"property productEnabled should not exist"*: no module
+> could be switched off for any customer, and the ERP half — the guard, the nav
+> filter, the licence gate — was never reached to be doubted. The translation now
+> lives in one place (`jayhind-admin-front/src/core/tenant-features.ts`
+> `FEATURE_WIRE_KEY`, a total `Record`) and `scripts/check-mirrors.js` compares it
+> against **both** `COMPANY_FEATURE_COLUMN` and the DTO's own declared fields —
+> the two files are in different git repos, which is why nothing local could have
+> caught it.
+>
+> ⚠️⚠️ **On a subscribed company that write is an OVERRIDE, and it needs a
+> reason** (BUG-0053, §5 above). The console asks for one only where the hub will
+> insist — `TenantModulesDialog` reads the subscription when it opens — because a
+> reason box nobody was asked for is how the direct path acquires ceremony, and a
+> 400 for a field nobody was shown is how the override path acquired a bug. Note
+> the consequence for a company whose row had drifted from its plan: **the first
+> successful save projects the plan onto every other flag**, which is the
+> divergence BUG-0053 named, arriving all at once. Restore such a flag as its own
+> override rather than reading it as data loss.
+
+---
+
+## 6. Cross-service flows
+
+### 6.1 Company provisioning (hub → ERP)
+
+The console owns the screens; **the ERP owns the schema and domain knowledge**
+(chart of accounts resolved by `systemKey`, the role→permission matrix, voucher
+config, the financial year). So the console asks, and the ERP provisions itself.
+
+```
+admin-front → POST /companies (hub, JWT)
+  → ErpClient → POST /internal/companies/provision  [x-api-key]
+      → client-back InternalCompaniesController (@Public + InternalServiceGuard)
+      → CompanyProvisioningService — one transaction, a few hundred rows,
+        all or nothing (chart of accounts, roles + permission matrix,
+        voucher config, financial year, tax slabs, HR reference data)
+      ← { companyId, counts }
+```
+
+No tenant context exists on that route (the company doesn't exist yet), so
+`CompanyProvisioningService` states `companyId` explicitly on every insert.
+
+### 6.2 GSP calls (ERP → hub → government)
+
+`MasterHubClient` (`client-back/src/services/master-hub/master-hub.client.ts`) is
+**the only thing in the ERP that talks to the hub**. It sends
+`x-api-key: INTERNAL_SERVICE_KEY` plus `x-company-id` from `TenantContext`, and
+**surfaces the hub's error messages verbatim** — they're written for end users.
+
+Per-call timeouts are deliberately **larger** than the hub's own upstream budget
+so a slow upstream surfaces as the hub's specific error rather than a generic
+timeout masking it: GSP 30s, GST 12s, HSN 8s (it sits behind debounced typing),
+OCR 660s.
+
+### 6.3 Invoice scanning (ERP → hub → OCR sidecar)
+
+```
+upload → client-back spools to ./tmp/uploads (multer, disk not memory)
+       → forwarded to hub, temp deleted, only a numeric hubFileId is kept
+       → enqueued (BullMQ) → InvoiceScanPipelineService
+       → MasterHubClient.parseStored(hubFileId)   ← re-extract costs one small request
+       → hub OcrProxyService → OCR sidecar :8100
+       → ExtractedInvoice JSON → matching → status `needs_review`
+       → socket + notification
+```
+
+Error handling distinguishes two cases, and this distinction matters:
+`ExtractionFailedError` = the document is unreadable → mark `failed`, don't
+retry. Anything else (sidecar down, timeout) = infrastructure → rethrow so
+BullMQ retries with backoff.
+
+### 6.4 File storage — the ERP owns it, and this section used to say the opposite
+
+⚠️ **Read this if you are working from an older copy.** This section said *"the
+ERP stores nothing"* — files spooled to disk, streamed to the hub via
+`openAsBlob`, and only a `hubFileId` stayed behind. That was true until
+**2026-08-15**, when storage was ported **into** `client-back`
+(MASTER_DEVELOPMENT_PLAN.md §20.12). Phase 9B-1 found the map still describing
+the previous building. `MasterHubClient` has no `fileUpload` any more, and
+`openAsBlob` survives only in a doc comment.
+
+**`client-back` is now the storage writer**, scoped per company:
+
+```
+<UPLOAD_ROOT>/companies/<companyId>_<slug>/<category>/<YYYY>/<MM>/<uuid>-<name>
+```
+
+- `STORAGE_PROVIDER` / `LocalDiskStorage` / `storage.factory.ts` — `local` is the
+  only implemented driver; `s3`/`azure` throw rather than silently doing nothing.
+- `stored_files` and `stored_folders` both carry a **`companyId`**, so the §4.3
+  hooks scope every read and write. `FileStorageService` *additionally* checks the
+  key's physical `companies/<id>_<slug>` prefix, as defence in depth against a row
+  whose key drifted from its own company.
+- **`hubFileId` on an owning row is a LOCAL id** — a `stored_files.id`. The column
+  name is residue of the move. Don't read it as "the hub has this".
+- The upload still spools to `./tmp/uploads` (multer, disk not memory — a 100 MB
+  import buffered in RAM kills the process) and the spool is drained in a
+  `finally` on **both** the success and the refusal path.
+- Serving goes through the authenticated `GET /files/:id/content`.
+
+> ⚠️ **`GET /files/:id/content` is not behind `RoleMenuGuard`, deliberately** —
+> one route serves every module's files, so a single permission key would hide a
+> product image from everyone entitled to see the product. Its comment used to
+> conclude *"the worst an authenticated user can do is fetch a file belonging to
+> their own company"*, which is **D-46's refuted premise one route over**
+> (BUG-0057): customers log into the same ERP as the staff who invoice them, so a
+> trading party was handed the scanned purchase invoices, the Tally imports, the
+> export bundle, the job-work drawings and every other party's voucher
+> attachments. The file *manager* was correctly gated from every angle — the
+> metadata route, the listing, the tree, the usage and every mutation all answer a
+> party `403` — which is exactly why nobody looked underneath it.
+> `src/const/party-file-access.const.ts` is the allow-list (a voucher attachment
+> on a voucher the portal would already list for them, and nothing else) and the
+> check is in `FileStorageService.openStream`, **where the bytes leave**, so a
+> second streaming route cannot forget it.
+
+> ⚠️ **The owner guard has an escape hatch, and its three owners must use it**
+> (BUG-0058). `removeFile` refuses any file carrying an `ownerModule` — *"this
+> file belongs to a voucher record, remove it from that record instead"* — which
+> is what stops the explorer destroying accounting evidence. `AttachmentService`,
+> `ProductMediaService` and `InvoiceScanService` are the records it names, and all
+> three called it **without `force`**, catching the refusal (two of them
+> silently) and destroying the owning row anyway. The bytes were then unreachable,
+> undeletable and still charged to `maxStorageBytes` — 39% of live owned files on
+> the QA install. Repair: `scripts/purge-orphaned-files.ts`. **If you add a
+> file-owning record, its delete passes `force: true`.**
+
+**The one exception** is `site-configuration-assets/` (company logo/favicon),
+served statically because the login screen renders them before the app knows
+whether the hub is reachable. The old `app.use('/uploads', express.static(...))`
+handed any customer's invoices to anyone who could guess a filename — it is
+**deliberately gone, not relocated. Do not add it back.**
+
+> ⚠️ **The filename in that directory carries the company id**
+> (`company-<id>-logo.png`, `company-<id>-favicon.png`) — BUG-0023. It used to be
+> a constant (`aakhaja-logo.png`), so the whole installation had one logo and one
+> favicon: every `companies` row stored the same path, and one tenant's upload
+> silently replaced every other tenant's brand on their login screen, their
+> letterhead and the company switcher — while the upload handler's cleanup loop
+> deleted the previous tenant's file first. The directory being **public** is the
+> documented exception and is not the problem; a **shared name** is. Keep the id
+> in the name, and keep the `.`/`-` terminator in the cleanup match, which is
+> what stops `company-2-logo` matching `company-28-logo.png`.
+
+> ⚠️ The category strings (`scanned-invoices`, `attachments`, …) **no longer
+> travel anywhere.** `HubFileCategory` is re-exported as `FileCategory` and is now
+> just a folder name in this app's own tree. The doc comments claiming they "must
+> match the hub's `src/const/storage-key.const.ts` exactly or DTO validation
+> rejects the upload" described the pre-2026-08-15 arrangement — the proof being
+> `FileCategory.Export`, which has **no counterpart in the hub's enum at all** and
+> is written every time a company export runs, so under the rule as stated every
+> export would have been a 400.
+>
+> **Those comments were deleted on 2026-08-25**, and that was the fix rather than
+> adding the check `scripts/check-mirrors.js` never had: **a mirror rule that
+> cannot fail is worse than no rule, because it reads as coverage.** What is left
+> in `hub-upload.const.ts` is a note saying the contract lapsed and when — kept
+> deliberately, because the old claim was specific enough ("every drawing upload
+> dies with a 400 reciting the hub's enum") that somebody would otherwise trust
+> it. Changing a value here is still not free — it is the folder name of every
+> file already written under it — but it is a migration in *this* app, not a
+> two-repo change.
+
+### 6.5 Tenant admins, the platform user directory, and hard delete (hub → ERP)
+
+Three more `/internal/*` routes on `InternalCompaniesController`/
+`InternalUsersController` (client-back), all `@Public() + InternalServiceGuard`,
+none of them carrying a tenant context (same doctrine as provisioning):
+
+- **`GET|POST /internal/companies/:id/admins`, `DELETE .../admins/:membershipId`**
+  — `CompanyAdminService` lists/adds/removes a company's administrators after
+  it already exists (provisioning only ever creates the *first* one). Add
+  supports both a direct password (mirrors the first-admin flow) and an
+  invite e-mail (`InvitationService.invite`, extended to accept
+  `inviterUserId: number | null` + an `actorLabel` string for exactly this
+  caller — there is no real `client-back` user behind a Hub operator).
+  Remove sets the membership to `exited` (never a hard delete of the row) and
+  is refused by `UsersService.assertKeepsAnAdmin` if it would leave the
+  company with zero active admins (FR-017). Every write here is audited into
+  the **customer's own** trail, `source: PLATFORM`, `username` = the Hub
+  operator's display name — same visible-not-silent doctrine as impersonation.
+- **`POST /internal/users/list`** — `PlatformUsersService`, the Hub's "Users"
+  screen: every identity across every company, each with its own memberships
+  (company + role + status). Deliberately cross-company — the documented
+  exception in §4.3 rule 1(b) for a genuinely company-agnostic internal read.
+- **`POST /internal/companies/:id/hard-delete`** — `CompanyHardDeleteService`.
+  **Not** `CompanyService.archive()` (admin-back) — archive soft-deletes the
+  `companies` row and reclaims platform-side storage while every ERP row
+  stays put; this instead deletes every one of those rows too, **including
+  posted vouchers, journal entries, GST return filings, e-Invoices and
+  e-Way Bills**, then the `companies` row itself. No undo.
+  - The FK-safe delete order is computed by
+    `src/const/company-hard-delete-order.const.ts` (Kahn's algorithm over a
+    hand-transcribed edge list — `onDelete` behaviour only exists in the raw
+    migration SQL, not in Sequelize's own association metadata), verified by
+    its own `.spec.ts` against every edge. The whole delete runs in one
+    transaction, so a mistake in that order fails loudly and rolls back
+    rather than partially destroying data.
+  - Two rails enforced **server-side**, not just in the console: the company
+    must already be `archived`, and the caller must restate the company's
+    exact current name (`confirmName`). Both `CompanyService.hardDelete`
+    (admin-back) and `CompanyHardDeleteService` (client-back) check the
+    archived state independently.
+  - **`user_details` IS in the delete graph** — and this line used to say the
+    opposite, which is worth knowing if you are reading an older copy. It was
+    excluded while the party master had no `companyId`; the 2026-08-20 migration
+    gave it one (§4.3), so this company's rows are this company's to delete, and
+    `company-hard-delete-order.const.ts` carries the edge with its own note on
+    why it once did not. The original worry — that another company's `trx` can
+    reference the same row — is answered by the `trx → user_details` edge in that
+    same graph. `qa-artifacts/tests/cross-service/hard-delete.spec.ts` asserts a
+    deleted company is left with **zero** rows in every `companyId`-bearing
+    table, taken from `information_schema`, so an exclusion here is a failing
+    test rather than a silent orphan.
+  - **Orphaned identities are deleted too, but never someone else's login.**
+    After the table purge, every identity who WAS a member of this company is
+    re-checked: if `company_members` now has zero rows for them anywhere
+    (i.e. they belonged to THIS company exclusively), their `users` row is
+    deleted along with it — `user_details`/`refresh_tokens`/
+    `authentication_token` cascade off `users.id` automatically;
+    `push_subscriptions` (`RESTRICT`) and the self-referencing `users
+    .deletedBy` (`RESTRICT`) are cleared explicitly first. An identity still
+    active in another company keeps their login — only the membership in the
+    deleted company is gone.
+
+---
+
+## 7. Frontend architecture (both Angular apps)
+
+**Angular 21, standalone components, zoneless change detection, signals.** No
+NgModules, no Zone.js. `provideZonelessChangeDetection()` in `app.config.ts`.
+
+```
+src/
+├── app/          app.component, app.config.ts (providers), app.routes.ts
+├── components/   admin/ (feature screens), auth/, shared/ (reusable UI)
+├── core/         navigation/ (static nav tree + module-licence mirror)
+├── services/     API + domain services
+├── store/        auth.store.ts (signal store)
+├── guards/       functional CanActivateFn guards
+├── interceptors/ functional HttpInterceptorFn
+├── styles/       design-system/, colors/, custom/, grid/, helpers/
+└── environments/
+```
+
+### Patterns
+
+- **Signals over RxJS state.** `AuthStore` holds `signal()`s exposed as
+  `.asReadonly()`, with `computed()` derivations (`currentUser`,
+  `isAuthenticated`, `isAdmin`, `isPartyUser`, …). Follow this shape for new
+  stores. RxJS stays for HTTP.
+- **`inject()` over constructor injection** in services, guards, interceptors.
+- **Functional guards and interceptors** — `CanActivateFn`, `HttpInterceptorFn`.
+  Interceptor order in `app.config.ts` is `[MessageInterceptor, AuthInterceptor,
+  LoadingInterceptor]`.
+- **Lazy routes**: `loadComponent` for leaves, `loadChildren` → a
+  `*.routes.ts` per feature. `PreloadAllModules` + `withComponentInputBinding()`.
+- **All API traffic goes through `ApiService`** (`get/post/put/delete/postBlob`),
+  which prefixes `environment.apiBaseUrl` and sets the `skipLoader` header. Never
+  call `HttpClient` directly for API routes.
+- **Route permissions** are declared as route data:
+  ```ts
+  { path: 'roles', canActivate: [permissionGuard],
+    data: { permission: { apiUrl: 'roles', action: 'canView' } }, … }
+  ```
+  `action` defaults to `canView`. The guard checks **licence first** (a provider
+  decision, so it precedes even the Admin bypass), then Admin, then the
+  permission map.
+- **Navigation is static** — `core/navigation/navigation.config.ts` is the single
+  source of truth for the nav rail, the module panel, the top menu, breadcrumbs
+  and the post-login landing resolver. The old runtime `menuMaster.json` /
+  `menu_master` table is gone. Permissions stay dynamic: each `NavItem` carries a
+  `permissionKey` matching the backend decorator, merged with the role's flat
+  permission map at runtime. Containers use an empty `permissionKey` and become
+  visible when any child is.
+- **The nav is two columns** (`client-front` only): `app-nav-rail` lists every
+  top-level module as an icon and never collapses; `app-sidemenu` beside it lists
+  the ACTIVE module's own pages, grouped **two ways**: a `sub` node becomes a
+  heading (it is a URL segment too), and a run of consecutive leaves sharing a
+  `group` label becomes one as well (a heading with NO url — `PANEL_GROUP`).
+  Only the panel collapses (`options.sidenavCollapsed`), so every module stays
+  one click away at any width. `MenuService.activeModule` — the URL's first
+  segment matched against the permission-filtered tree — is what both columns
+  read.
+  > ⚠️ **"Collapsed" clips the panel; it does not hide it** — which matters to
+  > anything that measures the shell. The sidenav narrows to the rail's width and
+  > the panel keeps its full layout box behind `overflow-x: hidden`, so
+  > `isVisible()` and `boundingBox()` both answer as if it were on screen. The
+  > number that means anything is the **sidenav's own width** (72px = one column,
+  > 288px = two), which is also what the content margin is set from. Note too
+  > that `.matero-sidenav-collapsed` and `.matero-nav-panel-hidden` produce the
+  > same width for different reasons, so the wrapper class is the only thing that
+  > tells them apart — and hovering the rail peeks the panel back without
+  > changing the setting.
+  - A top-level `NavItem` may declare `subtitle` (panel header caption),
+    `shortName` (the rail's ~10-character label; the tooltip and `aria-label`
+    keep the full name) and, for a module with **no child routes**, `sections`:
+    in-page anchors whose `id` MUST exist on that screen. Two sections that share
+    a vertical band must be **one** entry — see the Dashboard's `dash-queues`.
+  - **A module with ONE destination renders no panel at all.**
+    `MenuService.activeModuleHasPanel` is false when the (permission-filtered)
+    module has no children and fewer than two `sections`: Chat, Files, Audit
+    Log, Export, Branding. Both `SidebarComponent` (which element to render)
+    and `AdminComponent` (`.matero-nav-panel-hidden`, which narrows the sidenav
+    to the rail) read that ONE signal — if they disagree you get either a stray
+    empty column or a content margin with nothing under it. The mobile overlay
+    keeps its panel (`|| !showToggle`): nothing competes for width there, and
+    the panel head carries the drawer's only close button.
+  - **Job Work ▸ Masters reads: Operation Types · Our Machines · Vendors ·
+    Route Templates · Party Billing Settings · Job Work Settings**
+    (2026-08-26). "Vendors" replaced "Vendor Capabilities" *and* the Machines
+    master's "Vendor machines" toggle — same `vendor-capability` permission key,
+    so no role's grants had to be re-decided, and `/masters/vendor-capabilities`
+    redirects. See §14's row on where a vendor's work is declared.
+  - **Job Work ▸ Stock** (2026-08-26) sits between Ready Queue and Challans and
+    shares the Board's `job-work` key. It is a **custody** screen, not an
+    inventory one — see §14.
+  - **Above 14 pages the panel's groups collapse to an accordion**, except
+    those listed in `PINNED_PANEL_GROUPS` — the everyday destinations, which
+    must never need a click to reveal. Transaction (45 pages) is the reason both
+    mechanisms exist, and since **2026-09-01 its panel IS Gateway of Tally**:
+    Overview (open) · **Vouchers** (open — Contra, Payment, Receipt, Journal,
+    Sales, Purchase, Credit Note, Debit Note) · Order Vouchers ▸ · Masters ▸ ·
+    **Reports** (open — Balance Sheet, Profit & Loss A/c, Trial Balance, Day
+    Book) · Account Books ▸ · **Statements of Accounts** (open) · Inventory
+    Reports ▸ · Statutory Reports ▸ · Utilities ▸. The order of
+    `vouchers.children` in `navigation.config.ts` **is** that layout.
+
+    ⚠️ **This replaced the 2026-08-20 ordering, which led with Sales** because it
+    is the most-used screen in the app. That argument was real and was overruled
+    rather than refuted: the operators this is sold to arrive from Tally, and
+    **F8 landing fifth in a list headed "Vouchers" is the order their hands
+    already know**. `VOUCHER_SHORTCUTS` is the same sequence — don't re-sort one
+    without the other, or the panel and the keyboard disagree about what F4 is.
+
+    ⚠️⚠️ **The panel is now the module's ONLY navigation**, which is what makes
+    its shape load-bearing. The reports' 18-tab horizontal strip and the masters'
+    4-tab one are both gone (UI-005's ruling, a third and fourth time) — and both
+    had already **drifted from the panel beside them**: several reports and
+    masters were in the panel with no tab. A second menu that disagrees with the
+    first is worse than no second menu. `ReportsLayoutComponent` and `MastersLayoutComponent` survive
+    as bare `<router-outlet>`s and **deleting either is a regression**: the first
+    carries `DrillBackDirective` (the one Esc listener every report inherits,
+    P3d), and the second owns the URL segment its children's routes are declared
+    under.
+
+    ⚠️ **Two panel mechanics were added for it**, both in
+    `sidemenu.component.ts`. A `sub` node's children are now split by their own
+    `group` label (falling back to the `sub` node's name), which is what gives
+    Reports its four Tally sections without a second level of nesting the panel
+    cannot render. And `mergeByLabel` folds every block sharing a label into the
+    **first** that carried it — Tally files Outstandings under *Statements of
+    Accounts* beside the cost and interest reports, and those live under
+    `transaction/reports/…` while Outstandings is `transaction/outstanding`, so
+    ordering alone could never make them adjacent.
+
+    ⚠️⚠️ `Statements of Accounts` is pinned for a reason the other three are not:
+    it holds Outstandings, which is read daily and sat in a pinned block before
+    the re-shape. Fidelity that buries the AR/AP position behind a click is a
+    usability regression wearing Tally's name.
+
+    **Seven screens were removed** (nav + route + component; **no backend
+    endpoint, DTO, enum or posting rule was touched**, so every figure they
+    answered is still gated and every document already raised still posts,
+    prints and reports):
+
+    | Removed | Why | Where it went |
+    |---|---|---|
+    | **Quotation**, **Purchase Requisition** | not Tally voucher types | paths redirect to the stage each converted into |
+    | **Dues** | Tally has one answer to *"what is owed and when"*, and since P5d so does this — the bill register | redirects to Outstandings ▸ Receivable |
+    | **Daily Cash** | no Tally counterpart | — |
+    | **Receipt Register** | was `extends PaymentRegisterComponent` with a heading changed | **merged** — one screen, `?side=receipt`, legacy path still routes |
+
+    ⚠️ `quotation` and `purchase-requisition` are **deliberately still in
+    `PostingVoucherKind` and in `ENTRY_MODE_BY_TYPE` on both sides**:
+    `POSTING_EFFECT` is a total `Record` and `check-mirrors.js` check 11 compares
+    that map as data, so removing them from one side alone is drift and removing
+    them from both is a schema change this decision did not make. They are gone
+    from `WORKFLOW_ENTRY_TYPES` (the type bar, the entry routes) and from
+    `SIDEBAR_OPTIONAL_ITEMS` (a toggle for a page that does not exist is a
+    setting nobody can act on) — but **not** from the server's
+    `HIDEABLE_TRANSACTION_MENUS`, so a company that stored either key keeps a
+    valid stored value.
+
+    **Renamed to Tally's own names**, labels only — every `route` and every wire
+    `TrxType` is unchanged, because a renamed URL orphans bookmarks, the drill
+    stack and every stored `hiddenTransactionMenus` key: Ledgers → **Chart of
+    Accounts** · the old Chart of Accounts (`trx_accounts`, the instrument
+    master) → **Bank & Cash Accounts** · Transaction Group → **Voucher Heads** ·
+    Delivery Challan → **Delivery Note** · Goods Receipt → **Receipt Note** ·
+    Group Statement → **Group Summary** · Profit & Loss → **Profit & Loss A/c** ·
+    Valuation Summary → **Stock Summary** · Reorder Alerts → **Reorder Status** ·
+    Outstanding → **Outstandings** · Party Statement → **Party Ledger** · GST
+    Rates → **GST Rate Setup** · Data Import → **Import Data**.
+
+    ⚠️ The two document renames reach **printed paper**: `print.service.ts` holds
+    its own label map, a fourth beside the three in `trx-interfaces.ts`, so a
+    customer's Delivery Note now says Delivery Note. `print-preview.ui.spec.ts`
+    asserts both titles. The **Rule 55** challan caption is deliberately
+    untouched — that one is the statute's word, not ours.
+  - **Transaction ▸ Chart of Accounts** (2026-08-29 as *Ledgers*; renamed
+    2026-09-01) sits in the **Masters** group, above *Bank & Cash Accounts*, and
+    the two are not interchangeable — ⚠️ note the names **swapped** at the
+    re-shape, so a pre-2026-09-01 doc means the other screen by "Chart of
+    Accounts":
+    `/transaction/ledgers` is the **Tally-shaped chart** (`acc_groups` as a tree
+    with its `acc_ledgers` leaves, permission key `acc-ledgers`), while
+    `/transaction/chart-of-accounts` is the **instrument** master (`trx_accounts`
+    — account numbers, IFSC, type), which a ledger row does not model and which
+    keeps its name until D9. **Masters ▸ Nature retired with it** (a nature is
+    inherited from the primary group in the new chart, and `trx_natures` is four
+    fixed rows per company; `masters/trx-nature` redirects to
+    `/transaction/ledgers`), and so did its create-on-the-fly dialog — a nature
+    an operator could create and never see again is worse than either end state.
+    **Masters ▸ Transaction Group deliberately stays**: `trx_groups` is still the
+    voucher head master and the only door to a head's opening balance and its
+    `groupFor`.
+  - **Transaction ▸ Outstanding is two BILL reports** (P5d, 2026-08-31). Its two
+    tabs — `/transaction/outstanding/receivable` and `…/payable` — render one
+    component reading the bill register, where they used to be two components
+    showing a party TOTAL from `journal_lines` with the bills behind it on a
+    different screen built a different way that disagreed with it (BUG-0040).
+    The party row is kept, because it is the figure the two screens showed and
+    the one a collections meeting reads; what is new is that it opens.
+    `VendorOutstandingComponent` and `CustomerOutstandingComponent` are deleted,
+    the `vendor`/`customer` segments redirect, and the two `trx/reports/*-
+    outstanding` API reads are **not** retired — the parity harness captures
+    them, and which of the two derivations survives is a decision for D9.
+  - **The shell's widths are decided on ARRIVAL, and they are no longer
+    remembered** (BUG-0064, fixed 2026-08-25). `AdminComponent`'s observer
+    collapses the panel between 720 and 1023 and opens it at or above 1024 —
+    and that branch is now **symmetric**. It used to set only `true`, with
+    nothing anywhere writing it back, so one visit at a tablet width collapsed
+    the panel for every desktop session afterwards.
+
+    Two rules fall out, and the second is the general one. **A branch that is a
+    statement about width must be able to make that statement in both
+    directions.** And `sidenavCollapsed`/`sidenavOpened` are **derived from the
+    viewport, not chosen**, so `EPHEMERAL_SETTINGS` in `settings.service.ts`
+    strips them from `localStorage` on the way out *and on the way in* — the
+    second half is what recovers a browser that already has the old shape
+    stored. `setOptions()` persists everything it is handed, which is how a
+    derived value acquired a memory nobody decided to give it.
+  - **ALL TWELVE voucher types are entered on ONE surface** (fourteen until
+    2026-09-01, when Quotation and Purchase Requisition left the UI — see the
+    panel note above) — Contra, Payment,
+    Receipt and Journal since P4b (2026-08-29), Sales, Purchase, Debit Note and
+    Credit Note since P4c, and the four **Workflow Documents** — Tally's *Order
+    Vouchers* (purchase order, receipt note, sales order, delivery note) — since
+    **P4d** (2026-08-30):
+    `/transaction/voucher/<type>/new` and `…/<type>/:id/edit`. **No type has an
+    entry route outside the surface.** The old `…/vouchers/<type>/new` paths
+    redirect (they are in bookmarks and in P3d's drill stack) and the **lists**
+    stay where they are. Note the singular/plural: `/transaction/voucher` is the
+    entry surface, `/transaction/vouchers` is the lists.
+    - **The surface has TWO HOSTS, and a switch must not leave the one it is
+      in** (2026-09-01). The routed pages above are the deep-link host; the one
+      operators type in is a **dialog** over whatever list they were reading —
+      every Add button in the module goes through `VoucherFormDialogService`.
+      The type bar and the F-keys are on the form either way, and they used to
+      do the same thing either way (`router.navigate`), which on the routed
+      surface is right and in a dialog **dismissed the dialog** and dropped the
+      operator on the full page: one click on `F9 · Purchase` from a Sales popup
+      and the popup was gone, the list behind it lost. In a dialog the switch is
+      now a **close carrying the type asked for** (`voucher-dialog.util.ts`
+      `voucherSwitchRequest`), and the service reopens in its place — the chain
+      is owned by the **service's own** `afterClosed` subscription, not the
+      caller's, so a switch happens even if the list has stopped listening, and
+      what the caller finally gets is the result of whichever dialog the
+      operator finished in (so a Sales list that watched a switch to Purchase
+      and a save still refreshes). Three things worth knowing: the close is
+      **not** a save, so `UnsavedChangesService` asks *"Discard unsaved
+      changes?"* exactly as `pendingChangesGuard` asks on the routed side — one
+      rule, two hosts; the **exit animation is `0ms` on every voucher dialog**,
+      because the one that has to leave instantly is the one being switched away
+      from and its config is fixed when it opens, so a gap there is a flash of
+      the list underneath saying the popup closed; and a **view-only** dialog —
+      the history preview of a superseded version, opened with `MatDialog`
+      directly rather than through the service — offers no type bar and refuses
+      the chords, because a switch there would close the dialog with nobody
+      listening to reopen it. Gate `qa-artifacts/tests/ui/money/
+      voucher-dialog-switch.ui.spec.ts`; ⚠️ a browser is the only instrument
+      that can see this, since no DTO, endpoint or posting rule changed and the
+      parity diff is empty by construction.
+    - **One surface, TWO components**, and that is deliberate.
+      `VoucherEntryComponent` draws the Dr/Cr grid (it replaced and **deleted**
+      `trx-contra-add-edit`, `trx-payment-receipt-add-edit` and
+      `trx-journal-add-edit`); `TrxAddEditComponent` draws the item grid and was
+      **re-hosted, never rewritten** — its 2,250 lines are untouched but for the
+      keyboard, which is the whole of §3.5's risk note. ⚠️ Not nested: both
+      already render `.vch-shell` + `.vch-titlebar`, so making one a child of
+      the other means a screen with two title bars and a child
+      `CanComponentDeactivate` under a guard it no longer owns. What they share
+      is `app-voucher-type-bar`.
+    - **`entrySurfaceFor(type)`** (`utils/voucher-entry.util.ts`) is the one
+      answer to *which surface is this type typed on*, read by the type bar's
+      two hosts, both route files, the drill spine and the scan review. Since
+      P4d every type answers `voucher`; it is kept rather than collapsed to a
+      literal, because it is the one place a new type declares where it is typed
+      and the plural surface still exists — it is where all fourteen **lists**
+      live. ⚠️ It is frontend-only on purpose: the server has no opinion about
+      which screen a voucher is typed on, and `ENTRY_MODE_BY_TYPE` beside it —
+      which IS the server's opinion — is the mirrored half (check 11).
+    - ⚠️ **Which component a type loads is decided by `isAccountingEntry`, not
+      `isItemEntry`** (`voucher-entry.routes.ts`). The Dr/Cr grid hosts a
+      **closed** set of four and everything else on the surface is the item
+      form, so the closed half is the half the condition names — asking it the
+      other way round dropped the Workflow Documents onto
+      `VoucherEntryComponent`, which draws a document that posts no legs as two
+      rows whose totals are both zero and holds it to a balance it can never
+      have. It throws loudly (`accountingRowPlan` refuses a type that is not on
+      the grid) **and still renders a screen**: a route that renders is not a
+      route that works.
+    - **The third mode is an invariant, not a screen.** A Workflow Document
+      (F6 — items and quantities, no legs and no stock) is the **item form**,
+      whose `isFinancialTrxType` branches have always drawn the difference; what
+      P4d added is that the mode became *visible*. The title bar states **what
+      the document converts into** (`convertsIntoLabel`, read through
+      `nextVisibleInFlow` so it names the stage this company actually reaches,
+      not the one the chain names), and the GST and Due Date chips are absent,
+      which follows from posting nothing rather than from a style choice. Without
+      the caption the screen is an item invoice that has quietly lost its totals.
+    - **The type bar's row is the EIGHT that post; the four that do not sit
+      behind one overflow.** Twelve buttons wrap onto two lines of a title bar
+      and stop being a row of keys. The split **is** `buildLegs` returning legs
+      or returning none — the same fact `ENTRY_MODE_BY_TYPE` is keyed off — so
+      the two tiers say what kind of document each is. It lists the four in
+      **conversion** order, not key order — a bar is read as a row of keys and a
+      menu as a list. ⚠️ It is filtered by `hiddenTransactionMenus`, and
+      `app-sidemenu` and the convert action both already apply it — a third place
+      that must not forget. Not gated: no company in the development database
+      hides anything, so it is verified by hand and recorded as such.
+
+      ⚠️⚠️ **The menu's original justification is gone, and the menu is not.** It
+      existed because the *no-invented-chords* ruling left **purchase
+      requisition** and **quotation** with no chord at all (they were ours, not
+      Tally's), so a keyboard was not a complete way in. Both left the UI on
+      2026-09-01 and every surviving type has a chord — but the row is still the
+      eight that post, so the four that do not still need somewhere to be. The
+      ruling itself stands: a chord we invent is muscle memory nobody has.
+    - ⚠️ **A blank item voucher used to be born dirty** (found by P4c's gate).
+      `app-ledger-picker`'s `preselectDefault` applies the seeded head through
+      `onChange`, the `ControlValueAccessor`'s **view→model** path, which Angular
+      reads as the operator having typed — so it marked the control `dirty` and
+      `touched`. Invisible until a type switch became a navigation, at which
+      point `pendingChangesGuard` asked *"Discard unsaved changes?"* between
+      every pair of the eight vouchers on an empty form. **A default is a
+      starting point, not a change to somebody's saved row** — the same rule the
+      party form's country/state default already follows. The picker restores
+      pristine/untouched on that control alone; `markAsPristine` re-marks the
+      parent only when every sibling is pristine, so a form dirtied by a real
+      edit stays dirty. **A programmatic write through a CVA is
+      indistinguishable from a keystroke** — only the component knows which it
+      was. ⚠️⚠️ **`touched` is deliberately NOT undone beside it**:
+      `markAsUntouched()` there empties the open dropdown's search box, so
+      `Alt+C` — which names a new ledger after the term that found nothing —
+      created one called `""`. Measured; `markAsPristine` alone does not. The
+      guard reads `dirty` and nothing here reads `touched`. **Fix the flag the
+      bug is about, not the flag beside it.**
+    - ⚠️ **The Dr/Cr rows are derived from the posting engine.**
+      `accountingRowPlan` calls `buildLegs` and maps each leg role to a row, so
+      the grid and the general ledger cannot disagree about what a voucher is —
+      and `check-mirrors.js` check 11 compares that derivation against the
+      frontend's restated table. It found the screen it replaced drawing a
+      **Payment's head as the debit row**: the head is a leg of 0 of 974 posted
+      payments and 0 of 1,888 receipts (204 of 204 for journals), because
+      `postPaymentReceipt` reads `trxGroupId` only for a Journal. The head is a
+      **classification** — printed as `groupName` on the payment/receipt
+      register — and now sits beside the party rather than on the grid.
+    - **Each type has its own path so it can carry its own permission key**
+      (`trx-contra` vs `trx-payment-receipts`), read out of `APP_NAVIGATION` by
+      `permissionKeyForUrl` rather than restated. ⚠️ That makes the type segment
+      a **literal**, so the component reads it from route `data`, not
+      `paramMap` — which answered `null` and rendered every type as a Payment.
+    - **`VOUCHER_SHORTCUTS`** (`utils/voucher-entry.util.ts`) is the one F-key
+      table, read by **both** entry components and by
+      `TransactionLayoutComponent`. ⚠️ Bare **F4 means Contra and F6 a Receipt**,
+      not "focus the account head" / "focus the party" as the four replaced or
+      re-hosted screens had it — ours, not Tally's, and the opposite of what the
+      same keys meant one level up in the same module. `Alt+N`/`Alt+D` (add and
+      remove an item line) collide with no voucher chord and stayed. Since P4d
+      the surface hosts every type, so every chord lands on it. ⚠️ A switch is a
+      **navigation** either way, including across the two components: each type
+      is its own route config, so the router rebuilds, and `pendingChangesGuard`
+      is what asks about a dirty voucher. ⚠️⚠️ **Two of the fourteen have no
+      chord and never will** — purchase requisition and quotation are ours rather
+      than Tally's, and inventing one would be inventing muscle memory; they are
+      reached from the type bar's overflow, which is why that menu has to exist.
+    - **`Ctrl+H` toggles Item Invoice ↔ Accounting Invoice** (P4e), on the four
+      financial item types and on nothing else — the Dr/Cr four have no item body
+      to leave and a Workflow Document is not a destination (P4d). ⚠️ The older
+      claim here, that an Accounting Invoice is *not representable*, was measured
+      and is **wrong**: its rows are **ledger allocations**, and `trx_charges`
+      already is one, expanded by `resolveLegs` into a journal line per row on
+      that row's own ledger. The body is `trx-add-edit`'s own `charges`
+      FormArray rendered as the grid rather than as a folded chip — so the
+      **Charges chip is hidden** while it is the body, or the same rows are
+      offered twice. `InvoiceBodyMode` / `canSwitchInvoiceBody` / `invoiceBodyOf`
+      are the rule (mirrored, check 11d), and a saved voucher reopens in the body
+      its **own rows** imply, because there is no stored mode to disagree with
+      them. ⚠️⚠️ The ruling is **single-head** even though the mechanism gives N
+      heads for free — 475 of 475 service-only vouchers carry exactly one distinct
+      product — so the screen offers one row at a time.
+    - **`F12` opens the voucher type's configuration as a dialog** —
+      `TransactionConfigEditComponent` took `MAT_DIALOG_DATA`/`MatDialogRef`
+      `{ optional: true }`, the shape every voucher form here already uses. Not a
+      second editor.
+  - **The per-module tab bars are gone, and so is Transaction's right-hand
+    rail** (UI-005, corrected 2026-08-26; finished 2026-09-01).
+    `ModuleLayoutComponent` and `transaction-layout.html` are both a bare
+    `<router-outlet>`; the panel lists the same tree at full width without the
+    horizontal scrolling seven tabs forced. Don't reintroduce either.
+
+    ⚠️ **Two more fell on 2026-09-01, and they were the ones that mattered**:
+    the reports' **18-tab** strip (`ReportsLayoutComponent`) and the masters'
+    4-tab one (`MastersLayoutComponent`). Both had already **drifted from the
+    panel beside them** — several reports and masters were in the panel with no
+    tab — so one module described its own screens two ways and the two
+    disagreed. That is worse than
+    the duplication UI-005 was filed about. Both components **survive as bare
+    outlets and must not be deleted**: `ReportsLayoutComponent` carries the one
+    `DrillBackDirective` every report inherits (P3d — a second global Esc
+    listener would navigate twice, and none would break the drill spine on every
+    statement), and `MastersLayoutComponent` owns the URL segment its children's
+    routes are declared under.
+
+    ⚠️⚠️ The **Outstanding** layout's two tabs stay, and the distinction is worth
+    keeping: Receivable/Payable are two views of **one** screen, not a second
+    listing of the module's pages.
+
+    ⚠️ This paragraph used to say the Transaction rail was *"the one survivor,
+    because it also carries rules the panel does not"*. It is not, and it does
+    not: all three of those rules — the admin's `hiddenTransactionMenus`, the
+    approval gate and Quick Voucher Entry — moved into `app-sidemenu`
+    (`sidemenu.component.ts:148-190`), which is where Phase 10B measured them.
+    What `TransactionLayoutComponent` still exists for is the module's **F4–F9
+    voucher shortcuts**, which were never part of the duplicated list: bare
+    F-keys that switch voucher type Tally-style, standing down while a dialog or
+    a full-page entry form owns the keyboard. §15 asks for the map to be
+    corrected in the same commit as the change; this is the reverse case — the
+    change landed and the map did not follow for six days.
+
+    ⚠️⚠️ **And the sweep missed one, for the same reason UI-006 missed 64
+    routes: it looked where the shape was known to live.** The **party
+    portal** had its own right-hand rail — five links (Dashboard, My
+    Transactions, Payments & Receipts, Account Statement, Job Work), a collapse
+    toggle and a `ppRailCollapsed` localStorage key — listing the identical
+    `my-account` subtree `app-sidemenu` already draws on the left. It survived
+    because it lives under `components/admin/party-portal/` rather than beside
+    `ModuleLayoutComponent`, so a grep for the retired *components* found
+    nothing. `PartyPortalLayoutComponent` is a bare `<router-outlet>` as of
+    **2026-08-26**. The generalisation: **a rule about a shape is enforced by
+    asking what else has that shape**, not by fixing the instances that share a
+    directory with it.
+- **Company settings are split by what they're FOR** (2026-08-20).
+  `/site-configrations` ("Branding") keeps only the logo and favicon. Company
+  name, GSTIN, PAN, address and the e-Way Bill / e-Invoice gateway cards live in
+  **Transaction ▸ Configuration** (`/transaction/transaction-config`) as
+  in-page sections beside the voucher settings — every one of them is printed on
+  a voucher or applied to one, and the GSTIN is what splits CGST/SGST from IGST.
+  Consequence, decided deliberately: the **Transaction licence now gates Company
+  & GST** (that route's key is `transaction-config`). Both screens still call the
+  same `PUT /site-configuration`, which applies **exactly the keys it is
+  handed** — so each posts only its own half and neither may echo back the
+  other's fields. `UpdateSiteConfigurationDto.name` is optional for that reason.
+- **Report drill-down is one spine, not a link per report** (P3d, 2026-08-29).
+  A row emits a **`DrillTarget`** — `group` | `ledger` | `voucher`, and since
+  and `src/utils/drill-target.ts` is the one resolver that turns it into a URL,
+  so a new report gets drill-down by emitting the right target. Three rules ride
+  on it:
+  - **A report's period lives in its URL** (`?from=&to=`, `?asOf=`), read on
+    arrival and written on every change (`utils/report-period-url.ts`,
+    `replaceUrl`). That is what makes "back with the period intact" a property
+    of the URL rather than of a component's memory — and it makes every
+    statement a link somebody can paste.
+  - **Esc is a ROUTE STACK, not browser history** (`services/drill.service.ts`).
+    History records where the tab has been; a drill records where the *reader*
+    came from, and the two differ the moment somebody arrives at a report from
+    the nav rail. ⚠️ **A navigation nobody drilled clears the stack** — by
+    **path**, so a report rewriting its own period in the query string is still
+    the same screen. Esc is listened for in exactly two places:
+    `DrillBackDirective`, applied once to the reports layout (which hosts every
+    report), and the voucher screens' own `close()` via `DrillService.backOr`,
+    so Esc and the Close button agree and a dirty voucher still meets
+    `pendingChangesGuard`. A third global listener would navigate twice.
+  - ⚠️ **Seven of the ten `journal_entries.sourceType` values have no voucher
+    screen** — the two opening balances, payroll and its disbursement, an
+    imported journal, closing stock, an account's seed. `drillRoute` answers
+    `null` for those and the row renders as visibly-not-a-link, because there
+    is no `**` route here: a guessed URL is an NG04002 the global error handler
+    shows as *"An unexpected error occurred."*
+  ⚠️ **The debounce that applies a period now navigates**, so it must die with
+  its screen — `periodDebounce(destroyRef, …)` is the one place that clears it.
+  A 250 ms timer firing after the reader has clicked another report's tab
+  navigated them **back**, because `relativeTo` a route that is no longer active
+  still resolves to it.
+- **Post-login landing** is `menu.getFirstAccessibleRoute()`, never a hardcoded
+  dashboard the role may not have.
+- **`permissionGuard` checks the LICENCE first, and it now AWAITS it**
+  (BUG-0065 + SEC-002, fixed 2026-08-25). The order is deliberate — a provider
+  decision precedes even the Admin bypass — but `LicenceService.state` is `null`
+  until `GET company/licence` resolves and nothing awaited it, so on every
+  **document** load (a bookmark, a typed URL, a refresh) `undefined !== false`
+  read as licensed and the screen opened. An in-app navigation was correctly
+  refused, which is what made it a race rather than a missing check — and what
+  let it survive review, since clicking around gives the right answer.
+
+  All-on-while-unknown stays right for the *menu* (`ALL_LICENSED`: a pessimistic
+  default blanks the app on a transient error) and is wrong for a **gate**,
+  which has to decide now. `load()` never throws, so a genuinely unreachable
+  licence still fails open rather than locking anyone out.
+  > ⚠️ **The gate also keyed off `data.permission.apiUrl`, so a route declaring
+  > none was outside it entirely** — 54 screens under the licensed modules,
+  > including every voucher list and New form, all twelve financial reports and
+  > the six product masters. Same field the permission check reads, which is why
+  > SEC-002 and this were one fix. It now falls back to the route's **first URL
+  > segment** (`MODULE_BY_URL_SEGMENT` / `isRouteLicensed`), so a new route lands
+  > **inside** the gate by saying nothing rather than outside it — the shape
+  > §4.3's hooks already use, keying off `rawAttributes.companyId` so a new
+  > entity cannot drift out of scope by omission. **The safe behaviour has to be
+  > the one you get for free.**
+  >
+  > ⚠️⚠️ **That fix let the key WIN over the segment (`??`), and one module
+  > survived being switched off because of it** (BUG-0067, fixed 2026-08-26).
+  > "The key is the more specific statement" is true about *what a screen
+  > reads* and says nothing about *where a screen lives*, and the two are not
+  > always the same module. Stock Ledger, Valuation Summary and Reorder Alerts
+  > sit under `transaction/reports/` and carry `permissionKey:
+  > 'product-quantity'` — deliberately, so a role that can see Stock Quantity
+  > sees them with no new permission row. That is a **Product** key. So with
+  > `transactionEnabled = 0` and Product licensed, all three answered
+  > "licensed", and `MenuService.filterVisible` keeps any container with one
+  > visible descendant — which is why the entire **Books** rail entry and its
+  > panel stayed on screen for a company that had been sold no Transaction
+  > module at all, listing three inventory reports. Chat, Files and HR
+  > disappeared correctly beside it, which is what made it look like a
+  > Transaction-specific glitch rather than the rule being wrong.
+  >
+  > `modulesForRoute` now returns **every** module a route depends on — the
+  > key's and the segment's — and both `isRouteLicensed` and the menu filter
+  > require all of them. `filterVisible` threads the top-level segment down the
+  > recursion, because a child's `route` is relative and a leaf cannot see which
+  > module it lives in on its own. **A screen needs everything it depends on**,
+  > and the next cross-module leaf is covered without anyone having to notice it
+  > is one.
+  >
+  > ⚠️⚠️ **That fix answered one of the two reasons a route can be outside the
+  > gate, and the register recorded both as closed** (UI-006, reopened and fixed
+  > 2026-08-26 — §13 still-open #3 applied to the fix for an instance of §13
+  > still-open #3). A route is ungated if it runs the guard and declares no key
+  > — **12 routes, closed by the above** — or if **it does not run the guard at
+  > all**, which was **64**: every voucher list and New form (49), the product
+  > masters and stock conversion (13), one job-work and one HR screen.
+  > `transaction.routes.ts`'s `{ path: 'vouchers', loadChildren: … }` declared no
+  > `canActivate` and none of its twenty children did either. *A smarter guard
+  > cannot help a route the guard is not on*, and SEC-002's own title had said so
+  > five days before the fix.
+  >
+  > Two changes, and both are the "safe branch by default" shape rather than a
+  > sweep:
+  > - **The guard is attached by inheritance.** Each licensed module's parent
+  >   route in `app.routes.ts` carries `canActivateChild: [permissionGuard]`, so
+  >   a child inherits the gate by existing. `tests/ui/shell/route-guards.ui.spec.ts`
+  >   asserts all four parents statically, so removing the line fails a test
+  >   rather than silently ungating a subtree.
+  > - **The permission key is derived too**, not just the licence module.
+  >   `permissionKeyForUrl` (`navigation.config.ts`) walks `APP_NAVIGATION` by
+  >   URL segments and answers the deepest non-empty `permissionKey` on the
+  >   path — so the tree that decides whether the menu OFFERS a screen now also
+  >   decides whether a URL reaches it, and the two cannot drift. Trailing
+  >   segments are tolerated deliberately (`…/sales/new` and `…/sales/edit/1663`
+  >   inherit `sales`' key). A derived key is always asked for `canView`; a route
+  >   wanting `canAdd` states it, which is what `data.permission` is for.
+- **Choosing a company** is a two-surface story, both driven by
+  `CompanySwitchService`:
+  - **At login**, an identity holding **more than one** live membership is sent
+    to `/auth/select-company` (`SelectCompanyComponent`) instead of landing
+    directly — their role, and so what they may see, differs per company, so
+    the server's `pickDefaultMembership` choice is offered rather than imposed.
+    One membership → no chooser, unchanged. The route is deliberately **not**
+    behind `guestGuard`: the person is already authenticated by then.
+  - **Mid-session**, the header `CompanySwitcherComponent` does the same job,
+    and only renders when there is somewhere else to go.
+  - Both go through `POST auth/switch-company`, so the **server** re-verifies
+    the membership and mints the token. Picking a company is never a
+    client-side preference. Choosing the already-active company (the one login
+    minted) skips the round-trip.
+- **Unsaved changes**: `canDeactivate: [pendingChangesGuard]` on form screens.
+- **Token refresh** is single-flight (`TokenRefreshService`): a 401, a `409
+  MEMBERSHIP_STALE`, or the proactive pre-expiry timer all await the *same*
+  refresh, then retry the original request.
+
+### `jayhind-admin-front` differences
+
+Much smaller (~38 TS files), flatter: `core/` holds `api.service.ts`,
+`auth.store.ts`, `socket.service.ts`, `toast.service.ts`, `tenant-features.ts`;
+`components/` holds `shell`, `tenants`, `plans`, `files`, `hsn`, `ocr-review`,
+`config`, `modules`, `error-codes`, `support`, `dashboard`. Same signal/standalone
+conventions.
+
+---
+
+## 8. Security rules (non-negotiable)
+
+1. **Never widen `@SharedRead()`** to a mutating handler, and never move it to a
+   class. It bypasses both the module permission check and the licence gate.
+   The same rule governs **`@ReadOnlyRequest()`**: it tells
+   `BillingRestrictionGuard` the handler writes nothing, so putting it on a
+   mutation lets a past-due company keep writing. Both are read handler-scoped
+   precisely so a controller can't claim them wholesale for its own writes.
+2. **Never trust the JWT alone for company membership.** `TenantContextGuard`
+   re-verifies against a live `company_members` row on every request precisely
+   because a token stays valid for its whole TTL after a suspension or
+   revocation.
+3. **Never disable or bypass the tenant-scoping hooks**, and never add
+   `crossCompany` without a comment justifying it.
+4. **Raw SQL must bind `companyId` — for every company-scoped table it names,
+   not only the one it selects from.** No exceptions, and **CI now enforces both
+   halves**: `ci-guard-raw-sql.ts` judges the statement *and* every joined
+   company-scoped table, deriving the scoped-table set from the entity files on
+   disk (`tableName` + a declared `companyId`) — the same proxy the hooks
+   themselves use, so it cannot drift from the schema. The sweep that closed
+   this gap found **53** unscoped joins, not the four BUG-0047 was filed for,
+   including `ReportsService.trialBalance`'s `JOIN trx_groups` (the read half of
+   BUG-0025, §4.9). The join allow-list is empty; keep it that way.
+5. **`INTERNAL_SERVICE_KEY` fails closed.** Don't add a "if unset, allow"
+   fallback. (This is the deliberate opposite of the licence doctrine, where a
+   missing flag reads as ON — an ungranted licence must not black out a working
+   ERP, but an unconfigured credential must be loud.)
+6. **Query-string tokens (`?token=`) are honoured only where a route opts in**
+   with `@AllowQueryToken()` — file streaming into `<img>`/`<iframe>`, which
+   can't set a header. Never make it the default.
+7. **No static file serving of user uploads.** See §6.4.
+8. **Credential-holding config surfaces stay in `ADMIN_ONLY_PERMISSION_KEYS`.**
+9. **Secrets never in git.** `.env`, `*.key`, `*.pem`, `*.sql` are gitignored at
+   every level. `.env.example` is the only committed env file.
+10. **`ValidationPipe` runs with `whitelist: true, forbidNonWhitelisted: true`** —
+    every accepted field must be declared on a DTO. Don't relax it per-route.
+11. **Errors must not leak internals.** Throw `ApiException(message, status)`;
+    `CustomExceptionFilter` maps Sequelize errors to correct 4xx
+    (`UniqueConstraintError` → 409, `ForeignKeyConstraintError` → 409,
+    `ValidationError` → 400) and suppresses stacks under `NODE_ENV=production`.
+    Note the subclass ordering in that filter — `UniqueConstraintError` before
+    `ValidationError`, `ForeignKeyConstraintError` before `DatabaseError`. Two
+    more rules live in the same filter, both in **both** backends:
+    - **A middleware error keeps its own status.** An error carrying
+      `expose === true` and a 4xx `status`/`statusCode` (the `http-errors`
+      contract that body-parser and multer follow) is answered with that status,
+      so an oversized body is a 413 rather than a 500. `expose` is the safety
+      condition — the library sets it false for 5xx — so a 5xx still becomes the
+      generic 'Internal Server Error'.
+    - **A `catch` that rethrows calls `rethrowAfterRollback(err)`**
+      (`src/utility/rethrow-after-rollback.ts`), and nothing else. The
+      rollback-and-rethrow shape at the end of a transactional method — `catch
+      (err) { await transaction.rollback(); throw new ApiException(err.message,
+      HttpStatus.BAD_REQUEST); }` — got two things wrong at once, and the helper
+      is where both answers now live:
+      - it **overrode every status the block above it chose**, so a deliberate
+        `404` eleven lines up reached the caller as a `400`. Nine sites did this
+        and it is why D-5 looked like it had not landed on those routes.
+      - it **laundered a Sequelize error's message onto the wire** (API-023).
+        `err.message` there is raw MySQL: *"Cannot add or update a child row: a
+        foreign key constraint fails (`jayhind_client_development`.`trx_item_taxes`,
+        CONSTRAINT `fk_trx_item_taxes_taxId` …)"*, or *"Out of range value for
+        column 'unitPrice' at row 1"* — the database name, table, constraint and
+        column, to any authenticated caller. Worse, wrapping it **erased the class
+        the filter switches on**, so the careful mapping four lines above
+        (Unique → 409, FK → 409, Validation → 400, DatabaseError → 400 "Invalid
+        request parameters") never ran. A Sequelize error must be rethrown
+        **untouched**; a plain `Error` is still wrapped as a 400 with its own
+        message, because those are written for people.
+    - **`request.url` is never recorded raw**, in the error body's `path` or in
+      the audit row's `description`. It can BE a credential: the
+      `@AllowQueryToken()` routes (§8.6) accept a live bearer token in the query
+      string, and echoing the failing URL handed it back to the caller and
+      persisted it into `audit_logs`. Use `redactUrl()`
+      (`src/const/redact-url.const.ts`) for anything that copies a URL.
+12. **Passwords are argon2**, tuned by `ARGON2_*` env vars. Never swap in bcrypt
+    or hand-rolled hashing.
+13. **Every `@SubscribeMessage` handler scopes itself, because nothing else
+    will.** The socket plane has no guard chain (§4.10), so each handler answers
+    *"which company does this go to?"* and *"may a trading party ask for this?"*
+    itself — or it answers neither, which is BUG-0063: a customer emitting into
+    every tenant's UI and reading the host's metrics. And **never add a helper
+    that wraps `server.emit`**; the one that existed is what made forgetting the
+    scope the default, and it was deleted with the handler that used it.
+    (Numbered last rather than inserted, so the §8.6 / §8.8 / §8.11 references
+    scattered through this file and the source stay valid.)
+
+---
+
+## 9. UI/UX standards
+
+- **Breakpoints: exactly four values — 480 / 720 / 1024 / 1440px**, as
+  `$bp-phone`, `$bp-tablet`, `$bp-laptop`, `$bp-wide` with matching mixins in
+  `src/styles/design-system/_breakpoints.scss`. The app's worst layout state was
+  never the phone; it was intermediate widths, where 15 scattered breakpoint
+  values left one card collapsed and its neighbour not.
+  `scripts/breakpoint-guard.js` **fails the lint** on any raw px in a
+  `@media`/`@container` width feature that isn't one of the four. A component
+  usually needs only *one* of the four; pick the width where *this* component
+  actually breaks rather than cargo-culting all four.
+  > ⚠️ **It read only `.scss` until 2026-08-27, and eleven components declare
+  > their CSS inline** (`styles: [\`…\`]` on the `@Component`). Those were
+  > outside the guard entirely, and its own note claiming an empty grandfather
+  > list was therefore true of what it could see rather than of the app. It
+  > scans `.ts` as well now — the check is a text scan, so the extension filter
+  > was the only thing hiding them — and that immediately surfaced **six**
+  > off-scale values: one in job work (fixed) and five in HR, which are
+  > grandfathered with the reason, because 820 → 720-or-1024 is a decision about
+  > those screens rather than a substitution. §13's standing shape, in the guard
+  > that was written to prevent it.
+  >
+  > ⚠️⚠️ **A container query with no container never fires**, and nothing warns.
+  > `route-templates.ts`'s dialog carried `@container (max-width: 620px)` with no
+  > ancestor declaring `container-type`, so its five-column step grid never
+  > collapsed and the dialog was unusable at 380px. Off-scale *and* dead. When
+  > you write a container query, write the `container-type: inline-size` context
+  > with it — usually on `:host`.
+- **Container queries over viewport queries** whenever the component's width is
+  set by a dialog or panel rather than the browser window — `@media` reads the
+  *browser*, so inside a fixed-width dialog it reports "wide" while the content
+  column is narrow. The nearest ancestor needs `container-type: inline-size`.
+  > ⚠️ **A container query is measured on the CONTAINER, not on the pane you
+  > sized**, and the two differ by whatever padding lies between them. The Chart
+  > of Accounts screen (P3d‑2) put a 300px tree column beside
+  > `app-paginated-table`; at a 1440 viewport with the nav panel open the grid
+  > pane was **800px** and the table's own `.toolbar-container` — the element the
+  > query measures — was **719px**, one pixel under the 720 at which the quick
+  > search collapses to a dialog button. So the widest screen the app supports
+  > was the one showing the compact control, on a layout that reads as having
+  > 80px of headroom. Measured, not reasoned. When a new layout narrows a shared
+  > component, measure the element its own query keys off — and treat landing
+  > within a few pixels of a threshold as the intermediate-width failure this
+  > section exists for.
+- **Design system** lives in `src/styles/design-system/` (`_tokens`, `_palettes`,
+  `_variants`, `_app`, `_auth`, `_voucher`, `_component-lines`,
+  `_job-work-table`). Use tokens; don't hardcode colours.
+- **Material global defaults** (`app.config.ts`) — don't override per-component
+  without reason: cards `appearance: 'outlined'`, form fields
+  `appearance: 'outline'`.
+- **Dashboard KPIs are one divided strip** (`ds-stat-strip`), not a grid of
+  `ds-stat-card`s: the headline figures are read together in one glance, and the
+  queues and charts under them are what the screen is for. Track count follows
+  the strip's **own** width via container queries (the content column is ~288px
+  narrower whenever the nav panel is open, so a viewport query asks the wrong
+  question) — 1 / 2 / 4 / one-per-item at 0 / 480 / 720 / 1024. `ds-stat-card`
+  stays for the dashboards not yet converted.
+- **Numbers are formatted `en-IN`** (`count-up.directive.ts`), not the browser's
+  default locale: Indian grouping is lakh/crore — ₹1,32,400, never ₹132,400.
+  > ⚠️ **In the shared grid, that is `type: 'money'` — `type: 'number'` formats
+  > nothing** (UI-002). `DataTableComponent.getCellValue` handles `date`, `money`
+  > and `boolean` and falls through to `String(val)` for the rest, so `'number'`
+  > only right-aligns the cell. Six screens printed `2305021.19` where the rule
+  > asks for `23,05,021.19` — GSTR-3B, GSTR-1, both Outstanding ledgers, the
+  > chart of accounts and the group master — because the column type reads as a
+  > formatting contract and is one for two values out of the set. `'money'` was
+  > added rather than widening `'number'`, deliberately: 116 columns across 45
+  > files declare `'number'` and most are ids, priorities and row counts, where
+  > `Invoice #1,32,400` would be a worse defect than the one being fixed. A
+  > screen with its own markup pipes `| number:'1.2-2'` instead — an amount with
+  > no pipe at all is what both GST return screens did.
+  >
+  > **A rule that judges only text carrying a ₹ is inert on exactly the screens
+  > it was written for**: a Trial Balance column is headed "Debit", GSTR-3B's is
+  > headed "Taxable value". The QA oracle now keys off the *shape* of an amount
+  > (a digit run with exactly two decimals), which an id, a GSTIN or an invoice
+  > number never is.
+- **The shell's own layout thresholds are on the four-value scale too**
+  (`admin.component.ts`): nav is an overlay below 720, a rail-only column to
+  1023, both columns at 1024 and up.
+- **Dates are `dd/MM/yyyy` everywhere**, on native `Date` values, via
+  `CustomDateAdapter` + `MAT_DATE_LOCALE: 'en-GB'`. Don't introduce a second date
+  format or a parallel date library for display.
+  > ⚠️ **The separator is part of the format, and four of them were in use**
+  > (UI-004, UI-008 — swept 2026-08-26). One sales invoice printed as
+  > `25/08/2026`, `25-Aug-2026`, `25 Aug 2026` or `25-08-2026` depending on which
+  > of the eight templates rendered it, so a customer receiving two invoices from
+  > one supplier read two formats. Seven report screens used Angular's named
+  > `mediumDate` (`22 Aug 2026` under `en-IN`), `product-media` showed **both**
+  > formats on one screen depending on the view toggle, and four voucher lists —
+  > the cash vouchers, the busiest screens in the product — printed the API's raw
+  > ISO string, because their Date column declared `type: 'text'` (UI-003).
+  >
+  > Every in-scope site is now `dd/MM/yyyy` (`dd/MM/yyyy HH:mm` where a time is
+  > wanted). **HR and the party portal still carry `dd MMM yyyy` in eight files**
+  > — outside this mission's scope, recorded rather than fixed. `mediumDate`,
+  > `longDate` and `shortDate` are not to be used for a document date; a
+  > month-year period label (`toLocaleDateString('en-IN', { month: 'long', year:
+  > 'numeric' })`) is a different thing and is fine.
+  > **Where a date must become a STRING rather than be rendered by a pipe** —
+  > a chip badge, a label built in TypeScript — use `displayDate()` in
+  > `src/utils/date.util.ts`. Hand-rolling `toLocaleDateString()` there is how
+  > the fourth separator got in.
+- **A dialog's first row must not have its labels clipped by the title.**
+  Angular Material ships `.mat-mdc-dialog-title + .mat-mdc-dialog-content
+  { padding-top: 0 }`, and an outlined field floats its label onto its own top
+  border — so the first row of every dialog had its labels sliced in half. The
+  fix lived only inside `.app-form-dialog`, an **opt-in `panelClass` that 47 of
+  the app's 118 dialogs used**; the other 71 shipped the defect. It is now a
+  floor on the bare Material class in `styles/custom/_material.scss`, so a new
+  dialog is correct by existing (§13's "one rule enforced at some of the places
+  that need it", in CSS).
+  > ⚠️ It is scoped through `.mat-mdc-dialog-container` for **specificity, not
+  > reach**. Material's rule is `(0,2,0)` and lives in the dialog *component's*
+  > styles, which Angular injects into `<head>` at runtime — **after** the
+  > global stylesheet — so an equal-specificity global rule loses the tie and
+  > silently does nothing. Verified in a real browser with Material's rule
+  > injected last. The same trap applies to any global override of a Material
+  > component's own structural CSS.
+- **Sizing a Material icon button takes three things, not one.**
+  `width`/`height` alone leaves a 40px state layer and a 48px touch target laid
+  out at full size, so the button overlaps whatever sits beside it — which is
+  how the Vendors master's machine chips came to cover their own labels. Set
+  `--mdc-icon-button-state-layer-size`, `padding: 0`, **and** shrink
+  `.mat-mdc-button-touch-target`; `data-table`'s `.pin-peek` is the reference.
+- **A name is capitalised by one rule, applied where it is TYPED.**
+  `TitleCaseNameDirective` (auto-applied by selector via `SHARED_IMPORTS`, like
+  `FormGuardDirective` — no attribute to add and none to forget) tidies a name
+  field on **blur**, so the user sees the result and can override it. Nothing is
+  re-cased silently at save time, which matters because a party name prints on
+  invoices, challans and GST returns. Opt one field out with `noTitleCase`.
+  The rule is `display-case.const.ts` / `display-case.util.ts`, mirrored and
+  compared behaviourally by `check-mirrors.js` check 8.
+  > ⚠️ **The acronyms are a LIST, not a heuristic**, and they have to be: `PARTY`
+  > is all-caps and five letters exactly like `GSTIN`, and `PVT` has no vowels
+  > exactly like `CNC`. Every shape-based guess gets those backwards. The list
+  > grows from `scripts/normalise-names.ts`'s dry run — which is how `HR`, `ESI`
+  > and `MD` were found, as "Hr", "Esi" and "Md", in `roles`, `trx_groups` and
+  > `designations`.
+  > ⚠️⚠️ **Separators are handled generally, and were not at first.** The rule
+  > split on `-` and `/` only, so `QA·SEC` came back `Qa·sec` and `A.B.C` would
+  > have too: an unlisted punctuation mark silently lower-cased everything after
+  > it. Splitting on any run of non-alphanumerics means the next one nobody
+  > foresees degrades to "cased on both sides" instead. The apostrophe is
+  > deliberately excluded — it belongs to the word (`Shah's`, not `Shah'S`).
+  > **Not applied to codes** (`machineNo`, `code`, GSTIN, PAN, username, email —
+  > upper-cased at their own seams), **to prose** (remarks, descriptions), or
+  > **to a legal name the GST registry supplied**, which is the authoritative
+  > spelling of a statutory field.
+- **The voucher header strip wraps by FLEX BASIS, not by a width query, and
+  Purchase and Sales must come out the same shape** (2026-08-27). Purchase
+  carries a field Sales does not — `Party Invoice No`, the number on the
+  supplier's own bill. The strip was
+  `grid-template-columns: repeat(auto-fit, minmax(190px, 1fr))` with the account
+  head and the party each spanning two tracks, which gives a fixed track count
+  for a width — six at a full-screen dialog. Sales needed exactly six and
+  fitted; Purchase needed seven and dropped **Supplier onto a second row**, so
+  the two busiest screens in the app had different headers and on one of them
+  *who the voucher is for* sat below the fold of its own strip.
+
+  A viewport `@media` cannot fix it, and this is exactly the trap
+  `_breakpoints.scss` warns about: the strip's width comes from the dialog, or
+  from the content column (~288px narrower whenever the nav panel is open), not
+  from the window — at a 1025px viewport on the routed page the strip is ~678px
+  while `@media` still says "wide". Flex wrap asks the right question by
+  construction, so there is no query to get wrong.
+
+  ⚠️ **The bases are solved, not guessed, and a smaller one is not better.**
+  Four fields fit a 678px line at ~170px each, and a 15-character voucher number
+  with a 40px refresh button does not fit in 170px — it *nearly* does, which is
+  why it went unnoticed: Purchase happened to wrap 3+2 and read fine while a
+  debit note wrapped 4+1 and **clipped its own number**. The wrap has to be
+  decided by what a field needs, not by how many will squeeze on. The accepted
+  consequence is that on the routed page at ≤1024 the strip is two rows for
+  every type, Sales included; in the dialog, where vouchers are normally
+  entered, 1024 is still one row. `_voucher.scss` carries the arithmetic.
+
+  A second rule falls out of using flex at all: **cap each field's width**, or
+  flex grows the items on the last line to fill it and a single leftover field
+  becomes a full-width input sitting alone under four narrow ones.
+- **An optional field group folded behind a chip MUST say what is inside it.**
+  The voucher entry screen's bottom strip — additional charges, voucher
+  discount, GST classification & export particulars, payment terms & due date,
+  narration, reference documents — was six permanently-open cards costing ~180px
+  of a form whose items grid is the thing people actually type into. It is now
+  one row of chips (`components/shared/voucher-option-chip/`,
+  `.vch-optbar` / `.vopt__*` in `_voucher.scss`), each opening a small panel
+  anchored above it (2026-08-27).
+
+  That fold is only allowed because of the badge: **hiding a set discount behind
+  a plain button trades clutter for blindness**, and the bar has to answer
+  *"what has been done to this voucher?"* with nothing open. So a chip carries a
+  `summary` (`5%`, `2 · ₹1,500.00`, `30/09/2026`, `RCM · No ITC`) and fills in
+  when it holds a value. Three consequences worth knowing before touching it:
+
+  - **The panel is rendered inside the form and merely shown/hidden**, never
+    created on open. `formControlName` then resolves through the declaration-site
+    injector with nothing to wire up, and a stateful child keeps its state —
+    `app-voucher-attachments` buffers files picked before the voucher has an id,
+    which a destroy-on-close overlay would silently throw away.
+  - **A click inside `.cdk-overlay-container` is not "outside".** The panel's own
+    selects and datepickers render there, so the naive click-away rule shuts the
+    panel the moment somebody picks a value in it. ⚠️ A `mat-select` does **not**
+    prove this — Material's option handling keeps the pointerdown off the
+    document listener, so the guard can be deleted with a select-based test
+    staying green. The **datepicker** is what fails; that is the interaction
+    `qa-artifacts/tests/ui/money/voucher-options-bar.ui.spec.ts` measures.
+  - **Save opens the panel holding the blocker** (`revealInvalidPanel`) and the
+    chip turns red. A required field folded out of sight is exactly the case
+    where a dead Save button explains nothing — the same argument
+    `assertSupplierIsCompanyMember`'s toast makes for `supplierUserDetailsId`.
+
+  Esc inside a panel closes the panel and `stopPropagation()`s, because the
+  screen's own `document` Esc listener closes the whole voucher. ⚠️ That listener
+  currently bails whenever any `.cdk-overlay-pane` exists and one always does
+  here, so the rule is **not observable through the screen** — the spec asserts
+  propagation directly rather than an outcome that stays green without it.
+- **Dialogs** have shared SCSS partials in `styles/custom/`: `_form-dialog`,
+  `_resizable-dialog`, `_side-panel-dialog`, `_form-errors`. Reuse them.
+- **Shared components** in `components/shared/` — `data-table`,
+  `paginated-table`, `app-select`, `confirmation-dialog`, `document-viewer`,
+  `dynamic-field-renderer`, `ledger-picker`, `voucher-*`, `period-selector`,
+  `breadcrumb`. Check here before building a new one.
+- **A screen must never offer an action the server will refuse.** Permission,
+  licence and voucher-lifecycle mirrors exist so the button state matches the API
+  — keep the mirrors in sync, and let the backend stay the enforcer.
+- **Every voucher account-head field is `app-ledger-picker`** (P4a), and what it
+  offers is decided by the group's **nature** server-side
+  (`voucher-head-scope.const.ts`), not by `trx_groups.groupFor`, which is F4.
+  ⚠️ It binds the ledger's `legacyTrxGroupId`, **not** its id — every voucher DTO
+  states a head and `ledgerId` is deliberately on none of them (D6). It owns its
+  own `mat-form-field`, so a call site is one tag; the `groupFor` enum survives
+  only as each field's default, and only where its match is unique.
+- **A custom `MatFormFieldControl` answers `empty` with "is there text in the
+  box?", not "is the value truthy"** (UI-011, fixed 2026-08-26). `mat-form-field`
+  floats its label off `empty`, and `<mat-select>` renders the matching option's
+  label regardless of it — so `AppSelectComponent.empty` counting `''` as empty
+  put the un-floated label **on top of the rendered option** on every filter bar
+  in the app, which is uniformly built as `{ value: '', label: 'All' }` with the
+  model seeded to `''`. `All` over `Type`, `All` over `Status`, `All` over
+  `Payment`, on the party portal, Day Book, the scan queue, the party statement
+  and the payments list. Material's own `MatSelect.empty` asks its selection
+  model, which is why a native `<mat-select>` never had it; `app-select` now asks
+  whether an **option** carries `''` (a `''` with nothing to match it renders a
+  blank box and is still empty). `voucher-list-toolbar` had papered over it per
+  screen with `floatLabel="always"` — **a workaround at one call site is the
+  signal to go and fix the control**, because the other five never got one.
+
+- **An icon button names itself with `aria-label`, and a `matTooltip` is not a
+  name** (UI-010). Material renders a tooltip into a detached overlay referenced
+  by `aria-describedby` — a *description*, offered after a name the element must
+  already have — so a button whose only content is a `<mat-icon>` ligature is
+  announced as "button" however carefully its tooltip is worded. The shared
+  `data-table` gets this right and pairs the two automatically
+  (`[matTooltip]` + `[attr.aria-label]`, same text), which is why most grids in
+  the ERP are clean; **every surface that hand-rolls its own markup has to do it
+  itself**, and four of them did not — a category tree announced fifty identical
+  buttons with nothing telling Delete from Edit, and the hub console, which has
+  its own table, never received the rule at all. Name the **row** as well as the
+  action. The same applies to a form control with no `<label>`: GSTR-3B's five
+  ITC-adjustment amounts, the figures declared to the government, had no name of
+  any kind and were announced as "edit, blank".
+- **The accessibility line is WCAG 2.1 AA, and it is measured.**
+  `qa-artifacts/tests/ui/a11y/` sweeps axe over every screen in **both** apps and
+  **both** palettes, gating on axe's own critical/serious impact, plus five
+  keyboard properties axe cannot see. `npm run qa:a11y`. Two things worth knowing
+  before changing it: `best-practice` is deliberately excluded (its rules are
+  opinions, and a landmark preference failing a build beside a keyboard trap is
+  how a gate stops being read), and **`withRules` bypasses the tag filter** —
+  which is how `color-contrast-enhanced`, a WCAG **AAA** rule, once failed six
+  routes on a criterion nobody had agreed to.
+
+---
+
+## 10. API conventions
+
+**Success envelope** — every handler returns it explicitly:
+
+```ts
+return { status: true, data: <payload>, message: 'Product created successfully' };
+```
+
+**Error envelope** (from `ApiException` / the global filter):
+
+```ts
+{ status: false, message: string, statusCode: number, path, timestamp, code? }
+```
+
+- **An audit row written from a SERVICE looks like one written by the
+  interceptor** (D-48). `AuditInterceptor` has the `Request`, so it states the
+  actor, the module and the category; a service writing inside a transaction —
+  `ApprovalService` does, correctly, so the status change and its audit row commit
+  together — has only a `userId`. That left **4,000+ transition rows** with no
+  `module`, no `category` and no `username`, so the Audit Log's own module filter
+  returned not one approval. `AuditService.withDefaults` now fills all of it:
+  module/category from `moduleFor`/`categoryFor` (pure), and the actor from
+  `TenantContext.actor`, which `TenantContextGuard` populates from the same
+  `request.user`. **Put defaults in the service, not in each caller** — patching
+  `ApprovalService` alone would have left the next service to repeat the omission.
+  An explicitly-stated value always wins (`??`), `enqueue` fills them *before* the
+  queue hop (the worker has no context, same reason it snapshots `companyId`), and
+  **outside an HTTP request no actor is invented**. One more trap: the two paths
+  used different words for one document — `auditEntityForSource` reconciles
+  `JournalSourceType` onto the **controller's** `@Audit()` vocabulary, because
+  that is what the screen filters by and what `ENTITY_CATEGORY_MAP` is keyed by.
+- **The audit trail's scope is a decision, and it is enforced.** `@Audit()` is
+  opt-in (a verb-only rule would log every `POST …/list` as a create), so the
+  coverage is a choice rather than an accident: **money and identity first**
+  (D-36). `payroll`, `employee`, `files`, `stock-conversion`, `users` and the three
+  voucher controllers are inside the line and `src/const/ci-guards/audit-coverage.const.ts`
+  keeps them there — a new mutating handler in one of them fails a DB-free unit
+  test. Masters, job work, chat and notifications are deliberately outside it for
+  now. Two things to know before reading a handler as unaudited: the voucher
+  lifecycle transitions are audited from **`ApprovalService`**, inside the same
+  transaction as the posting they perform (better than a decorator, and invisible
+  to a static check — hence `SERVICE_AUDITED_HANDLERS`), and a `@Post` that reads
+  needs `@ReadOnlyRequest()` rather than `@Audit()`.
+- **A voucher line is written through `POST|PUT /trx`, and nowhere else.**
+  `POST /trx-items` and `PUT /trx-items/:id` were removed (D-38) along with the
+  `DELETE`/`restore` pair before them: they wrote a line without re-deriving the
+  voucher's money or re-running posting, so an edit to a **posted** line left its
+  journal entries untouched — a voucher silently out of step with the ledger it had
+  already written. `trx-item-taxes` still has its writers because the SPA's list
+  surface sits next to them; both check that every id they name is the caller's own.
+- **`POST` is used for paginated list/search endpoints** (`POST /products/list`)
+  because pagination + filters need a body. Two consequences:
+  - Audit is **opt-in** via `@Audit()` rather than verb-sniffing — a verb-only
+    rule would log every list call as a "create".
+  - A read-shaped POST must carry **`@ReadOnlyRequest()`** (or already carry
+    `@SharedRead()`), or `BillingRestrictionGuard` refuses it during billing
+    grace. **Only ever put it on a handler that writes nothing** — see the
+    decorator's SECURITY CONTRACT. Forgetting it is safe (the handler just stays
+    blocked during grace); adding it to a mutating handler is not.
+- **`pageSize` is capped at 1,000, and it CLAMPS rather than refusing.**
+  `MAX_PAGE_SIZE` / `boundedPageSize()` in *both* backends'
+  `src/const/pagination.const.ts`. It had no `@Max` at all, and one authenticated
+  request could ask for a whole table — `POST /audit-logs/list
+  { pageSize: 1000000 }` returned 19,381 rows and 12.64 MiB from a process that
+  serves every tenant. Clamping is what makes the bound safe to add without
+  breaking a caller (the response echoes the **clamped** value, and `totalPages`
+  is computed from it), and it is also the one way it bites: **asking for more
+  does not fail, it silently returns 1,000.** Anything that genuinely wants every
+  row must page — `jayhindi-client-front/src/utils/fetch-all-pages.ts`, which
+  eleven callers use. That is only sound because `withStableOrder` appends the
+  primary key to every list's `ORDER BY`, so two pages of one query cannot
+  overlap or skip a row. `PlatformUsersService` keeps a tighter 200 of its own,
+  deliberately — it is the only list that reads across every company.
+- **A numeric filter is accepted on every integer WIDTH, not only `INTEGER`.**
+  `checkDataTypeAndFilterType`'s whitelist listed `INTEGER` and the float family,
+  so a numeric filter on a column a model declares as `BIGINT` answered
+  `400 Invalid Type numeric for Database Field id Type BIGINT`. `TrxAccount.id`
+  is declared `DataType.BIGINT` (the column itself is `int` — the model and the
+  schema disagree, which is a separate thing to fix), so
+  `PaginatedSelectSource.ensure()` — how **every voucher screen** pins the
+  cash/bank account a saved voucher already names — 400ed on every edit, and the
+  account rendered only when it happened to be in the picker's first page. A QA
+  tenant has three accounts, which is why it survived. Four genuine `BIGINT`
+  columns (`stored_files.size`, `chat_messages.fileSize`,
+  `export_jobs.totalBytes`, `companies.maxStorageBytes`) and a `TINYINT` GST
+  state code (`trx.placeOfSupplyStateCode`) could not be filtered on either.
+  ⚠️ **Both backends carried the identical omission** (§13's standing shape) and
+  both are fixed; `BOOLEAN` is deliberately still refused a numeric filter, and
+  the widths listed are the ones `attr.type.key` reports —
+  `DataType.TINYINT.UNSIGNED` keys as `TINYINT`.
+- **A filter naming a column no model declares is a `400`**, the same answer an
+  undeclared *sort* column already got; it used to be dropped silently, which
+  returned the **unfiltered** table to a caller who asked for a subset. A dotted
+  `alias.column` key whose alias *this* query does not include is still applied
+  to nothing — the frontend sends conditional dotted keys, so refusing it would
+  break screens — but it is named in the response's `ignoredFilters`, present
+  only when something was ignored. The grid renders that key, so a filter that
+  did nothing says so on screen — which is the whole reason it may answer 200.
+- **A NEGATIVE filter is widened with `OR col IS NULL`, and it has to be**
+  (BUG-0048). `notContains`, `notEquals` and `dateIsNot` are the three negations
+  the shared grid filter offers on **every** list screen, and SQL's three-valued
+  logic makes `NULL NOT LIKE '%x%'` NULL rather than true — so a bare `NOT LIKE`
+  silently drops every row whose column is empty, with no error and nothing in
+  `ignoredFilters` to say so. On `products.availabilityDate`, empty on all 587 of
+  a QA tenant's goods, *"is not 01/01/2000"* returned an **empty grid**. The rule
+  it restores is the one to remember: **a filter and its negation must partition
+  the population** — `contains X` + `notContains X` equals the grid's own row
+  count. `notNull()` is the single definition, and **both backends have a copy**
+  (`client-back/src/services/common-data.service.ts`,
+  `admin-back/src/services/pagination.service.ts`); `scripts/check-mirrors.js`
+  does not compare them, so a fourth negative match mode needs the same treatment
+  in both places by hand.
+- **A filter on a JOINED column marks that alias's include `required`, and that
+  is deliberate.** Sequelize emits the entire top-level `where` inside the
+  subquery it builds for a limited query with a duplicating include, while an
+  include that is not `required` is joined in the OUTER query — so the condition
+  and the join it names land in different halves of the statement and MySQL
+  answers `ER_BAD_FIELD_ERROR`, which surfaces as a 400 (API-019). `required` is
+  the only lever that moves the join in with the condition; `include.subQuery`
+  is recomputed from it and spelling the condition Sequelize's own
+  `$alias.column$` way changes nothing. The cost is an INNER JOIN on that alias,
+  invisible for every positive match mode (`NULL LIKE '%x%'` is NULL, so a
+  LEFT JOIN discarded those rows too) and visible only in a mixed `Op.or` group.
+  A **HasMany** alias is not rescued by this — its condition would have to move
+  into `include.where`. Sorting resolves the same aliases but never marks them
+  required: a sort must order rows, never drop them.
+- **Alias resolution asks the include tree, not the `as` key.** `resolveIncludeRef`
+  (both backends) resolves an include declared without `as` (`{ model: TrxNature }`),
+  one declared as `{ association: 'x' }`, and an alias nested a level down —
+  `role` lives under `membership`, because `User.roleId` is retired, and Sequelize
+  names that join `` `membership->role` ``. A blind `x.as` lookup is what made two
+  grids' filters silently return every row (API-020), and it hit `commonSearch`
+  too: an **unqualified** column key is resolved against the ROOT model, so the
+  root's own columns were searched twice and the included model's never (API-022).
+  An include whose alias cannot be resolved is skipped, never emitted unqualified.
+- **A searched page returns the same shape as an unsearched one.** `commonSearch`
+  and dotted sorts strip the HasMany includes so their own references resolve;
+  `hydrateStrippedIncludes` re-reads the page's ids with the tree the caller asked
+  for before the response goes out. Without it the Products grid's Category column
+  blanked whenever someone typed in the search box (API-021).
+- **`isDeleted` is the archived VIEW, not a hint.** Both paginators answer it with
+  `paranoid: false` **plus** a `deletedAt IS NOT NULL` predicate — a caller's own
+  `paranoid: false` shows both sides, so it cannot stand in for the predicate
+  (that is how the hub's `/companies/list` answered the archived view with ten
+  live companies). A model with no `deletedAt` gets an **empty page**, never the
+  live list. Implement it in the paginator and nowhere else: the hub had a second
+  copy in `hsn.service.ts`, and because the paginator strips the archived
+  predicate back off the `where` to count the opposite view, the caller's copy
+  survived the strip and the archived view reported `activeCount: 0` beside 22,609
+  live rows.
+- **The platform directory sorts and filters on an allow-list.** `/users/list`
+  (hub → `/internal/users/list`) is the one read that spans every customer, and
+  `User` declares `password`, `tokenVersion` and the reset-token columns. Sorting
+  or filtering by any of them is a `400`, not a silent drop — and `commonSearch`
+  there stays hand-written (name/email) rather than `applySearches`, which would
+  expand to every string column the model has.
+- `@HttpCode(200)` on POST list endpoints so they don't return 201.
+- Route params validated with `ParseIntPipe`.
+- Bulk endpoints take `BulkIdsDto` and return `bulkDeleteResponse` /
+  `bulkRestoreResponse`, built from `BulkActionResult` = `{ affected, skipped }`.
+- **`scripts/dump-routes.ts` is the safety net for module surgery.** It boots the
+  real `AppModule` (proving every provider resolved) and prints every route
+  sorted. Capture before a refactor, diff after:
+  ```bash
+  npx ts-node -r tsconfig-paths/register scripts/dump-routes.ts > before.txt
+  ```
+- **OpenAPI is generated, not hand-annotated.** Both backends publish Swagger UI
+  at `/api/docs` and the schema at `/api/docs-json`. It comes from the
+  `@nestjs/swagger` CLI plugin (wired in `nest-cli.json`), which reads the
+  `class-validator` decorators already on every DTO — so it cannot drift from
+  what `ValidationPipe` actually enforces, and adding a DTO field publishes
+  itself. `introspectComments: true` means a field's doc comment becomes its
+  description. **Don't hand-write `@ApiProperty` decorators**; fix the DTO
+  instead. `dtoFileNameSuffix` includes `.controller.ts` because several DTOs are
+  declared next to the controller that uses them.
+
+---
+
+## 11. Testing & QA
+
+| Layer | Where | Run |
+|---|---|---|
+| Unit (Jest) | `src/**/*.spec.ts` — 132 suites / 2031 tests in client-back, 9 / 176 in admin-back; mostly beside `const/*.const.ts` | `npm test` |
+| Architecture guards | `src/user-module-boundary.spec.ts`, `src/const/ci-guards/*` — raw-SQL (statement · joins · **the calendar day** · **its own allow-list**), cached-state, scope-registry, marker-decorator, `@Body()`-is-a-DTO and **every-JWT-minter-sets-every-claim**. `admin-back` has its own **undecorated-DTO-property** guard | `npm test` + `scripts/ci-guard-*.ts` |
+| Chart-of-accounts parity | `client-back/scripts/qa-coa-parity.ts` + `src/const/parity-snapshot.const.ts` — the gate for the Tally migration (TALLY-PARITY-PLAN.md §4.2): every report for every company, captured before and after, diffed **per figure**. ⚠️ **Since P3c‑1 it captures the ROUTED reports, and what it asks changed with them.** It captured the flat `legacy*` statements for one release as the anchor; those retired with the presentation rule, so there is no second derivation left and the harness now asks the ordinary *"did anything move between these two builds?"* of the reports a customer reads. **`diff --rebased <prefix>`** (repeatable) is how a capture pair straddling a shape change declares it — it is **not** an allowance: an allowance is a statement about the books judged per path, a re-basing is a statement about the tape measure. It drops the paths under a prefix from BOTH sides, prints how many it dropped, and **fails a prefix that matches nothing**. `--mask-labels` records the Day Book's line label and the books' `particulars` as a marker for one capture pair — every figure beside them is still compared, and whether the label is right is `qa:p3b-statements` (13)–(15); a masked snapshot and an unmasked one are refused rather than diffed. ⚠️⚠️ **`exceptions` is retired**: every path it emitted named a row of a flat statement, so it could only emit allowances matching nothing, which `judge` fails. The note where it stood says what it was. Deliberately **not an oracle** — it never says what a Trial Balance ought to contain, only whether it answered the same thing twice; `qa-artifacts/tests/reports/` owns the restatement. ⚠️ Its diff reports rows **added and removed**, not only changed, because `trialBalance` suppresses zero rows — so a dual-role party netting to exactly zero leaves the report with no figure moving. And an exception is a **list**: an allowance matching nothing fails as loudly as a difference nobody allowed | `npm run qa:coa-parity -- selfcheck` |
+| The chart-of-accounts **tree** | `client-back/scripts/qa-p1-group-tree.ts` — P1's gate (TALLY-PARITY-PLAN.md §5). Over every company: 28 groups / 15 primary + 13 sub, every `path` terminated and agreeing with its own depth, every ledger placed, and every parent equal to its own figure plus its children's. ⚠️ **Its properties (3) and (4) retired at P3c‑1** with the flat report they compared against — the tree's totals overall and per nature, where the declared GST-input Asset → Liability shift was what the per-nature half tolerated. Both questions moved rather than disappearing: `qa:p3b-statements` (3) holds the regroup-invariant sums against Σ over `journal_lines` and its (10) asserts the shift as a **placement**. The numbering here keeps its gaps, so a reader looking for (3) finds out where it went; restating it in two scripts would be two derivations of the same Σ from the same rows | `npm run qa:p1-group-tree` |
+| The chart-of-accounts **leaf** | `client-back/scripts/qa-p2-ledgers.ts` — P2's gate (TALLY-PARITY-PLAN.md §5). Twelve properties over every company: every legacy head has a ledger except the two control heads that become **groups**, every party in the union population is planned and applied to a *live* ledger, every instrument is claimed, no ledger is parented into another company's tree — and then **D5's dry run**: `resolveLedgerForLine` over all 41,690 journal lines, with zero unresolvable. ⚠️ Its real value is that last one. §4.1 D5 ends with a `NOT NULL`, and finding a gap *there* stops a migration mid-flight on a live book (V1/F13); finding it here costs one script run. It also computes the declared parity exception a **second, independent way** — from the journal lines through the resolver rather than from `party_ledger_plan`'s own arithmetic — so the two have to agree or one is wrong. That is what caught a stale derived column three steps from its cause. Since P3c‑1 (13) asserts every posting ledger is filed under one of Tally's 15 **primaries**, so its money is somewhere a statement walks — it asked about the presentation rule's totality until that rule was deleted — and (19) allows a posted ledger to be re-filed **within its own nature** while refusing a cross-nature move. Since P2b‑2 it also asserts that **no party is outstanding on both sides at once** — which would have failed on 6 of the 16 companies before D3 merged them, and is BUG-0043's card-and-breakdown rule one screen out. Since P2b‑3b it also **writes**: (17) creates and re-parents a group subtree and checks the derived `path`/`depth`/`nature` on every descendant, (18) resolves all 21 statutory keys and asserts the two control heads are refused, (19) moves a posted ledger both ways — all rolled back, and every refusal asserted **against its own message** (a bare *"it threw"* is satisfied by a 404 on a mistyped id). Since D6 it also compares the stored `ledgerId` on the **four voucher holders** against that same rule, and asserts the receipt header's own claim — *set for a Journal, null for a Payment or Receipt* — which is the phrasing that caught a backfill giving 3,035 payment/receipt rows a ledger nothing reads. Since D5 it also compares **every stored `ledgerId` against the pure rule** (the migration restates the precedence in SQL, because a migration here imports nothing — this is the test behind that mirror), censuses the **third** balance cache, and **posts a real party opening balance for an identity with no ledger** in a rolled-back transaction, because `ledgerId` is `NOT NULL` and a resolution failing at runtime is every voucher approval throwing rather than a wrong figure. Since P2b‑3c it also censuses **Suspense A/c** (4c) — the group is reachable *only* as `fallbackGroupForNature`'s `default` arm, so a ledger sitting there whose legacy head carries a real `AccountNature` is a placement bug. ⚠️ That check asks a question about the **rows**, deliberately: this script's own restatement of the placement rule read `trx_natures.name` exactly as the two callers did, so it agreed with the defect and could not see it — *a check that restates the code by copying the code's query cannot fail*. Since P3c‑2 (20) is **ledger creation**, and the property is money rather than a name: a ledger created through the service, a real balanced entry posted to it, and the rupees followed onto the Trial Balance, the Group Summary and whichever of the Balance Sheet or the P&L its group's nature belongs to — all rolled back, and (20h) censuses **both** halves, because a probe that writes two charts has two ways to leak. ⚠️ All three reports LEFT-join their aggregate from `acc_ledgers`, so a created ledger appears on them at **nil whatever happens** — the version of this check that looked for the row would have passed on the build where nothing could be posted to it, which is the build P3c‑2 found. The Trial Balance half is a **delta**, since a group normally carries other ledgers. ⚠️⚠️ It reads inside its own transaction, which is why `trialBalance` / `profitAndLoss` / `balanceSheet` / `groupSummary` take an optional read-only `Transaction`: the alternative is a gate that commits a scratch ledger and a journal entry into the books the parity harness captures next | `npm run qa:p2-ledgers` |
+| The statements as the tree | `client-back/scripts/qa-p3b-statements.ts` — P3b's gate, and the half of it the parity diff cannot be (a report the harness has never seen passes it by being absent from both sides). Sixteen properties over every company: the tree is the whole chart, every ledger placed exactly once, and the three regroup-invariant sums plus every ledger's own figure against **Σ over `journal_lines`**. ⚠️ **Its oracle changed at P3c‑1.** Every tie here was *two reports meeting* — the tree against the flat `legacy*` statements — which is a stronger statement than a report meeting a query written beside it, and it retired with them. Two properties changed shape rather than target: (4) asks its question per **ledger** instead of per legacy head, and (10) asserts the two declared Balance Sheet movements as **placements** — the four GST input ledgers on the liability side, and the Profit & Loss A/c on the side its own balance takes, so a **loss** is an asset — rather than as a reconciliation against a sheet that no longer exists. Plus a drill-down never changing a figure, and the two crossed-over labels asked of the rows — *is this the name of the ledger this line points at?* and *is this `particulars` a name that exists at all?* The `(as per details)` half is asserted separately, because without it the check passes on a report that names one ledger and hides the rest | `npm run qa:p3b-statements` |
+| The two reports the ledger made possible | `client-back/scripts/qa-p3-ledger-report.ts` — P3a's gate. Fourteen properties over every ledger and every group of every company: each ledger's closing against its own Σ over `journal_lines`, the monthly summary's gaps and its running balance, the group summary's total against Σ(children), and **a drill-down never changing a figure**. ⚠️ Its reason for existing is that the parity harness **cannot** gate an additive report — a report with no earlier self is absent from both sides of a snapshot diff and passes by default, which is §6.4's *a mirror rule that cannot fail reads as coverage* in a new place. The property that does the work is (6): Σ of the ledger closings filed on each **group**, against that node's own `ownClosing` on `trialBalance()` — the two new reports meeting. ⚠️ It tied to the FLAT Trial Balance head by head until P3c‑1, which was its whole point while two charts existed; the flat report retired with the presentation rule. Its oracle is one `GROUP BY` with no report code near it, and `liveEntrySql`'s rule is **restated** in it rather than imported | `npm run qa:p3-ledger-report` |
+| The Data Import module's chart of accounts | `client-back/scripts/qa-p2c-import-tree.ts` — P2b‑3c's gate. Parses the **real** Tally Prime backup in `qa-artifacts/fixtures/tally/Master.json` (314 messages, 50 Groups, 230 Ledgers), stages it into a real import batch, runs the real `commitGroupTree`, reads the resulting `acc_groups` rows back out and checks each one against the source's own parent chain — then commits one real source ledger and asserts it lands where the source filed it. All rolled back. ⚠️ Two measurements shaped it: the export has **zero custom groups** (its tree *is* Tally's 28), and **60 of its 230 ledgers** were landing in Current Assets or Current Liabilities because a head the import creates has no ledger until its first posting. So a real export proves the placement and a synthetic subtree is the only thing that exercises the create path. ⚠️⚠️ Property (9) — the full commit — is the **only** one that sees the wiring: (6) calls `provisionLedgerForHead` directly, so deleting the whole of the import's change left every other check green. Since P3c‑1, (6b) asserts the placement keeps the head's own **nature** (it asked whether the ledger still reported under its legacy head, which is what made the placement figure-neutral while two charts existed) and (7) asserts a party under a sub-group is invisible to the four party-side reads | `npm run qa:p2c-import-tree` |
+| The bill register | `client-back/scripts/qa-p5-bill-register.ts` — P5a's gate. `bill_references` is **not** a second derivation of a party's balance; it is a partition of the `journal_lines` rows that already make it up, so `Σ|ref| = |line|` per party line, and `Σ` signed refs `=` the ledger's balance falls out of it. Twelve properties over every company: the per-line invariant (the one that does the work — a company total would pass on a register that lost one line and gained an offsetting error), no reference on a reversed entry, both denormalised columns checked against their source (`ledgerId` against the line's, `voucherId` against the entry's `sourceId`), `againstRefId` set exactly for `against` and naming a `new` bill on the same ledger, no bill over-settled, and D-55's opening balance present as an ordinary `new` row with no voucher. ⚠️ Property **(12) is the gate proving it can fail** — an uncovered party line inserted in a rolled-back transaction, because every other property leans on (1) and (1) is a query over rows that all happen to be correct. Shown to fail twice more by injection: a corrupted bill amount fails (1) and (3); a settlement repointed at another ledger's bill fails (6) and (7) and **not** (1), which is the class the coverage property cannot see. Since P5c‑2 (11) asks about **retirement** — *a reference is retired exactly when its entry left the live population*, in both directions. ⚠️ It exists because every query here read `bill_references` **without `deletedAt IS NULL`**, and a retired reference by design hangs off a dead line: the first cancellation since the backfill made (2) call 13 correct rows orphans and (3) count their amounts into a ledger's balance. History had no cancellation to teach it, and P5b's gate rolls its own back. ⚠️⚠️ `advance` and `on-account` have **no instance** — all 2,759 approved payment/receipt vouchers are fully allocated, so the backfill's fourth step wrote zero rows — and nothing here asserts them; that arm belongs to **P5b**, whose gate builds the case rather than reporting green over an arm nothing exercised | `npm run qa:p5-bill-register` |
+| The bill register's MAINTENANCE | `client-back/scripts/qa-p5b-register-maintenance.ts` — P5b's gate, and it exists because a backfill only ever sees the finished state. Seven properties, every write inside one rolled-back transaction over vouchers **cloned from real ones**: a document writes one `new` bill at the **line's** amount (never `grandTotal` — BUG-0069), a **partly-allocated** receipt writes `against` + `on-account` summing to its line, an **unallocated** one writes a single `on-account`, and a cancellation **retires** the original's references and writes none of its own. The last is the half P5a could not teach — both entries leave the live population together, so recording the reversal creates a second bill for a cancelled document and recording nothing strands the original's references on a dead line. ⚠️ Properties (2) and (3) are the whole point: the `advance`/`on-account` arm has **no instance** in the world (all 2,759 approved payment/receipt vouchers are fully allocated), so the gate constructs it. ⚠️⚠️ Shown to fail two ways, and the second is the interesting one — deleting the retire branch fails (5), while dropping the unapplied remainder is caught **at write time by the posting itself**, not by an assertion: `writeForEntry` puts every line to `referenceCoverageProblem` before inserting, so an under-covered register is a refused transaction naming the line and both figures | `npm run qa:p5b-register-maintenance` |
+| A voucher that names no bill | `client-back/scripts/qa-p5c-unapplied.ts` — P5c‑1's gate. Until it, a payment or receipt **had** to name an open `trx` document, which made an **advance** impossible and left **53 parties (₹2,65,000) unsettleable**, because their only open item is an opening balance and that has no `trx` row to appear in a picker built from `trx` (D-55). ⚠️ The refusal was written **twice, independently** — `saveReceipt`'s own *"At least one invoice to settle is required"* and `planSettlement`'s inside `persistAllocation` — so relaxing either alone left the gap exactly where it was; §13's standing shape, found while relaxing the other. Nine properties: the register offering a bill the `trx` picker cannot (measured from **both sides at once**), `open` arithmetic, company scoping, the column default producing `on-account`, a stated `advance` surviving the whole write path, and the save path accepting a voucher with no allocation. ⚠️⚠️ Shown to fail three ways — and a fourth *passed* until the injection was verified to have applied at all: **a passing injection is a claim about the edit before it is a claim about the property** | `npm run qa:p5c-unapplied` |
+| Settling a bill **no document made** | `client-back/scripts/qa-p5c3-bill-settlement.ts` — P5c‑3's gate, nine properties over the id that made it possible (`trx_payment_receipt_trxs.billRefId`): the schema's *exactly one target* asserted by **inserting both forbidden shapes** (a `CHECK` is parsed and ignored below MySQL 8.0.16, so its existence proves nothing), rule 7's ownership filter from three angles, the `against` reference the settlement writes and the bill's `open` falling by it, **no document's `paidAmount` moving** (there is none), the party leg's own side, a cancellation giving the bill back, and the save path end to end. ⚠️ Property **(7) is the mixed voucher** — one document and one document-less bill in one plan — which has **no instance in the world**: all 53 document-less bills belong to parties with no open document, so like P5b's `advance` arm the gate builds it. ⚠️⚠️ Shown to fail four ways, and the readable one is the exactly-one refusal removed: a row naming **neither** id is not an error, it is silently dropped and the money quietly becomes `on-account` | `npm run qa:p5c3-bill-settlement` |
+| The annexure, and what a party still owes | `client-back/scripts/qa-p5d-annexure.ts` — P5d's gate, and the phase's whole claim as an equality: for every party ledger of every company, `Σ outstanding − Σ owed back` from `pendingBills` **equals that ledger's own balance** over `journal_lines`. Sixteen properties: the identity; the annexure holding exactly the register's open bills; **the annexure and the entry grid naming the same bills**, asked from both sides — the divergence this phase was ruled to close, which stood at 180 of 794 parties; Bills Receivable / Payable partitioning the parties and agreeing with the per-party sheets; the ageing buckets totalling the ordinary side alone; no bill on both sides at once; the settlement **denominator** on the real reverse-charge purchases and at two of its four sites; and the two arms this database has no instance of — an `advance` reaching both surfaces, and a cancellation taking its bill off the sheet — constructed in a rolled-back transaction, as P5b built `advance` and P5c‑3 the mixed voucher. ⚠️ `isPaid`'s own assignment is deliberately **not** driven end to end and the gate says so: `ApprovalService.transition` commits its own transaction, so a posted scratch voucher is a figure the parity harness would capture with no document behind it. ⚠️⚠️ Shown to fail three ways, and one of them **left a scratch voucher behind** — the refusal branch creates a voucher nobody holds an id for exactly when the cap is broken, so the cleanup sweeps by remark. It also found a defect in the phase's own code: `bill_references.voucherId` is a `trx` id on a document bill and a **`trx_payment_receipts`** id on an advance, and the annexure was passing it through as a row's `id` (`documentIdOfBill`) | `npm run qa:p5d-annexure` |
+| The Trading Account | `client-back/scripts/qa-p6-trading.ts` — P6's gate (§3.8). Ten properties over every company and every period it has: **Net Profit is unchanged by the split** — the plan's own sentence — the two books partitioning the whole statement, each book's totals being its own sections' sum, the gross feeding the net, both statements **balancing** once the carry-down is in, and the closing-stock credit filed above the line. ⚠️ **(5a) is the property the invariant cannot be**: (1)–(4), (6) and (7) are invariants of *a* partition, and a wrong partition is still a partition — filing Purchase Accounts below the line moved ₹5.6 crore and took Gross Profit from −₹2.15 crore to +₹3.47 crore with all six still green. ⚠️⚠️ **It imported the four trading keys at first, and the first injection PASSED**, because the oracle under (5) moved with the rule it was checking; they are **restated by name** now. §13's standing shape in P2b‑3c's variant — *a check that restates the code by copying the code cannot fail*. ⚠️ (10) is the arm with **no instance**: not one closing-stock entry exists in 14 companies, so the gate posts a real one in a rolled-back transaction and follows the rupees onto both statements — P5b's `advance` and P5c‑3's mixed voucher a third time. Shown to fail four times | `npm run qa:p6-trading` |
+| The reference grid | `qa-artifacts/tests/ui/money/bill-reference-grid.ui.spec.ts` + `bill-reference-rules.ts` (restated) — P5c‑2's gate, seven properties: the grid is fed by the **register** in its own order (so an opening balance is on it), a document-less bill is offered, **ticked and settled** — that property asserted an *un-tickable* row until P5c‑3 made the allocation column nullable, and it now follows the tick through the save and the approval to the `against` reference it writes — the "This voucher" column is the allocation, an offsetting bill is labelled one and **agrees with its document's own type read from the database**, a refusal is the server's sentence with **no request leaving the page**, the bounded read says how much it is hiding and `search` reaches past it, an **advance survives to `bill_references`** through a DTO, a column default and the posting engine; and **editing a voucher shows the bills it settled, still ticked**. ⚠️ A browser is the only instrument that can see this phase: the wire is unchanged, so the parity diff is empty by construction. ⚠️⚠️ Its row selectors are `data-bill-id` / `data-bill-target` / `[data-tag="offsets"]`, and **`voucher-entry.ui.spec.ts` reads two of them from another file** — P5c‑3 moved both and only the full lane noticed, so `grep -rn 'data-bill-\|vch-bill__tag' tests/` is the check before changing one. ⚠️⚠️ Shown to fail **six** times, and **one injection passed** — making the column echo `open` was invisible while the amount was prefilled, because a fully-applied bill has `applied === open`; the property now under-pays the selection, which splits the cash oldest-first. It then passed **twice more** before that was understood, because the edit fixing the property had never applied (a failed `cd` short-circuited it) — P5c‑1's own note, a second time. ⚠️ Two of its properties found defects in the phase's own code rather than confirming it: a bill ticked before a search was silently dropped from the payload, and editing a voucher whose settled bill lay outside the bounded window lost that allocation | `npm run qa:money` |
+| The voucher head picker | `qa-artifacts/tests/ui/money/ledger-picker.ui.spec.ts` + `ledger-picker-rules.ts` (restated) — P4a's gate: every head field is `app-ledger-picker` **and no group-fed select survives**, it offers what the group NATURE allows (the widening compared against a live `groupFor` count, not a number written down), a **control head is offered in no context**, the pre-filled default survived the widening, a saved voucher renders its own head even one outside the field's scope, and `Alt+C` from **inside the open dropdown** creates a ledger that carries the head the form binds. ⚠️ A fifth injection **passed** and the property was the problem: scoping the hydration by nature left it green because `legacyHeadOption` answered instead — *a fallback that covers a bug is how a rule stops being measurable*. ⚠️⚠️ The invoice-scan review is the seventh site and is deliberately **not** gated (it needs a `scanned_invoices` row the QA world does not build); verified by hand and recorded as such | `npm run qa:money` |
+| The unified voucher entry screen | `qa-artifacts/tests/ui/money/voucher-entry.ui.spec.ts` + `voucher-entry-rules.ts` (restated) — P4b's gate, eight properties: one screen for Contra/Payment/Receipt/Journal with the old paths redirecting onto it, **the rows on screen equal to the legs the voucher posts** (read from `data-role`, then compared against the approved voucher's own `journal_lines`, for a contra **and** a payment), a keyboard-only post, an unbalanced split journal refused in the voucher's own words with **no request leaving the page**, and a Payment's head on no grid row. ⚠️ Its ledger property was **wrong at first and passed an injection**: it compared the saved voucher's `toAccountId`/`fromAccountId` with the legs, and the posting engine *derives* the debit from `toAccountId` — so swapping the two grid cells left it green. It compares the **account names chosen on screen** now. ⚠️⚠️ Whether the accept chord is `document:`-scoped is **not observable here** (the select's overlay pane renders inside the component's own subtree) and the spec says so rather than implying coverage. ⚠️ It pushes **`/status of 429/` and nothing else** into `problems.ignore`: the ERP throttles 100 req/min per IP, `qa:money` shares one bucket across 85 serial tests, and these two properties are the request-heaviest — a rate limit that actually broke a screen still fails through the assertions | `npm run qa:money` |
+| The item grid, re-hosted | `qa-artifacts/tests/ui/money/voucher-rehost.ui.spec.ts` + `voucher-rehost-rules.ts` (restated) — P4c's gate, six properties: eight types on one surface with the old paths redirecting onto it, **the LISTS unmoved** (the property the redirect itself can break — `sales` and `sales/new` are one segment apart), both halves offering the same eight buttons **in the same order** (a scrambled bar is a different defect from a short one), one key crossing from the item half to the accounting half and back, the form arriving **whole** (header strip · items grid · options bar · head picker — a stub renders a route just as well as the real form), and F4/F6 switching the voucher rather than focusing a field while `Alt+N` still adds a line. ⚠️ A browser is the only instrument that can see this phase: no DTO and no service changed, so the parity diff is empty **by construction**. ⚠️⚠️ It found a real defect rather than being written around one — every blank item voucher was **born dirty**, because P4a's head preselect propagates through the `ControlValueAccessor`'s view→model path, so a type switch asked *"Discard unsaved changes?"* on an empty form. Shown to fail three ways: the F4 focus binding put back, a redirect that drops its `/new` segment, and item mode un-hosted | `npm run qa:money` |
+| The Workflow Document mode | `qa-artifacts/tests/ui/money/workflow-document.ui.spec.ts` + `workflow-document-rules.ts` (restated) — P4d's gate, six properties: the four Order Vouchers on the surface with their old paths redirecting, **the four LISTS unmoved**, each of them the **item grid with no Dr/Cr difference**, each naming **what it converts into** (with the chain's own label — a receipt note becomes a *Purchase Entry*), the bar's row still eight with the four behind one overflow that actually navigates, and a key crossing in and out. ⚠️ It measured **six** documents until 2026-09-01; Quotation and Purchase Requisition left the UI with the module's re-shape to Tally's menu, and the overflow property changed with them — it used to prove the menu reached the one type with no chord, and now proves it reaches anything at all. ⚠️ A browser is the only instrument that can see this phase: the backend diff is **empty**, so the parity diff is empty by construction. ⚠️⚠️ Its (3) was **inert when first written** — it looked for `.vch-grid` as "the Dr/Cr grid", and the item form's own table is `class="vch-grid vch-grid--items"`, so the selector matched **both** components and could not discriminate; the right discriminator was never markup but the **invariant** (`[data-testid="difference"]`), asserted from both sides so a build rendering it nowhere cannot pass. Shown to fail four ways: `loadFor` back to `isItemEntry` (5 of 6 fail; only the lists survive), all fourteen buttons pushed into the row (2 fail — P4d's own and P4c's rewritten bar property), the conversion caption removed, and the redirect's `pathMatch` moved onto the list path | `npm run qa:money` |
+| The leg table as data | `client-back/scripts/qa-p8a-posting-rules.ts` — P8a's gate (§3.4). Sixteen properties, and (1) is the plan's own sentence: **5,040 comparisons** between the interpreter and `legacySwitch`, the pre-P8a `buildLegs` **transcribed into the gate** — because the thing this phase must be identical to was deleted by this phase, so there is nothing to import even in principle. ⚠️ **A restated switch is not enough on its own**: it proves the interpreter equals a switch *as transcribed by whoever deleted it*, and a transcription wrong in the same way the table is wrong agrees with it (§13's P2b‑3c variant). So (2)–(5) tie it to money nobody in this phase wrote — the **13,461 posted entries already in the books**, every one written by the switch itself months earlier, which cannot inherit a transcription mistake. (3) is the **line count** with the aggregate charges leg expanded per `trx_charges` row, and it is what sees a leg dropped at a total that still balances — `grand−taxTotal` and `taxTotal` sum back to `grand` however wrongly they are split, so (2) is blind to exactly the RCM error. ⚠️⚠️ It failed first run on **15 vouchers that were not a defect** (BUG-0069's pre-D-52 population), and they are a **declared exception held to a shape** — party credited exactly `grandTotal` *and* no RCM leg, one leg short of the interpreter — never a date and never an id list, so an interpreter defect cannot pass through it (injection 3). It is a **list**, so an allowance matching nothing fails as loudly as a difference nobody allowed (`judge()`'s rule, one gate over). ⚠️ Building it found the gate itself excluding **archived** vouchers, whose entries §4.9 rule 2 keeps in the books — 470 of company 28's, BUG-0038's shape — and injection 4 *crashing* it rather than failing a property, so a throw is compared as a value now. **16/16**, shown to fail seven ways; injection 7 dates the RCM rows by deploy day, makes the totals **greener**, and is refused four ways | `npm run qa:p8a-posting-rules` |
+| Rule-7 parent ids | `qa-artifacts/tests/transactions/jobwork-scope.spec.ts` and `tests/api/parent-scope.spec.ts` — every caller-supplied parent id on a write, probed with a stranger resolved from `company_members` (never from a fixture: the QA world **shares** an identity between two tenants on purpose) | `npm run qa:transactions` |
+| Shared-read exposure | `qa-artifacts/tests/permissions/shared-read-party.spec.ts` — sweeps **every** `@SharedRead()` route as a trading party and asserts the allow-list exactly (D-46). Route list comes from the regenerated inventory, so a new shared read is swept the day it lands | `npm run qa:permissions` |
+| The storage seam | `qa-artifacts/tests/storage/` — nine properties over the tree the ERP now owns (§6.4): the index against the **disk** as a census, keys inside their own company's folder, traversal refusals, the spool drained on refusal too, no static serving, who may be handed the bytes (BUG-0057), and every owned file still having its owner (BUG-0058) | `npm run qa:storage` |
+| Why did a UI test fail with no assertion behind it? | the `problems` fixture (`qa-artifacts/framework/fixtures/index.ts`) — a console error, an uncaught page error or a 5xx fails a test that otherwise passed. ⚠️ **A throttled request is TWO problems**: Chromium's console line (*"…status of 429"*) and Angular's `pageerror`, whose message is the bare string `HttpErrorResponse` with no status in it. The `/status of 429/` opt-in five money suites carry matched only the first, so the second went on failing them — eight tests in a full `qa:money`, none an assertion. The fixture now forgives `HttpErrorResponse` page errors **opt-in, and only as many as there were 429 responses observed**, reporting the count as an annotation; a 5xx still fails regardless. ⚠️⚠️ The lane is over the ERP's own 100 req/min per-IP limit throughout (112 serial browser tests), so **a new suite spends a budget that is already gone** — measure the lane, not only your own file |
+| The shell, in a browser | `qa-artifacts/tests/ui/shell/` — the frame all 155 screens are read through, against `shell-rules.ts` (the layout rules **restated**, never imported). Four breakpoints, panel presence read from BOTH of its readers at once, the accordion and its pinned groups, deep links, back/forward, the post-login landing per role, and the licence/permission gates by URL — including one **[static]** sweep that asks, for every licensed module, whether anything under it survives the gate with only that module off (BUG-0067; it loads the real `APP_NAVIGATION` and `isRouteLicensed` via `framework/load-front-module.ts` and restates the menu's segment threading, because the browser half needs a fixture per combination and profile M has `product` off, not `transaction`). ⚠️ Each width opens a **clean context**: `setViewportSize` reproduces a user *resizing to* a width, not *arriving at* one, and the shell writes some of that choice to `localStorage` (BUG-0064) | `npm run qa:shell` |
+| Every master & configuration screen | `qa-artifacts/tests/ui/masters/screen-sweep.ui.spec.ts` — the per-screen checklist over 29 routes, one test each so a failure names the screen. Structural only (loads · shell agrees · no sideways scroll at 1440 **and 1024** · en-IN money · no leaked date · search narrows *and recovers*); per-screen business rules stay beside their own oracle. ⚠️ A page from `browser.newContext()` is **not** the `page` fixture and carries none of its console/5xx instrumentation | `npm run qa:screens` |
+| The Chart of Accounts screen | `qa-artifacts/tests/ui/masters/chart-of-accounts.ui.spec.ts` + `coa-rules.ts` (restated) — P3d‑2's gate: every rule the API refuses is refused on the screen too, **with the message that names the actual problem**. Five properties, and the first two split the way the design does: what the browser has every fact for is refused **with no request leaving the page** (counted, because a 400 caught and toasted looks identical on screen), and the two arms that turn on whether anything has **posted** are left to the server and asserted by text. ⚠️ Its own selector was inert at first — `SnackbarComponent` promotes a one-line message to `.snk__title`, so `.snk__msg` matched nothing while the sentence was on screen. Shown to fail four times. The fifth is the **round trip** — create through the dialog, the `trx_groups` twin asserted, delete through the same screen — because four refusal tests all pass on a screen whose Create button is broken, which BUG-0068 showed is not hypothetical | `npm run qa:screens` |
+| Every printed document | `qa-artifacts/tests/ui/print/` — the nineteen documents that leave the building, each opened the way a user opens it and compared against `print_configurations` setting by setting. The per-template toggle registry exists **twice** — `client-back/src/const/print.const.ts` decides what may be stored, `client-front`'s `print.interfaces.ts` decides what is offered — and `scripts/check-mirrors.js` does **not** compare them, so `print-rules.ts` is a third, restated copy checked against both: the panel's own toggles, and the sanitizer's answer to being sent every key at once. ⚠️ The three hand-built documents (party statement, Rule 55 challan, stock conversion) render into an off-screen iframe that is **removed 500 ms after `print()`** — capture from `frameattached`, not after a wait | `npm run qa:print` |
+| The live surfaces, in three browsers | `qa-artifacts/tests/ui/live/` — one upload watched by the uploader, by the same user's **second device**, and by another tenant on the identical screen. ⚠️ Every deadline is **inside `ScanQueueComponent`'s own 15 s poll fallback**; past that window an arriving row proves nothing about the socket, and the test would pass with the gateway switched off. The sidecar is put in its stub lane (D-32) for the file and restored after | `npm run qa:live` |
+| Every money screen | `qa-artifacts/tests/ui/money/` — the **same** battery over 51 voucher, GST, report, dashboard and operational routes, plus the five navigation rules the retired Transaction rail used to own (Quick Voucher Entry, the pinned groups, `hiddenTransactionMenus`, the approval gate, F4–F9). It does not re-derive a figure: Phase 8 owns the oracles, and what a browser adds is whether the figure **reached the screen** and in what shape. ⚠️ The en-IN rule judged only text carrying a **₹** until 10B widened it, and these screens print money **without one** — so on every screen it was written for it matched nothing and read as a pass. It now keys off the *shape* of an amount (two decimal places), and the date rule catches a **second format** (`22 Aug 2026`) as well as a missing one | `npm run qa:money` |
+| The drill-down spine | `qa-artifacts/tests/ui/money/drill-spine.ui.spec.ts` + `drill-rules.ts` (restated) — P3d's gate: Balance Sheet → group → ledger → voucher with every click counted, Esc back out with each screen's own period, a posting with no document rendering as visibly-not-a-link, and a navigation nobody drilled clearing the stack. ⚠️ Measured in a browser because P3d moves no figure: the parity diff is **empty by construction** and says nothing about a journey. ⚠️⚠️ Its period property was **inert at first** — the busiest ledger's last posting is *today*, which is also the screen's own default `to`, so dropping the period from the drill left it green; it now drills as-of a date in an earlier month, which no default can produce | `npm run qa:money` |
+| The voucher header strip | `qa-artifacts/tests/ui/money/voucher-header-strip.ui.spec.ts` — every header field on ONE row at 1440 across all three shapes (Sales' four, Purchase's five, a note's `Against Invoice(s)` variant), nothing clipped, and a wrapped strip still reading as a grid rather than one field spanning it. Measured in a browser because the rule is a laid-out fact: the strip's width comes from the dialog or the content column, never from the viewport. Injected-regression checked against the original `auto-fit` grid, which it reproduces as *"purchase: the header strip is ONE row"* |
+| The voucher options bar | `qa-artifacts/tests/ui/money/voucher-options-bar.ui.spec.ts` — the six chips that replaced the entry form's bottom cards: the bar is the whole set, a badge appears when a value is entered, an overlay opened inside a panel does not close it, Esc does not reach the voucher, Save opens the panel holding the blocker, and no panel leaves the window at any of the four widths. ⚠️ Two of its assertions were **inert when first written** and are now aimed at what the rules actually depend on — the datepicker rather than a `mat-select`, and Esc's *propagation* rather than "is the voucher still open" (§9). Injected-regression checked in both | `npm run qa:money` |
+| GSP path, mocked at the hub's outbound HTTP | `qa-artifacts/tests/gst/gsp-stub.ts` — a **schema-strict** WhiteBooks stub (D-2). Everything above the `fetch` is real: `MasterHubClient`, `InternalServiceGuard`, the hub's licence and GSTIN assertions, the session cache and retry, the error mapper, the metering. It validates the payload against the *restated* INV-01 / NIC schemas, so a green conformance test means the portal would have accepted it | `npm run qa:gst` |
+| The hub↔ERP control plane | `qa-artifacts/tests/cross-service/` — a company's whole life across **both** databases, as ten agreement properties: provisioning is all-or-nothing *and* leaves a company that can post; a licence flip is live on the next request; hard delete is total (the census comes from `information_schema`, so a new table is covered the day it is created) and bounded (a shared login survives). ⚠️ It **creates and destroys companies** — every one is a `QA·9A …` scratch tenant and `destroyScratch` refuses anything else | `npm run qa:cross-service` |
+| GST rules vs. the statute | `qa-artifacts/tests/gst/` — `gst-rules.ts` restates the rules from the Acts and notifications, and four specs measure the rate schedule, GSTIN validation, the computation matrix and the HSN master against it. Every rule is cited, with the date it was checked, in `qa-artifacts/docs/findings/gst.md` — **check that file before defending a GST number**, because rates and thresholds change by notification | `npx playwright test --project=api tests/gst` |
+| Every displayed figure is reproducible | `qa-artifacts/tests/reports/` — the statements and books against `statement-rules.ts`, the party account and the stock position against `party-rules.ts`, both **restated** rather than imported. ⚠️ **The oracle is the TREE since P3c‑1**: `ledgerFigures` (Σ per `acc_ledgers` row) and `groupFigures` (the same, rolled up by the materialised `path`, terminator carried because `/1/7/` must not collect `/1/70/`). Σ is taken over the **leaves**, never over the tree — a parent's figure includes its subtree, so adding the nodes up counts every line once per ancestor — and only Σ period debit, Σ period credit and Σ net survive a regrouping, which is why they are the figures a grouped report is held to identically. ⚠️⚠️ Its **party-facing** oracles were the last thing still asking the legacy question (*which control head was this line posted to?*) where every report answers *which group does this party's ledger hang under?*; the two differ by the whole of D3's movement, and that was twelve of the twenty-five failures on `main`. The suite is not green — **8 fail, against a measured 25 before P3c‑1, a strict subset** — and what is left is the same family, outside `tests/reports/`: fixtures written before a party had one ledger on one side. ⚠️⚠️ Two oracles here encoded the pre-D3 world in an **arithmetic** rather than in a query, which is the harder kind to see: `Math.max(receivable, payable)` read a party's control balance and picked the ZERO from the other side whenever their own was negative (a net advance), and *"is this party single-sided?"* was read off the ledger, where D3 makes every party single-sided. Both are questions about the documents now. Includes the two census tests that compare the derived balance caches with `journal_lines` (BUG-0042) and the delta tests that ask whether a figure *moves* by the right amount, which is the half an equality test cannot see | `npm run qa:reports` |
+| Async work & the deliberate outages | `qa-artifacts/tests/cross-service/` — nine properties (A1…A9) over what is allowed to be slow or absent: the scan pipeline's two error classes across four hops, the queue proved on a **side effect** rather than on its flag, Redis/hub/sidecar stopped one test at a time (D-29 via `framework/services.ts`), socket delivery measured with two real connections, and every `@Cron` method's single-runner claim. The fake OCR lane is the sidecar's **own** stub (D-32); `@real-model` is opt-in and excluded by `--grep-invert` | `npm run qa:cross-service` · `npm run qa:cross-service:real-model` |
+| Cross-repo mirror drift | `scripts/check-mirrors.js` (**this** repo — only it sees both submodules). Checks 1–3 compare data; check 4 compares **behaviour**, running both `voucher-lifecycle` implementations against `scripts/vectors/` (§13.4); check 7 compares the **hub console's** names for the nine licence switches against the hub API's `COMPANY_FEATURE_COLUMN` *and* `UpdateCompanyFeaturesDto`'s declared fields (BUG-0066 — the pair that had never once agreed); check 9 compares `JobWorkBoardStage` and `BOARD_STAGE_SEQUENCE`, **membership and order**, because the sequence IS the Kanban's lane order and the strings are the tokens the server's `stage` filter compares; check 10 runs both copies of the chart of accounts' five `describe*Block` refusals over `scripts/vectors/ledger-rules.vectors.json` (182 rows from 21 region cases) and compares the **message text**; check 11 compares the voucher **entry mode** of all fourteen types as data and *runs* `accountingRowPlan` on both sides — the backend derives it from `buildLegs`, so this is the only thing tying the entry screen to the posting engine across the repo boundary — there the sentence IS the deliverable, so a pair that agrees about the verdict and not the wording is the drift worth catching; check 12 runs both copies of `planBillSettlement` — how much of each selected bill a payment or receipt closes — over `scripts/vectors/bill-settlement.vectors.json`, comparing the **mappings and the message text**, plus `billSettlementSign`'s four rows and (P5c‑3) `allocationTargetFor`, whose two answers are checked against the **fields `CreateUpdateTrxPaymentReceiptTrxDto` actually declares** — `forbidNonWhitelisted` turns a key the DTO does not declare into a 400, which is BUG-0066's shape and why check 7 is written the same way. check 13 runs both copies of the **round off** rule over `scripts/vectors/voucher-round-off.vectors.json` and compares `RATE_DECIMALS` as data — the four-decimal voucher rate is checked beside it because the server derives every line's net from `quantity × unitPrice`, so a rate rounded differently on the two sides means a typed Amount comes BACK as a different amount. ⚠️ It also asserts the adjustment is **idempotent**, which is what lets `TrxWriteService` compute it on the total excluding its own charge; and two of its vectors exist only because a third, obvious-looking one (`99.995`) turns out **not** to discriminate the paise-first rounding — float truncation puts both orderings on the same answer, so the check passed an injection until it was replaced. Needs esbuild from one submodule's `node_modules` and **fails loudly** rather than downgrading if none is present | `node scripts/check-mirrors.js` |
+| QA harnesses | `scripts/qa-*.ts` (~55 in client-back, 5 in admin-back) | `npx ts-node -r tsconfig-paths/register scripts/qa-<name>.ts` |
+| Style guard | `scripts/breakpoint-guard.js` — the four-value scale, over `.scss` **and `.ts`** (eleven components declare their CSS inline, and those were unscanned until 2026-08-27; the five HR files that surfaced are grandfathered with a reason) | `npm run lint` (client-front) |
+| E2E / UI | `qa-artifacts/` (Playwright) | see its README |
+| OCR | `jayhind-ocr-service/tests` (pytest, fake reader/extractor — no model download) | `pytest` |
+| Data repair | `client-back/scripts/fix-duplicate-party-identities.ts` — cleans up the duplicate/orphan identities the pre-2026-08-20 party rule left behind. **Dry-runs by default**; `--apply` writes, `--merge <from>:<to>` folds one identity into another (repointing every FK that actually holds rows, then deleting the source) | `npx ts-node -r tsconfig-paths/register scripts/fix-duplicate-party-identities.ts` |
+| Data repair | `client-back/scripts/purge-orphaned-files.ts` — deletes the bytes BUG-0058 stranded (a `stored_files` row whose owning record is gone: unreachable, undeletable, still charged to the storage quota). **Dry-runs by default**; `--apply` writes, `--company <id>` narrows. Refuses to run on an `ownerModule` it has no back-reference mapped for | `npx ts-node -r tsconfig-paths/register scripts/purge-orphaned-files.ts` |
+
+The QA scripts expect a **running stack** and hit real endpoints; the Jest suite
+needs no DB. When you change a domain rule in `src/const/`, update its `.spec.ts`
+in the same commit — that's where the rules are actually tested.
+
+---
+
+## 12. How to add things safely
+
+### A new tenant-scoped entity
+1. Model in `src/entities/` extending `SoftDeletableModel` (if soft-deletable),
+   with a `companyId` column + `@ForeignKey(() => Company)`. The scoping hooks
+   pick it up automatically from `rawAttributes`.
+2. Register it in `database.providers.ts` `addModels([...])`.
+3. Classify it in `src/const/tenant-scope-registry.const.ts` — **an unclassified
+   entity is a failing test.**
+4. Migration via `npm run migration:create`.
+5. Run `npm test` — the scope-registry and boundary specs are your safety net.
+
+### A new endpoint
+1. DTO in `src/dto/` with class-validator decorators (`whitelist` strips
+   anything undeclared). ⚠️ **A `@ValidateIf` may only read a field the CALLER
+   sets.** `CreateUpdateProductDto` is shared by `POST /products` and
+   `POST /services`, and each controller overrides `itemType` with its own — so a
+   predicate reading `o.itemType` was reading the caller's value, not the row's,
+   and `POST /services` refused a body for want of a measurement unit while
+   D-9's mismatch refusal became unreachable (BUG-0019). A rule that depends on
+   something the route decides belongs in the **service**, which is the first
+   place that knows it. It must be a **class**: `ValidationPipe` reads
+   class-validator metadata off the body's runtime class, so an inline
+   `@Body() b: { … }`, an `interface`, a `Partial<Dto>` and a bare array all erase
+   to `Object` and the raw JSON reaches the handler unchecked.
+   `scripts/ci-guard-body-dto.ts` fails on all four (a bare array whose wire
+   format cannot change may instead be validated in place with
+   `@Body(new ParseArrayPipe({ items: Number }))`).
+   ⚠️ **Never give an `@IsOptional()` field a property INITIALISER on a DTO an
+   update route shares.** `ValidationPipe` runs with `transform: true`, so it
+   *instantiates* the class: `status?: Status = Open` is not "the default when
+   creating", it is a value the pipe supplies on **every** request that omits the
+   field, `PUT` included — and the service then hands the whole object to
+   Sequelize, which cannot tell "the caller said open" from "the caller said
+   nothing". That is BUG-0020: renaming a **closed** financial year reopened it
+   (defeating BR-ACC-5), editing the **active** one cleared `isActive` and left
+   the company with no active year, and a rename of a tax slab reset its scope,
+   calculation type, compounding, priority and `status` — un-archiving it into
+   every rate picker. `whitelist: true` cannot help, because the property is
+   declared rather than unknown. Put the default on the **column**
+   (`@Column({ defaultValue })`), which is the one place a default cannot also be
+   an instruction; an omitted field then arrives `undefined`, which Sequelize
+   skips on an update and MySQL fills on an insert. A payload that genuinely
+   replaces a collection wholesale (`CreateUpdateProductPricingDto`'s
+   `prices = []`) is the legitimate exception — say so in a comment.
+   ⚠️ **A DERIVED column must never be taken from the body, even when the DTO
+   declares it.** `whitelist` only strips fields nobody declared, so a declared
+   field the server owns sails straight into the row: `trx.paidAmount` did exactly
+   that, and any caller who could raise a voucher could mark it paid with no
+   payment behind it (BUG-0030). The pattern to copy is the one the voucher totals
+   already follow — `totalAmount`, `totalTax`, `chargesTotal` and `grandTotal` are
+   all re-derived from the persisted lines in `TrxWriteService` and the body's
+   values ignored. Leave the DTO field if a client sends it; overwrite it in the
+   service. **A figure the server owns is a figure the server writes.**
+2. Service method in `src/services/` — pure domain rules go in
+   `src/const/<x>.const.ts` with a `.spec.ts`.
+3. Controller handler returning `{ status: true, data, message? }`.
+4. Gate it: `@UseGuards(RoleMenuGuard)` + `@Permissions('<key>', ['canAdd'])`.
+   Read-only cross-module lookup? `@SharedRead()` instead — read-only *only*.
+   A read-shaped `POST` (list/search/report/export/preview) also needs
+   `@ReadOnlyRequest()` so billing grace doesn't refuse it (§10).
+5. New permission key → add to `src/const/permission-registry.ts`, map it in
+   `src/const/module-licence.const.ts`, mirror both on the frontend
+   (`core/navigation/module-licence.ts`, `navigation.config.ts`), and add it to
+   the role-permission seeder.
+6. Mutation? Tag `@Audit('<EntityType>')`.
+7. Register the controller in its **feature module**, not `app.module.ts`.
+8. Multi-step write? Open a transaction in the controller, pass `{ transaction }`
+   down, rollback + `ApiException` on error.
+
+### A new frontend screen
+1. Standalone component + a `*.routes.ts` entry with `loadComponent`.
+2. `canActivate: [permissionGuard]` + `data.permission`; add
+   `canDeactivate: [pendingChangesGuard]` if it has a form.
+3. Add the `NavItem` to `navigation.config.ts` with the matching `permissionKey`.
+4. Use `ApiService`, signals for state, `inject()` for DI.
+5. Styles: design-system tokens + the four breakpoints; check
+   `components/shared/` before building new UI.
+6. `npm run lint` (runs the breakpoint guard).
+
+### Touching cross-service contracts
+Changing an endpoint on the `/internal/*` or `/api/v1/*` plane, a `FileCategory`
+string, the `ExtractedInvoice` schema, or a licence flag means **both repos change
+together**. Push the sub-repo first, then bump the submodule pointer here:
+
+```bash
+cd jayhind-client-back && git push
+cd .. && git add jayhind-client-back && git commit -m "bump jayhind-client-back" && git push
+```
+
+---
+
+## 12A. Withdrawn features — do not rebuild these from the plan
+
+**Removed outright on 2026-09-01** (product decision), across all four repos in
+one commit: the **cost dimension** (cost categories, centres, classes and
+allocations — P7a–P7d), **budgets** and the budget variance report (P8b),
+**interest** parameters and the Interest Report (P8c), **multi-currency** and
+the Forex Gain/Loss report (P8d), and **scenarios** (P8e, P8e‑2).
+
+⚠️ **`TALLY-PARITY-PLAN.md` §3.7 and §3.9 still describe all five**, because
+that document is the record of what was planned rather than of what shipped.
+Read this section first: a phase described there in the present tense is not
+evidence the feature exists.
+
+What went, and what deliberately did not:
+
+| Gone | Kept |
+|---|---|
+| 12 tables (`cost_categories`, `cost_centres`, `cost_centre_classes`, `cost_centre_class_lines`, `cost_allocations`, `trx_cost_allocations`, `budgets`, `budget_lines`, `interest_terms`, `currencies`, `exchange_rates`, `scenarios`), dropped by `20260901700000-drop-cost-currency-scenario-budget-interest` | every posted figure — see below |
+| `journal_lines.currencyId` / `.fcAmount` / `.rate`, `journal_entries.scenarioId`, `trx_payment_receipts.scenarioId`, `trx_contras.scenarioId`, `acc_ledgers.costCentresApplicable` | `journal_lines.debit` / `.credit`, which were always in base currency and always authoritative |
+| the `cost-centres` and `budgets` permission keys | every other key |
+| `check-mirrors.js` checks 13–17 and their five vector files | checks 1–12, all passing |
+| 10 `qa:p7*` / `qa:p8b`–`p8e2` gates and 7 Playwright suites | every other gate |
+
+⚠️ **No posted figure moved, and that is a property of the schema rather than of
+care.** §2.4 ruled that a cost allocation is never a journal line, §3.9 that a
+currency is an annotation, and `scenarioId` was `NULL` on every real entry — so
+`liveEntrySql` losing its scenario arm and `persistLines` losing its
+`writeCostAllocations` call are both figure-neutral by construction. The books
+after this commit are byte-identical to the books before it.
+
+⚠️⚠️ **The drop migration destroys rows and its `down` is deliberately empty.**
+A `down` that recreated twelve tables would hand somebody a schema and let them
+read it as a restoration. Restore from a backup taken before it ran.
+
+---
+
+## 13. Known gaps & areas to improve
+
+Honest list. The eight items previously here were worked through on
+**2026-08-17**; what remains is below, followed by what was closed and how, so
+nobody re-opens a settled question.
+
+### Still open
+
+1. **Test coverage is uneven — a program of work, not a bug.** `src/const/` is
+   well covered (2031 unit tests across 132 suites in client-back, 191 across 10
+   in admin-back, all passing and needing no DB). Services and controllers rely
+   mostly on the `qa-*.ts` harnesses, which need a live stack. Neither frontend
+   has meaningful component tests (`admin-front` has no test target at all).
+
+   > **(a) is done, 2026-08-28.** Both backends have
+   > `.github/workflows/ci.yml` running `npm test`, `lint:ci` and `build`, and
+   > client-back adds `npm run guards` — **all five** tree-scanning guards, not
+   > the three this entry named (`raw-sql`, `cached-state`, `scope-registry`,
+   > `body-dto`, `decorators`). admin-back needs no equivalent script: its one
+   > guard reads `src/**/*.ts` from **inside its own spec**, so `npm test` runs
+   > it. Built as P0 of TALLY-PARITY-PLAN.md, which could not proceed safely
+   > without it.
+   >
+   > ⚠️ The pipeline is deliberately **DB-free**. The `qa-*.ts` harnesses hit
+   > real endpoints against a seeded MySQL and are **not** wired in — a
+   > half-configured harness gives a permanently-red pipeline, which this same
+   > section already records as the way a check stops being read. And `npm run
+   > build` is a typecheck, **not** proof the app boots: a provider cycle
+   > compiles and passes `npm test` while Nest cannot resolve it (§14). That
+   > check is `scripts/dump-routes.ts`, which needs a database.
+
+   The remaining steps: (b) add a test target to `admin-front`; (c) convert the
+   highest-value `qa-*.ts` harnesses into Jest suites with a seeded test DB.
+2. **Migrations are a single squashed baseline** in both backends
+   (`00000000000000-initial-schema.ts`). Correct while no environment is
+   deployed. The moment one is, incremental migrations become mandatory and the
+   baseline must never be edited again. Nothing to do today — this is a tripwire,
+   not a defect.
+3. **One rule enforced at some of the places that need it.** Not a single
+   defect — a *shape*, and the one this codebase has produced most often:
+   BUG-0024 (`allowDelete` honoured by the archive stage and not the erase),
+   BUG-0028 (the financial-period gate honoured by `ApprovalService` and not by
+   `TrxWriteService`'s approved-edit branch), BUG-0032 (three ownership checks
+   written as module-local functions and never carried twenty lines to the
+   module's transactional writes), BUG-0056 (one of two JWT minters setting the
+   claim the guard enforces), BUG-0060 (the queue's duplicate-id no-op, fixed at
+   the seam rather than at the one call site that showed it) and BUG-0062 (the
+   same unreachable fallback in **both** queues, fixed with one shared rule).
+   The check that finds all of them is the same question — *what are all the
+   writers of this effect, and which of them clear this gate?* — and **it is a
+   grep, not a code review**.
+
+   > ⚠️ **P2b‑3c added a variant worth naming separately: the CHECK inherits the
+   > mistake.** `fallbackGroupForNature` switches on the `AccountNature` enum, and
+   > both of its callers asked the database for `trx_natures.name` — the display
+   > plural — so every arm missed and 33 ledgers went to `Suspense A/c`. The gate
+   > that restates that placement rule (`qa-p2-ledgers`) had **copied the same
+   > query**, so it agreed with the defect and could not see it. The grep above
+   > finds a rule applied in some places; nothing finds a rule applied wrongly in
+   > *all* of them. What does is a check phrased as a question about the **data**
+   > rather than a restatement of the code — `qa-p2-ledgers` (4c), *"is any ledger
+   > in Suspense A/c with a nature of its own?"*, which has no way to inherit a
+   > misread column. **When you restate a rule in a gate, restate the rule, not
+   > the SQL.**
+
+   It is still open because there is no *general* mechanism, and there probably
+   cannot be one. What changed on **2026-08-25** is that three of its instances
+   stopped relying on the habit, and the pattern is worth copying:
+
+   - `src/const/ci-guards/jwt-claims-guard.const.ts` — BUG-0056's grep
+     (`signAsync|jwtService.sign`), run by `npm test`. Its first test asserts the
+     guard still finds **both** minters, because a guard that matches nothing
+     reports nothing and reads as coverage.
+   - `src/const/posting-source-lifecycle.const.ts` — BUG-0059's rule, generalised
+     past vouchers, carrying `POSTING_SOURCE_OWNERS`: a list naming every other
+     owner of a posting record. **A list is what makes a grep answerable.**
+   - `admin-back/src/const/dto-decorator-guard.const.ts` — BUG-0052's, on the
+     other backend.
+
+   Three shapes for the same problem: turn the grep into a test, name the
+   siblings in a list beside the rule, or make the safe branch the default. The
+   third is the strongest and BUG-0065 is its example — the licence gate now
+   derives its module from the URL segment, so a new route falls *into* the gate
+   by saying nothing.
+4. **GST-002 — the hub's HSN master is still the pre-reform rate schedule.**
+   598 codes at 12 %, 185 at 28 %, none at 40 %. Everything around it is done:
+   `HsnService.importCsv` takes an `effectiveFrom` and writes a **dated
+   generation** rather than overwriting (it ignored the column entirely before,
+   so D-50's dating was unreachable in practice and a refresh would have
+   destroyed the history it exists to protect). What is missing is the data.
+   `scripts/refresh-hsn-gst-rates.ts` harvests from a rate **lookup**, which
+   answers `"18,28"` and `"5,18"` — the old and new rates as undated
+   alternatives — so it cannot say which is in force on a date. Needs
+   Notification 9/2025-CT(Rate)'s own schedules; the published reproductions
+   give illustrative entries only, and re-rating 22,610 codes from those would
+   be inventing tax data.
+
+### Closed on 2026-08-25 (evening)
+
+1. ~~Licence flags fail open on a database read failure, including the three
+   BILLABLE gateway capabilities~~ → **split.** The nine nav modules still resolve
+   ON when the `companies` read throws, because a database hiccup must not black
+   out a working ERP; `ewb`, `einvoice` and `ocr` now resolve **OFF**, because an
+   outage is not authorisation to spend money at a government portal on a
+   customer's behalf. `MODULES_ON_GATEWAYS_OFF` in `company-licence.service.ts`
+   carries the whole argument. A company row that is simply **missing** is
+   deliberately left at `ALL_ON`: that is a stale id or a deleted company, not an
+   outage, and narrowing it would only change how a deleted company's trailing
+   requests fail.
+
+2. ~~Three statutory filing deadlines are restated in the QA harness and enforced
+   nowhere~~ → **warn, do not refuse** (`src/const/statutory-windows.const.ts`).
+   §34(2)'s credit-note window, the 30-day IRN reporting window and NIC's 180-day
+   e-Way Bill document age. Refusing was wrong because a credit note past §34(2)
+   is a legitimate *commercial* document — the Act forbids reducing the **tax**,
+   not raising the note. Silence was wrong because the portals enforce all three,
+   so the symptom was a rejection nobody could anticipate. Nothing in that file
+   throws, and a test asserts it: a warning that becomes fatal by accident is the
+   one way the ruling gets reversed.
+
+### Closed on 2026-08-25
+
+1. ~~`voucher-lifecycle` parity is checked by name, not behaviour~~ →
+   [`scripts/vectors/voucher-lifecycle.vectors.json`](scripts/vectors/) is the
+   shared table the gap itself asked for — the **exhaustive cross-product** of the six facts a
+   decision turns on — 160 action vectors + 7 recall, **487 behavioural comparisons** — and `check-mirrors.js` now *runs* both
+   implementations against it (`scripts/lib/load-mirror-module.js` bundles each
+   pure module out of its own repo with esbuild, so the check needs one
+   submodule's `node_modules` present and **fails loudly** rather than
+   downgrading if none is).
+
+   The table lives in **this** repo, not in either submodule: *"both repos' suites
+   run against"* read literally would mean two copies of a vector file in two
+   independent git repos, which is the same mirror problem one level up.
+
+   Each row is compared **three** ways — backend, frontend, and the table's own
+   restatement of the rule — and the third answer is not ceremony. Re-injecting
+   BUG-0024 into `client-back` alone reports `DRIFT` and names the wider side;
+   removing the same rule from **both** sides reports `RULE CHANGED`. A name check
+   passes both; a two-way parity check passes the second. Only a restated table
+   catches a rule both sides forgot together, which is why every `*-rules.ts`
+   module in `qa-artifacts` is a restatement rather than an import.
+
+   The name comparison is kept alongside, because it answers what the vectors
+   cannot: *has a decision function appeared with no vector covering it?*
+   **Add vectors in the same commit as a rule.**
+
+2. ~~The two `FileCategory` enums are documented as a cross-service contract~~ →
+   the claim is **deleted** (§6.4). It lapsed on 2026-08-15 when storage moved
+   into the ERP, and `FileCategory.Export` — with no counterpart in the hub's enum
+   at all, written on every company export — was the proof it had. A mirror rule
+   that cannot fail is worse than no rule: it reads as coverage. The doc comments
+   now record that it lapsed and when, rather than asserting a contract that is
+   not there.
+
+### Closed on 2026-08-17
+
+1. ~~Referenced design docs missing~~ → [`_ops/README.md`](_ops/README.md)
+   documents exactly which documents are absent and decodes the in-source `§`
+   references; [`_ops/adr/frozen-contracts.md`](_ops/adr/frozen-contracts.md) is
+   reconstructed and verified against both the enforcing and consuming code.
+   `README.md` no longer points at paths that don't exist.
+   `MASTER_DEVELOPMENT_PLAN.md` was deliberately **not** re-invented.
+2. ~~`BillingRestrictionGuard` refuses read-shaped POSTs~~ → `@ReadOnlyRequest()`
+   (`src/decorators/read-only-request.decorator.ts`), honoured by the guard
+   alongside `@SharedRead()`, applied to **52 verified read handlers**. Markers
+   rescue `POST` only — never PUT/PATCH/DELETE — so a mis-decorated destructive
+   handler is still blocked by the method check. 15 specs.
+3. ~~Mirrored constants drift silently~~ →
+   [`scripts/check-mirrors.js`](scripts/check-mirrors.js) in this repo (the only
+   place that sees both submodules). Compares the `LicensedModule` enum,
+   `LICENSED_MODULE_LABEL`, `MODULE_BY_PERMISSION_KEY`, and every nav
+   `permissionKey` against the backend registry. Verified to actually fail on
+   injected drift.
+4. ~~`.env.example` ships live-looking values~~ → both replaced with
+   placeholders. **⚠️ The old `OCR_SERVICE_KEY` is in git history and should be
+   rotated** (see §3).
+5. ~~`MASTER_API_KEY` legacy fallback~~ → removed from `MasterHubClient`, from
+   the hub's `InternalServiceGuard` (the half that actually *accepted* it), and
+   from three QA scripts. `INTERNAL_SERVICE_KEY` only, failing closed.
+6. ~~Permission cache not invalidated on write~~ → **this was wrong.**
+   `role-permission.service.ts:165` already busts `role-perms:<roleId>` after
+   every upsert. No change needed.
+7. ~~No API schema/OpenAPI~~ → `@nestjs/swagger` + its CLI plugin in both
+   backends, generated from the `class-validator` DTOs rather than hand-annotated.
+   598 paths / 172 schemas (ERP), 81 / 43 (hub). See §10.
+8. ~~Licence fail-open is silent~~ → the three cases (row read, row missing, read
+   threw) are now distinguished and separately logged; "row missing" was
+   previously silent. Semantics unchanged — see still-open #3.
+
+Also fixed in passing: the `ci-guard-raw-sql` script had been **failing** on one
+pre-existing site (`table-export.service.ts:81`, an `information_schema` column
+lookup). Verified safe — every row-reading statement in that service binds
+`companyId` — and allow-listed with that justification. A permanently-red guard
+is one nobody reads.
+
+---
+
+## 14. Quick reference — where to look
+
+| Question | File |
+|---|---|
+| What runs when a request arrives? | `client-back/src/app.module.ts` (doc comment) |
+| How is tenancy enforced? | `src/utility/tenant-context.ts`, `src/database/tenant-scoping.hooks.ts` |
+| Who can call what? | `src/const/permission-registry.ts`, `src/guards/role-menu-permissions.guard.ts` |
+| May this role be renamed / deleted? | `RoleService.assertNotSystem` — `isSystem` is the two populations (§4.4). ⚠️ The protection is about **NAME-keyed lookups** (`RoleMenuGuard`'s Admin bypass, `SAFE_DEFAULT_ROLE_NAME`, `satelliteForRoleName`, the Tally import's party-role lookup), not about a foreign key: renaming a built-in breaks those silently |
+| Who may create a role? | **an Admin, and only an Admin** — `user-protection.const.ts` `roleMutationViolation`, called by every write on `RoleController`. Deliberately a hard rule rather than a `roles:canAdd` grant: a role that can create ANOTHER role can grant it everything and move into it, which `rolePermissionEditViolation` does not cover (the new role is not yours until you take it). ⚠️ Not `ADMIN_ONLY_PERMISSION_KEYS`, which would lock the key whole and take HR's and Manager's seeded view-only access with it |
+| Why can't I delete this role? | it has holders — and the question **changes with the stage** (`RoleService.holderCount`). Archiving counts LIVE memberships; erasing counts ALL of them, because `company_members.roleId` is `ON DELETE RESTRICT` and a soft-deleted membership is still a row. ⚠️ Asking the erase question at the archive stage means a role whose only holder was deleted can never be archived at all — measured |
+| Which extra fields does a user on THIS role get? | `src/const/role-satellite.const.ts` `satelliteForRole` — the role's own `profileSatellite` if it declares one, else `satelliteForRoleName` (the seeded roles' rule, and every existing row's, since the column ships NULL and is deliberately not backfilled). ⚠️ `'party'` decides `company_members.userKind`, so it mints trading parties — D-46's guards, not a form layout. Mirrored in `client-front/src/utils/role-satellite.util.ts`, which deliberately differs on a MISSING name |
+| Why did my role save as "Ca"? | it no longer does — `CA`/`CS`/`CMA` are on `NAME_ACRONYMS` (`display-case.const.ts`, both copies, with vectors). `TitleCaseNameDirective` tidies a name on blur, and the acronym set is a **list, not a heuristic** (§9); this is how it grows, exactly as `HR`, `ESI` and `MD` did |
+| Why is a permission checkbox greyed out for a non-Admin role? | the module is in `ADMIN_ONLY_PERMISSION_KEYS` — `getRolePermissionMatrix` sends `adminOnly` per row and `upsertRolePermissions` **drops** those keys rather than storing a grant `RoleMenuGuard` will never honour. ⚠️ The reason renders on the row's LABEL cell: Material shows no tooltip on a disabled control |
+| May a trading party read this? | `src/guards/shared-read.decorator.ts`, `src/guards/shared-read-party.guard.ts` (D-46) |
+| May a trading party receive this over a SOCKET? | nothing generic — the socket plane has no guard chain, so `src/socket/socketGateWay.ts` checks inline off the `userKind` it records at connection (BUG-0063) |
+| May a trading party download this FILE? | `src/const/party-file-access.const.ts` (BUG-0057) — the shared-read guard does not cover the delivery route |
+| Which modules are licensed? | `src/const/module-licence.const.ts`, `src/services/company-licence.service.ts` |
+| How do the two servers talk? | `client-back/src/services/master-hub/master-hub.client.ts`, both `guards/internal-service.guard.ts` |
+| How are files stored? | `client-back/src/services/storage/` + `src/const/storage-key.const.ts` — **local to the ERP since 2026-08-15**, §6.4. `hub-upload.const.ts` still holds the multer options and the category names; `admin-back/src/services/storage/` is the hub's own tree, no longer the ERP's |
+| How is a voucher posted? | `src/services/posting.service.ts`, `src/const/posting.const.ts` — and the **legs** are `src/const/posting-rules.const.ts` (P8a), not a switch |
+| Which legs does this voucher kind post, and when did that change? | `src/const/posting-rules.const.ts` `POSTING_RULES` — 38 dated rows, read by `buildLegs`. ⚠️ `effectiveFrom` is the date the **law** changed, never the date we shipped the code: dating D-52's rows to their deploy day makes a back-dated RCM purchase post the shape D-52 was filed to fix. Gate `npm run qa:p8a-posting-rules` |
+| Why is `buildLegs` not in `posting.const.ts` any more? | it **is** the interpreter now, so it lives with the rules — and a re-export would make the two files a **cycle** whose failure depends on load order, because `POSTING_RULES` is built at module-evaluation time out of `posting.const.ts`'s enums (P8a) |
+| Why does an empty leg set throw for one kind and not another? | `posting-rules.const.ts` `POSTING_EFFECT` — the total `Record` that keeps the switch's `default: throw`. A rule table cannot tell *"posts nothing"* from *"nobody wrote the rules"*, and reading the second as the first approves a voucher into no ledger |
+| Is a charge on the invoice part of the taxable value? | **Yes** — CGST Act §15(2)(c). `GstReturnAssemblyService.chargeToLineInput` (GST-021) makes each `trx_charges` row a return line at the rate actually charged. ⚠️ It carries no HSN/SAC, so table 12 groups it under `UNSPECIFIED_HSN`; a real code belongs on the charge **head** |
+| How is a whole-bill round off recorded? | a `trx_charges` row on the head named by `transaction_configurations.roundOffGroupId`, carrying `isRoundOff` — `src/const/voucher-round-off.const.ts` is the rule, `TrxWriteService` derives it. ⚠️ The client states only `trx.roundOffMode`; the flag is on **no DTO**, so a caller cannot mark a real charge as rounding and take it out of GSTR-1. A charge sent against that head is dropped, or an edit doubles the adjustment |
+| Why is the Round Off head Indirect and the other charge heads Direct? | `TRX_GROUP_TARGET` — P6 draws the Trading Account through `Direct Expenses`, so filing a rounding adjustment there would move **Gross Profit** by the paise a company rounds off |
+| Why does my voucher offer no Round Off chip? | the company has no round-off head — `transaction_configurations.roundOffGroupId` is null, and the server refuses to guess one (a wrong head is silent; it just reports under something else). Set it on **Transaction ▸ Configuration ▸ Entry grid** |
+| Why can't I type a Rate that reproduces the supplier's line total? | you can, to a quantity of 100 — `RATE_DECIMALS` (`trx-discount.const.ts`) is 4 and `trx_items.unitPrice` is `DECIMAL(16,4)`. ⚠️ Above that the error is `0.00005 × quantity` and the line can land a few paise off; the co-located spec asserts the limit as well as the guarantee |
+| Why is the Discount column missing from the item grid? | `transaction_configurations.showLineDiscount` is off for that voucher type — switched on per voucher from the options bar, and per type on **Transaction ▸ Configuration ▸ Entry grid**. ⚠️ A voucher whose line already HOLDS a discount shows the column regardless (`showDiscountColumn`), because hiding an entered figure would strip it on the next save |
+| Which tax does this supply bear, and why? | `src/const/gst.const.ts` (`isInterStateSupply`, `gstLineTax`), `src/const/gst-returns/gst-classification.const.ts` (the deemed-inter-state set) |
+| What unit code does a statutory document declare? | `src/const/uqc.const.ts` `resolveUqc` — the portal's own list, used by GSTR-1 table 12, the IRN payload and the e-way bill alike (BUG-0037) |
+| Is this GSTIN real, and what does it say? | `src/const/gstin.const.ts` (grammar, check digit, state, PAN) |
+| May this GSTIN be SAVED on a master? | `src/const/gstin.const.ts` `gstinProblems` — all four checks at once (D-51). The OCR/import lanes keep the old tolerance deliberately |
+| Was this tax rate in force on that date? | `src/const/tax-validity.const.ts` `isInForceOn` (D-50) — mirrored on the frontend; the hub's HSN master is dated too |
+| Which book does this account appear in? | `src/const/account-type.const.ts` `bookForAccountType` (D-54) — derived, so a new type cannot fall out of both |
+| Who owes the tax on this purchase? | `src/const/posting.const.ts` `LegRole.RcmPayable` + `gst-returns/self-invoice.const.ts` (D-52) |
+| Is a GST rule we implement still the current one? | `qa-artifacts/docs/findings/gst.md` — every rule cited to an official source with the date it was checked (Phase 7A) |
+| What may a voucher have done to it? | `src/const/voucher-lifecycle.const.ts` |
+| When may it post? | `src/const/financial-year.const.ts`, `src/services/financial-year.service.ts` `assertPostingAllowed` |
+| What does a document still owe — and owe back? | `src/const/outstanding.const.ts` (D-18) |
+| Who writes a bill reference? | `PostingService.persistLines` → `BillReferenceService.writeForEntry` (P5b). In the **one writer of `journal_lines`**, for the reason `acc_ledgers.currentBalance` is maintained there: the invariant is a statement about journal lines, so the place that writes party lines is the only place that can guarantee it. Hanging it off the three posting methods would be §13's standing shape — one rule enforced where somebody thought of it |
+| What happens to a bill when its voucher is cancelled? | the reversal **retires** it (soft delete) and records nothing of its own — `BillReferenceService.writeForEntry`'s first branch. ⚠️ Both entries leave the live population together, so recording the reversal would create a second bill for a cancelled document, and recording nothing would strand the original's references on a dead line, which `qa-p5-bill-register` (2) refuses |
+| Which bills does this voucher settle, and how much of each? | `src/const/bill-reference.const.ts` `planBillSettlement` — the general rule, stated about **bills**; `planSettlement` beside it is the adapter that turns `trx` documents into bills first. ⚠️ It lives in the **dependency-free** const because `check-mirrors.js` check 12 has to *bundle and run* it against `client-front`'s `bill-reference.util.ts` — `settlement.const.ts` imports a Sequelize entity and cannot be bundled at all. Compared on the **mappings and the message text**, because every refusal is a sentence an operator reads. ⚠️⚠️ It consumes bills **in the order it is given**, and since P5c‑3 that order is the payload's — which is the grid's, which is the order the screen's own "This voucher" column was computed in. `buildAllocation` calls it **once** over documents and register bills together, keyed by position, because two plans over one cash figure is two derivations of it |
+| Does this bill add to what a voucher collects, or offset it? | `bill-reference.const.ts` `billSettlementSign` — `settlementRole(...).sign` answered from the **posting** (which side of the ledger the bill was raised on) rather than from `TrxType`. That is the only form that can answer for a bill **no document made**, which is what the register holds. The two agree on all eight document combinations and the spec asserts it |
+| ⚠️ Why did approving a receipt throw "Bill references do not balance"? | it no longer does — [BUG-0070](qa-artifacts/docs/bugs/BUG-0070.md). An **allocation row is not a reference**: `trx_payment_receipt_trxs` records document settlement and `planSettlement` consumes a note in full *and* clears the invoice with `cash + noteTotal`, while the journal line is the cash alone. A line settles only bills raised on the **opposite** side of the ledger, and never more than its own value |
+| Which bills make up this party's balance? | `bill_references` (P5, §3.6) — one row per bill per **journal line**, so `Σ|ref|` on a line is the line and `Σ` signed refs on a ledger IS its balance. A partition of the postings, never a second derivation of them: that is what stops a term going missing the way the opening balance (D-55) and reverse charge (BUG-0069) each did. Rule in `src/const/bill-reference.const.ts`, gates `npm run qa:p5-bill-register` and `npm run qa:p5d-annexure`. **Read by the annexure and by both Bills reports since P5d**, through the one method `BillReferenceService.outstandingBills` — two surfaces over one question that derive it separately is BUG-0040's own shape |
+| Why is an unallocated receipt `on-account` and not `advance`? | `bill-reference.const.ts` `unappliedRemainder` — the two differ by **intent**, not arithmetic, and only the person entering it knows. A backfill has nobody to ask, so it says the true thing; a voucher says which on `trx_payment_receipts.unappliedRefType` (P5c), whose default is on the **column** and not the DTO (§12, BUG-0020) |
+| How do I collect against a party's opening balance? | `GET /trx-payment-receipts/open-bills/:userId` → `BillReferenceService.openBills` (P5c). ⚠️ The older picker `get-due-invoice` is built from `trx` and **structurally cannot** offer one — an opening balance has no document (D-55) — which left 53 parties unsettleable. A payment or receipt may now also name **no** bill at all, and the register calls that money `advance` or `on-account`. ⚠️⚠️ Since P5c‑2 the read carries `voucher` (so each bill is signed *settles* or *offsets*), `excludeVoucherId` (so an **edit** sees the bills as they stood before it) and `search`; it is **bounded** to the oldest `MAX_OPEN_BILLS_SHOWN` and returns `{ rows, total }`. ⚠️ `excludeVoucherId` also sorts that voucher's own bills to the **front**, and that is not cosmetic: freeing its contribution back is useless if the bill is off the page, which on a 2,589-bill party is where a recently-settled one sits. ⚠️⚠️ Since P5c‑3 the bill can also be **settled**, and the save path resolves the caller's `billRefId`s through `findOpenBillsByIds` — §4.3 rule 7's check, written as a **filter** (not this company's, not this party's, not live, not open → it does not come back) at the seam rather than per call site. Deliberately not `openBills` with a filter after it: that read is bounded, and *a bound is a property of a picker, never of a validation* |
+| Where does a payment or receipt name its bills on SCREEN? | `client-front` `components/admin/transaction/vouchers/voucher-entry/` — the reference grid under the Dr/Cr grid (P5c‑2), which **replaced** the `Against Invoice(s)` multi-select. Its "This voucher" column is `planBillSettlement` mirrored in `utils/bill-reference.util.ts`. ⚠️ It does not pop on save; the refusal sits under the amount it is about. ⚠️⚠️ The table is `.vch-bills`, deliberately **not** `.vch-grid` — P4b's gate reads `.vch-grid tbody tr` as *the legs this voucher posts*, and a shape shared for styling is not a shape shared for meaning |
+| How does a voucher name a bill **no document made**? | `trx_payment_receipt_trxs.billRefId` (P5c‑3), and `bill-reference.util.ts` `allocationTargetFor` is the one place the client decides which of the two ids to send. ⚠️ **Exactly one of `trxId` and `billRefId`** — refused by `TrxPaymentReceiptController.persistAllocation` in a sentence and by `chk_trxprt_one_target` in the schema underneath, because naming both is two answers to *what does this row settle* and they can disagree. ⚠️⚠️ A bill-targeted row moves **no** `paidAmount`: there is no document to carry one, and what records the settlement is an `against` reference on the voucher's own party line. This row used to ask why the opening balance could **not** be ticked; the column was a NOT NULL foreign key to `trx` until 2026-08-31 |
+| What does a PARTY owe? | `PartyStatementService.pendingBills` — and **since P5d there is one answer, not two** (BUG-0040). It reads `bill_references`, a partition of the very journal lines the ledger side is made of, so `Σ outstanding − Σ owed back` **is** the party ledger's balance rather than a second derivation that has to be kept in step. ⚠️ A return note is a bill of its own on the opposite side, not folded into the document it names — the shape the entry screen's reference grid has drawn since P5c‑2, and 180 of 802 parties' totals moved when the annexure adopted it. Gate `npm run qa:p5d-annexure` (1) |
+| Where is the company-wide receivables / payables report? | `GET /reports/bills-receivable` · `/bills-payable` → `ReportsService.billsOutstanding` (P5d, §3.10), screen at `/transaction/outstanding/receivable` and `…/payable`. Party rows carrying the total the two Outstanding screens showed, expanding to the bills behind it. ⚠️ **A party is on exactly one of them** — their ledger hangs under one control group (D3) — so a dual-role party's contra bills travel with them as *owed back* rather than being reported twice. ⚠️⚠️ It reports what is open **now** and deliberately takes no date: `asOf` ages the rows, and a report headed *"as at"* that ignores its own date is worse than one that has none |
+| Why does a document read part-paid after its party was paid in full? | it should not — `outstanding.const.ts` `paidStatusFor`, fed by `BillReferenceService.postedBillAmounts` (P5d). `isPaid` was decided against `grandTotal` while the bill half of the same settlement used what the voucher **posted**, so a reverse-charge purchase (D-52) could never close. ⚠️ Read from the posting, never derived from the `reverseCharge` flag — D-52 is forward-only and 15 of this database's 19 flagged purchases carry the whole grand total on their party leg (BUG-0069). Four sites share it: the approve boundary, the restore replay, `buildAllocation`'s create-time cap and `getDueInvoice` |
+| Is this bill money owed to us, or money running back? | `bill-reference.const.ts` `splitBillOpen` — a bill on the party's **own** side (their ledger's control group, D3) is `outstanding`, one on the other side is `refundDue`. ⚠️ Asked of the **posting**, never of `trxType`: signing by document type reported company 15's party 137 — a supplier we also sell to — as ₹55,907.10 owed against a ledger saying ₹36,654.36 Cr. ⚠️⚠️ The screen labels it **Owed Back** rather than "Refund Due", because on a dual-role party it is a receivable inside a payable ledger and only the direction is true in both readings |
+| What is a party owed on ONE document — is it the grand total? | not always: `outstanding.const.ts` `partyOwedOn` is the rule (a reverse-charge purchase owes `net + charges`, D-52), and what is READ is the posting, because D-52 is forward-only and the books hold both answers under one flag (BUG-0069). ⚠️ `PartyStatementService.postedPartyShare` **is gone** — it was the annexure's hand-written way of asking that question, and since P5d the register's own bill IS the posted share (`BillReferenceService.postedBillAmounts` is the same figure, for the settlement path) |
+| Why does the funds summary disagree with the trial balance? | the caches, not the ledger — §4.9, `POST /trx-accounts/rebuild-balances` (BUG-0042) |
+| What does "today" mean on this server? | `src/const/local-day.const.ts` `todayIso` — the LOCAL day, not `new Date().toISOString().slice(0,10)`, which names yesterday between 00:00 and 05:30 IST (API-033). **Raw SQL binds it as `:today`**; `ci-guard-raw-sql` refuses both a `CURDATE()` and a `:today` nobody bound (BUG-0050, §4.8) |
+| May this record be erased, or must it archive? | `src/const/posting-source-lifecycle.const.ts` — §4.9 rule 2 generalised past vouchers, with `POSTING_SOURCE_OWNERS` naming every other owner of a posting record (BUG-0059) |
+| Is this document past a statutory deadline? | `src/const/statutory-windows.const.ts` — §34(2)'s credit-note window, the 30-day IRN window, NIC's 180/360-day e-Way Bill rules. **Warns, never refuses** (GST-014, GST-018) |
+| Does every JWT minter set the claims the guard enforces? | `src/const/ci-guards/jwt-claims-guard.const.ts` — CLAUDE.md §4.4's grep, run by `npm test` (BUG-0056) |
+| Why is the stock ledger's last row `0`? | it no longer is — `replayStockLedger` emits the cancelled pair with `tookPart: false` and the prevailing balance (BUG-0049, §4.9) |
+| Which stock movements went negative on a date? | `src/const/inventory.const.ts` `negativeOnDates` (D-44) |
+| What did a component cost on the day it was consumed? | `src/services/inventory.service.ts` `applyAsOfDateCost` (BUG-0033) |
+| Why does every job-work service `forwardRef` its neighbours? | the module's provider graph has a real **cycle** — order → challan → operation → order — opened on 2026-08-26 when `autoReceiveMaterial` made a confirm issue a challan. Node hands whichever file evaluates second a partially-initialised module, so `design:paramtypes` records `undefined` and Nest fails to **boot** ("can't resolve dependencies … the argument at index [1]"), naming a service that is not obviously involved. Defer the reference at every edge, and prove it with `scripts/dump-routes.ts` — a typecheck and `npm test` both pass on a graph that cannot start |
+| What may a job work order / dispatch / challan have done to it? | `src/const/job-work-flow.const.ts` (the quantity rule everything derives from), `job-work-dispatch.const.ts` (the three invariants), `job-work-challan.const.ts` (the purpose table) |
+| Is this job-work id the caller supplied actually ours? | `src/services/job-work-ownership.ts` (BUG-0022, BUG-0032). ⚠️ An order's `ownerUserId` was one of BUG-0022's `users.id` ids and its check is **gone with the field** (2026-08-26) — a job work order belongs to the company, so nothing accepts an owner from a caller. Don't read the missing `assertMemberIsOurs` as an omission; `qa-artifacts/tests/transactions/jobwork-scope.spec.ts` asserts the DTO refuses the field outright (a 400 from `forbidNonWhitelisted`, which cannot be forgotten the way a 404 can) |
+| Does confirming a job work order also receive its material? | `job_work_configurations.autoReceiveMaterial` → `JobWorkOrderService.confirm`. Off by default: it issues a real Rule 55 `party-receipt` challan (never a bare `receivedQuantity` — that column is a roll-up of the challans that moved the material), so an installation asks for it. It is what makes the *material-arrives-first* shops workable: without a receipt `readyQty(1)` is 0 and the flow invariant refuses every dispatch with nothing on screen saying why |
+| How much of a party's material are we holding, and who has it? | **Job Work ▸ Stock** (`GET /job-work-stock` → `JobWorkStockService`), arithmetic in `src/const/job-work-stock.const.ts`: `held = received − delivered − scrapped`, split into `onFloor + atVendor`. ⚠️ **This is custody, not inventory** — a job work order works on the *party's* material, which never enters `stock_movements` and has no book value here, which is exactly why no stock screen in the ERP could see it. Both identities are asserted in the co-located spec; `onFloor` is derived by **subtraction** on purpose, because material sitting received-but-not-started has no dispatch at all and counting only what is on a machine reports a busy shop as nearly empty |
+| Why does the Stock screen's row arithmetic stop adding up? | a **vendor filter** is applied. `JobWorkStockService.applyVendorFilter` narrows `atVendor` to one job worker's share while `received`/`delivered`/`scrapped` stay whole facts about the order, so `onFloor + atVendor ≠ held` by design — the screen states the filter above the table and blanks the floor column rather than printing a figure that is not an answer to the question asked |
+| What does a brand-new company's product form start with? | `DEFAULT_MEASUREMENT_UNIT` in `company-defaults.const.ts` — **one** unit, `Numbers / NOS`, created by `CompanyProvisioningService` and pointed at by `product_configurations.defaultMeasurementUnitId`. That column and the Product form's use of it have existed since the schema was squashed and **nothing ever set it** (eleven of thirteen companies carried null), so the form's one required picker opened empty for everyone. Deliberately not a starter set: PCS/KGS/MTR are the guess `OPERATION_TYPES` and `HOLIDAYS` are empty to avoid |
+| Why does a new party form open on India and Gujarat? | `companies.defaultCountryId` / `.defaultStateId` — **per company, not a literal** (2026-08-26). Seeded at provisioning from the company's **own GSTIN**, whose first two digits name the state of registration, falling back to `DEFAULT_REGION` when it has none; editable on Transaction ▸ Configuration ▸ Company & GST, read by `user-add-edit` and `manufacturer-add-edit` off `MenuService.siteConfiguration()`. Applied only to a NEW record, only into an empty field, and never marking the form dirty — a default is a starting point, not a change to somebody's saved row. Null means "open blank", which is what every address form did before |
+| Why did `ci-guard-raw-sql` pass a query nobody justified? | its allow-list is keyed by **`path:line`**, so editing a file moves every entry below the edit and a new query can land on an allow-listed line and inherit a justification written for a different statement. Seen on 2026-08-26 in `company-provisioning.service.ts`. When you add or remove lines in a file that has entries, re-run the guard **and** re-read each key against the query now at it — a green guard is not evidence the keys still point at what they describe. ⚠️ And re-reading may mean **deleting**: D6 (2026-08-28) found `posting.service.ts:215`'s justification already dead — it claimed `user_details` has no `companyId`, untrue since 2026-08-20, and the query binds it. Ask both *is this still the statement?* and *does that statement still need an exemption?*. ⚠️⚠️ **Since P7b the guard fails a key that names no raw SQL call at all** (`findStaleAllowlistKeys`) — a deleted query, a moved entry, a vanished file. That is the *other* half of the same trap and it had been silent: P7a's `information_schema` probe was allow-listed, P7b deleted it, and the guard went on passing over a justification describing nothing. The argument is `judge()`'s, one file across — **an allowance matching nothing describes a migration that did not happen** |
+| Is a job work "part" a product? | **Yes, and the schema says so since 2026-08-26.** `job_work_orders.partDescription` → `productName` and `route_templates.partDescription` → `productName` (migration `20260826300000-part-description-to-product-name`), with every label, column header and print caption to match. The column stopped being free text on 2026-08-20 when the product picker became mandatory — it has been a snapshot of `product.name` ever since, and the old name kept implying the two were different things. `Rule 55`'s own caption stays **"Description of Goods"**: that one is the statute's word, not ours |
+| Where do I say what a vendor does — and what machines they have? | **One place**: the Vendors master (`/job-work/masters/vendors`), fed by `GET /vendor-capabilities/directory`. Until 2026-08-26 it was two — a Vendor Capabilities grid (the commercial half) and the Machines master's "Vendor machines" toggle (the physical half), each editable without the other and **neither gating anything**, so the same fact was typed twice and nobody typed it at all (0 capability rows against 6 vendor machines on the dev install). The capability is the spine now: `ensureCapability` guarantees one behind every vendor machine, whichever door it came in through, and removing one takes that vendor's machines for that operation with it |
+| Where do I book a job work order, and where do I change one? | Two different screens since **2026-08-27**. `order-add-edit` is a **create-only** dialog off the board (party, part, quantity, promise, and the paperwork that arrives with the material); everything after that is a tab on the order itself. The tabs read **Edit order · Setup routing · Routing · Challans · Material · Drawings · Costing · Activity** — plan-then-progress, left to right, so the screen opens on Edit order rather than on the timeline. The fields are one component, `order-form/`, shared by the dialog and the Edit tab so the two cannot become two forms. The board's Add now **navigates to the new order**, because a draft has no routing and cannot be confirmed without one |
+| Why did a dialog's Remarks box render ~180px wide? | `.jwd__full` was **used by seven job-work dialogs and defined in none** (fixed 2026-08-27). A `mat-form-field` is `display: inline-flex` with no width: inside `.jwd__fields` it is a grid item and blockifies, so the grid always looked right, and only the fields OUTSIDE the grid shrank to their content. Nothing errors on a class that matches no rule. Same shape as §9's dialog-title padding — `.app-form-dialog` gives `mat-form-field { width: 100% }` to the 47 dialogs that opt in, and these ten carry their own stylesheet |
+| Why is a picker in a dialog shorter than the fields beside it? | it is a bare `app-select` with no `mat-form-field` around it — no label, no outlined box, and no shared baseline for the row. `app-select` **is** a `MatFormFieldControl` (UI-011 is about its `empty`), so it belongs inside one. Both job-work vendor pickers were bare until 2026-08-27 |
+| Why does Start work open wider than the other job-work dialogs? | 880px, because its field count changes with a choice made **inside** it — "At a vendor" adds Expected back to Quantity · Where · Vendor, and a dialog's width is fixed when it opens, so sizing it for three gave one dialog two shapes. `.jwd__fields--wide` in `dialogs.scss` carries the arithmetic; §9's "the bases are solved, not guessed" applies to a grid's track count exactly as it does to a flex basis |
+| Why is the routing builder not on the create form? | Booking a job and planning how it is made are two jobs, done by two people, at two times — `routing-setup/`'s own header. `operations` has always been optional on the create DTO for that reason, and `describeConfirmBlock` is what actually insists on at least one step, at **confirm**, which is the moment it starts to matter. **Routing** (the live timeline) and **Setup routing** (the plan) are deliberately siblings: folding them into one tab made the plan unreachable the moment the first dispatch existed |
+| How does the routing save without touching the header? | `PUT /job-work/:id/routing` → `JobWorkOrderService.replaceRouting`, through the **same** `writeRouting` seam the order edit uses (so §4.3 rule 7's ownership checks cannot be forgotten by a new caller). Its own route because `PUT /job-work/:id` is a **full** header replacement: a screen showing only steps would have to echo the order back, and an echo silently reinstates its own stale copy of whatever somebody edited on the other tab |
+| Has this job work order been invoiced? | `src/const/job-work-stage.const.ts` — raising a job work invoice writes a `job_work_billings` row and **does not touch `status`**, so the board carries a derived **stage**: every status, plus `invoiced`. It SUPERSEDES the status rather than overlapping it (no card in two Kanban lanes), which is why **on the board "Delivered" means delivered and not yet invoiced**. Mirrored in `client-front`'s `job-work.interface.ts` and compared by `check-mirrors.js` check 9 |
+| Why does the board's stage summary `GROUP BY` an alias? | because the expression contains a correlated `EXISTS`, and MySQL 8 will not treat two subquery-bearing expressions as the same one — repeating it (the usual `ONLY_FULL_GROUP_BY` answer) is `ER_WRONG_FIELD_WITH_GROUP`. Measured, not inferred. ⚠️ The alias must stay **backticked**: a bare `'stage'` is a string literal, which buckets the whole table into one row and raises no error |
+| Which vendors may I send this operation to? | `VendorCapabilityService.pickerFeed` — the ones holding an **active** capability for it, not every party ranked. `?scope=all` is the escape hatch behind the picker's "Show all vendors" link, and it is what makes the filter safe to have at all: FR-25 made this a ranking hint precisely so an unfilled master could never stop a shift, and a link answers that without handing every screen the whole party list |
+| Where is a job work step's vendor decided? | Twice, deliberately: `job_work_operations.defaultVendorUserId` is the **plan** (the order form asks for it, filtered to capable vendors, pre-filling their rate and lead days), and the Start work dialog is the **fact** — it opens pre-selected on the plan and the supervisor may still change it. The column has existed since the schema was squashed; nothing read it back until 2026-08-26, which is why the order form had no vendor field and the dispatch's `?? operation.defaultVendorUserId` fallback could never fire |
+| Why does a pre-selected picker render its placeholder? | the association was not **included**, only the id. A foreign key rides on the model whether or not you join its association, so a forgotten `include` gives a control holding a real value with no row to render it — which looks like "nothing chosen" and behaves like a choice. Cost a real defect on 2026-08-26: `JobWorkOperationService.listForOrder` (the timeline — a **different** endpoint from `findOne`, which had been fixed) omitted `defaultVendor`, so Start work opened blank, passed its own "choose a vendor" refusal because the id was set, and would have dispatched to a vendor never shown. **Both** job-work vendor pickers now also carry a `fetchByIds` that resolves a name off the party list, so a caller that forgets the name is harmless rather than dangerous |
+| What is on the Machines master? | **Our own floor, and nothing else** (2026-08-26). The Our/Vendor toggle and `GET /machines/vendor-machines` are gone; `ownerType = 'in-house'` is re-applied on every list request so a row created before the split cannot drift back onto it |
+| What operation types does a new company start with? | **None**, deliberately (2026-08-26) — `OPERATION_TYPES` in `company-defaults.const.ts` is empty for the same reason `HOLIDAYS` is. It used to seed eleven from one machine shop, as live master data nobody chose, and `defaultLeadTimeDays` feeds `deriveExpectedDate` — so a seeded guess decided whether an order read at-risk. QA fixtures create what they need (`operationTypeId` in `qa-artifacts/framework/factories`) |
+| Identity vs. membership | `src/entities/company-member.entity.ts` |
+| How one person ends up in several companies | `client-back/src/services/users.service.ts` `linkExistingIdentity`, `company-admin.service.ts` `add` |
+| Choosing/switching company | `client-back/src/services/auth.service.ts` `switchCompany`, `client-front/src/services/company-switch.service.ts`, `components/auth/select-company/` |
+| Why one party has a row per company | `src/entities/user-details.entity.ts`, `src/migrations/20260820000000-user-details-company-scope.ts` |
+| Frontend nav & permissions | `client-front/src/core/navigation/navigation.config.ts`, `guards/permission.guard.ts` |
+| Why is the Transaction panel shaped like Tally? | it **is** Gateway of Tally since 2026-09-01 (§7) — `APP_NAVIGATION`'s `transaction` node, in Tally's F-key order, with `PANEL_GROUP` holding Tally's own section names. The panel is the module's **only** navigation; the reports' and masters' tab strips are gone |
+| How does one panel block hold pages from two different parents? | `sidemenu.component.ts` `mergeByLabel` — every block sharing a label folds into the **first** that carried it. Tally files Outstandings under *Statements of Accounts* beside the cost and interest reports, and `transaction/outstanding` is a module leaf while those are children of the `reports` `sub` node, so no ordering could make them adjacent |
+| Why does Reports render four blocks and not one? | a `sub` node's children are split by their own `group` label (`rawGroups`), falling back to the `sub` node's name — that is what gives Tally's *Account Books · Statements of Accounts · Inventory Reports* without a second nesting level the panel cannot draw |
+| Where did Quotation / Purchase Requisition / Dues / Daily Cash go? | removed from the **UI** on 2026-09-01 (§7's table) — none has a Tally counterpart. ⚠️ Every backend endpoint, DTO, enum and posting rule is untouched: both voucher kinds are still in `PostingVoucherKind` and in `ENTRY_MODE_BY_TYPE` (check 11 compares that map as data), the `dues` endpoint still feeds the main Dashboard and the reminder cron, and documents already raised still post, print and report |
+| Why does `/transaction/reports/receipt-register` still work? | it is a real route with `data: { side: 'receipt' }` on the merged Payment & Receipt Register, **not** a redirect — `redirectTo` cannot carry a query string, so a redirect would land a bookmarked receipt link on the payments half |
+| Breakpoints / responsive rules | `client-front/src/styles/design-system/_breakpoints.scss`, `scripts/breakpoint-guard.js` |
+| What is the shell supposed to do at this width? | `qa-artifacts/tests/ui/shell/shell-rules.ts` — the layout rules restated from §7/§9, and the only place they are written down as executable derivations |
+| Can a screen reader use this screen? | `qa-artifacts/tests/ui/a11y/` — axe over every route in both apps and both palettes, gating on critical/serious, plus the five keyboard properties axe cannot see (`npm run qa:a11y`) |
+| Why is this icon button announced as "button"? | it has a `matTooltip` and no `aria-label` — a tooltip is a *description*, not a name (§9, UI-010) |
+| Which module does this ROUTE need a licence for? | `client-front/src/core/navigation/module-licence.ts` `modulesForRoute` / `isRouteLicensed` — **every** module it depends on: its permission key's AND its first URL segment's, so a route falls INTO the gate by saying nothing (BUG-0065 / SEC-002) and a cross-module leaf cannot hold a switched-off module on screen (BUG-0067) |
+| Why is a module still in the nav rail after the Hub switched it off? | a leaf under it carries another module's permission key — `MenuService.filterVisible` keeps any container with one visible descendant (BUG-0067, §7) |
+| What is the one licence flag the API does NOT enforce? | `branding` — its key `site-configrations` is shared with Transaction ▸ Configuration's Company & GST card, so it is gated in the SPA by URL segment only (§4.6) |
+| What PERMISSION does this route need, if it declares none? | `client-front/src/core/navigation/navigation.config.ts` `permissionKeyForUrl` — the deepest key `APP_NAVIGATION` gives the URL, so the tree that decides what the menu OFFERS also decides what a URL reaches (UI-006) |
+| Is this screen actually behind `permissionGuard`? | it is if its module parent in `app.routes.ts` carries `canActivateChild: [permissionGuard]` — 64 screens declared no guard of their own, and `tests/ui/shell/route-guards.ui.spec.ts` now asserts all four parents (UI-006) |
+| Why does Purchase's header have one more field than Sales', and how does it still fit on one line? | `.vch-header-strip` in `_voucher.scss` — a weighted flex row whose wrap comes from each field's own basis. ⚠️ Do not "tidy" it back to a grid or add a width query; both are what broke it (§9) |
+| Where did the voucher form's Charges / Discount / GST / Due Date / Narration / Files cards go? | into `.vch-optbar` — one row of chips, each opening an anchored panel (`components/shared/voucher-option-chip/`, §9). Every chip carries a summary badge, which is the whole reason the fold is allowed |
+| Why does picking a date not close the panel it was picked in? | `VoucherOptionChipComponent.onDocumentPointerDown` treats `.cdk-overlay-container` as inside. ⚠️ A `mat-select` cannot prove that rule — only the datepicker fails without it (§9) |
+| Why did Save open a panel by itself? | `TrxAddEditComponent.revealInvalidPanel` — a required field folded behind a chip would otherwise be a Save button that does nothing |
+| How do I build a `dd/MM/yyyy` STRING (not render one)? | `client-front/src/utils/date.util.ts` `displayDate` (§9) |
+| Why is a dropdown's label painted on top of its value? | `AppSelectComponent.empty` — `''` is a real VALUE when an option carries it, and every filter bar here uses `{ value: '', label: 'All' }` (UI-011, §9) |
+| Why does the party portal look like a different product? | it no longer does — `party-dashboard` is on the shared `dash` shape and `PartyPortalLayoutComponent` is a bare `<router-outlet>` (UI-005, §7) |
+| Which figure does a party's dashboard call "You Owe Us"? | `PartyPortalSummary.receivable` (debtors control). `payable` is what WE owe THEM — the two were rendered swapped in the party's second person until 2026-08-26 |
+| Why is this grid printing `2305021.19`? | the column declares `type: 'number'`, which right-aligns and formats nothing — money is `type: 'money'` (UI-002, §9) |
+| Why does a receipt print a blank tax invoice? | it no longer does — `src/const/cash-voucher-print.const.ts` + `GET /trx-payment-receipts/:id/print-data` and `GET /trx-contra/:id/print-data`; the preview used to call the plain entity reads, whose fields do not intersect the templates' at all (UI-007) |
+| Which shell settings are derived rather than chosen? | `client-front/src/services/settings.service.ts` `EPHEMERAL_SETTINGS` — never persisted, because a width is not a preference (BUG-0064) |
+| Can a company's HSN master carry two rate schedules at once? | yes — `admin-back` `HsnService.importCsv(buffer, effectiveFrom)` writes a dated generation and closes the previous one; without the argument it corrects the current one in place (GST-002, D-50) |
+| All routes | `npx ts-node -r tsconfig-paths/register scripts/dump-routes.ts` (client-back) |
+| API schema / request shapes | `/api/docs` + `/api/docs-json` on :3000 and :3100; `src/utility/swagger.ts` |
+| The frozen cross-service contracts | `_ops/adr/frozen-contracts.md` |
+| Which planning docs are missing, and what `§20.9` means | `_ops/README.md` |
+| Is a queue's "degrade without Redis" fallback actually reachable? | `src/const/queue-deadline.const.ts` `withQueueDeadline` (BUG-0062) — ioredis buffers a command issued during an outage for ever, so an unbounded `await queue.add(...)` makes the `catch` below it dead code and hangs the request instead |
+| Why does a picker show a placeholder over a value the row actually holds? | if it is a cash/bank picker on a voucher, it was `checkDataTypeAndFilterType` refusing a numeric filter on `BIGINT` — the fetch-by-id behind `PaginatedSelectSource.ensure()` (§10, P4b). More generally it is the missing `include` (§14's job-work row): a foreign key rides on the model whether or not you join its association |
+| Why did a re-extract do nothing? | `InvoiceScanService.discardFinishedJob` (BUG-0060) — BullMQ treats `add()` with a held `jobId` as a duplicate, and `removeOnFail: 100` holds a failed scan's id |
+| Which of the three empty GSTIN answers is this? | `src/services/gst.service.ts` `lookupRaw` (BUG-0061) — unknown number vs. no registry key vs. hub unreachable; `fetchRaw` flattens all three and must not be used where a person reads the result |
+| Do the two `voucher-lifecycle` files agree about what a rule MEANS? | `scripts/vectors/voucher-lifecycle.vectors.json` + `node scripts/check-mirrors.js` — 487 behavioural comparisons, each row checked against both sides *and* against the restated rule |
+| Are the mirrored constants still in sync? | `node scripts/check-mirrors.js` |
+| Did the chart-of-accounts migration move a figure? | `client-back` `npm run qa:coa-parity -- capture before` … `diff before after` (TALLY-PARITY-PLAN.md §4.2). `selfcheck` captures twice on unchanged code and is what proves the harness is reproducible before anyone reads a later diff as a defect |
+| Why is a parity diff failing on an exception I declared? | it matched **nothing** — `judge()` in `parity-snapshot.const.ts` fails an unmet allowance, because a list claiming a movement that did not happen describes a migration that did not happen |
+| Where does today's account head land in Tally's tree? | `client-back/src/const/provisioning/tally-chart.const.ts` `TRX_GROUP_TARGET` — the §3.2 mapping as data, read by both P1's grouped report and P2's D2, so the report and the migration cannot disagree about where a head went |
+| Why are the 28 Tally group names not written out in `tally-chart.const.ts`? | they already exist in `src/const/import/tally-nature-map.const.ts`, and `check-mirrors.js` compares across **submodules** so it could never see a second copy here. The tree adds the parent linkage and sort order; the nature is read from the import table, and a co-located spec asserts the two key sets are identical |
+| Why does an input-GST head show as a Liability in the grouped Trial Balance? | Tally parents Duties & Taxes under Current Liabilities, and nature is inherited (§3.3). ₹1,54,85,553 across the 14 dev companies — `NATURE_CHANGING_KEYS`, the second declared exception to the parity gate. Reversing it is one edit to `TRX_GROUP_TARGET` |
+| Why did adding a foreign key break company hard delete? | it needs a line in `src/const/company-hard-delete-order.const.ts`. `onDelete` behaviour lives ONLY in the raw migration SQL — never in Sequelize's association metadata — which is why that edge list is hand-transcribed. D5's `journal_lines.ledgerId` (RESTRICT) put `acc_ledgers` at position 25 and `journal_lines` at 62, so **every** hard delete would have been refused; D6 added four more of the same edge (`trx`, `trx_charges`, `trx_payment_receipts`, `trx_payment_receipt_lines`) in the same commit as the FKs. ⚠️ Its own spec passes either way: it verifies the graph is *consistent*, not that it is *complete*, and the test that catches an omission (`qa-artifacts/tests/cross-service/hard-delete.spec.ts`) needs a running stack |
+| What does a journal line NAME? | **both**, since D5 (2026-08-28): `ledgerId` against `acc_ledgers` (the postable **leaf**) and `trxGroupId` beside it as a shadow. ⚠️ Since P2b‑2 **every figure-bearing report reads `ledgerId`**, and since P3b the three statements read the `acc_groups` **tree**; the shadow survives for the heads that are 1:1 with a D2 ledger and for its own cache. D9 drops it — a separate release. A group is a container whose balance is the sum of its children, which is why the Trial Balance now prints Sundry Debtors expanding to every customer where it used to print one "Customer Dues" row |
+| Which reports go through the presentation rule? | **none — it is deleted** (P3c‑1, 2026-08-29). Every report reads `acc_ledgers`/`acc_groups` directly: the three statements, the Ledger report, the Group Summary, the Group Book, both Outstanding reads, the party statement and the Financial Dashboard's two panels |
+| Where does the Gross Profit line come from? | `src/const/trading-account.const.ts` — four group `systemKey`s above the line (P6, §3.8). `grossProfitLine` carries the c/d and b/d columns, which are always **opposite**; `netProfitFrom` is why the net runs *through* the gross rather than beside it. ⚠️ An unrecognised P&L primary falls **below** the line: a group that has not said it is part of the trade must not move Gross Profit on a guess |
+| Can a company re-decide what is Direct vs Indirect? | Yes, and nothing new was built for it — the plan's open question 2 (*"a guided review screen, or defaults they can re-parent?"*) is answered by the defaults being seeded and the move being **within-nature**. Direct/Indirect Expenses are both Expense and Direct/Indirect Incomes both Income, so `describeLedgerMoveBlock` permits it on a **posted** ledger, on the Chart of Accounts screen P3d‑2 built. `qa:p6-trading` (9) asserts that rather than claiming it |
+| Why is a master dialog's refusal styled by `.master-dialog__*` and not `.coa-dialog__*`? | those rules are about **a master dialog that states a refusal**, not about the chart of accounts — a second copy under a second prefix is the duplication `styles/custom/_master-dialog.scss`' own header warns about. Global, for §14's `.jwd__full` reason |
+| Why did a refusal leave a half-written row behind? | because a `throw` inside a **caller's** transaction is not a rollback — there is no savepoint. A service that writes a header and then judges its children leaves the header behind on every refusal, so the next attempt is answered *"already exists"* rather than by the rule that actually refused. Judge the whole payload **before** inserting anything. ⚠️ Invisible through the controller, where the service opens its own transaction — which is what makes it the shape that survives review |
+| Why is closing stock credited to Direct Incomes? | because it is the trade, and the Trading Account's credit side is where §3.8 puts it (P6). It sat in **Indirect Incomes** — below the line — because §3.2 mapped `CLOSING_STOCK_INCOME` to `null` and the seed fell through `fallbackGroupForNature`. ⚠️ It cannot be retired outright the way §3.2 imagined: §3.10 derives the Balance Sheet from `journal_lines` alone, so `Dr Stock-in-Hand` must be posted and the balancing credit exists whatever it is called |
+| Why is a figure the statement TREE draws left-aligned and not mono? | it no longer is — `reports.shared.scss` hoisted `.num` / `td.num` **out of `.report-table`** (P6). Angular's emulated encapsulation stamps **every** compound of a descendant chain, so `.report-table .num` compiled twice and matched neither a tree cell (ancestor is the caller's) nor a caller cell (descendant is the tree's). ⚠️ The second encapsulation trap in that file; the first, 15 lines up, is about specificity. `app-statement-tree` listing the file among its `styleUrls` does **not** make an ancestor-qualified rule reach its rows |
+| Where is the Trial Balance's *old* shape? | **gone** — `ReportsService.legacyTrialBalance` / `.legacyBalanceSheet` / `.legacyProfitAndLoss` and the `?view=legacy` parameter retired with the presentation rule in P3c‑1. They were the parity gate's anchor for one release, and the gates that tied to them tie to **Σ over `journal_lines`** now. ⚠️ Read the §4.9 note before reading an old parity snapshot: a capture pair straddling P3c‑1 needs `diff --rebased` |
+| Why is a LOSS on the Assets side of the Balance Sheet? | `src/const/statement-tree.const.ts` `balanceSheetSide` — the Profit & Loss A/c is placed by the sign of its own balance, which is what Tally shows; the flat sheet folded it into Liabilities and printed a loss as a negative one. The same rule places `Suspense A/c` and `Branch / Divisions`, which genuinely have no fixed side |
+| Where does the Balance Sheet's section ORDER come from? | `acc_groups.sortOrder`, seeded from `TALLY_GROUPS` — the reports `ORDER BY` it. Deliberately **not** restated in `statement-tree.const.ts`: a second copy of a list this repo already has is the mirror problem the programme is about |
+| How does a statement show 5,000 party ledgers without sending 5,000 rows? | it does not send them. The three statements return **groups**; expanding one calls `GET /reports/group-summary/:groupId` (P3a's report, doing the job it was built for), and `qa-p3b-statements` (6) asserts that stepping in never changes the figure. `?view=ledger` on the Trial Balance is the deliberate exception — §3.10's Ledger-wise toggle, which is the whole flat list because that is what it asked for |
+| Which side of the books is this party on? | `src/const/ledger.const.ts` `PARTY_SIDE_ACC_GROUP_KEY` — the `acc_groups.systemKey` of Sundry Debtors / Sundry Creditors, matched against `acc_ledgers.groupId` **directly**, not by subtree. Four reads ask it: the two Outstanding reports, `PartyStatementService.summary` and `DashboardService.partyPositions`. It is safe to match directly because D3 parents every party ledger straight onto the control group and `describeLedgerMoveBlock` refuses to move a posted one across a nature. ⚠️ It replaced `presentationGroupId`, which is **deleted** (P3c‑1) — do not go looking for a mapping back to a legacy head, there is not one |
+| May this ledger be moved to another group? | `src/const/ledger.const.ts` `describeLedgerMoveBlock` — a posted ledger may **not cross an account nature**, which is `describeGroupReparentBlock`'s third rule one level down: nature is inherited, so the move re-signs figures already reported (D-19). Within a nature it is a pure re-filing and is allowed, postings and all. ⚠️ It asked about the *presentation head* until P3c‑1, which let a D2 ledger move anywhere at all |
+| Why does the Day Book print the party rather than "Customer Dues"? | it crossed over in **P3b** — the line is named by its own ledger, which is what a Tally user reads a Day Book by. P2b‑2 had left it on the `trxGroupId` shadow because moving it to the *presentation head* would have relabelled 13,471 of 41,690 lines to the wrong head's name on the way to the right one. The cash book's `particulars` crossed with it, to the contra **ledger** or `(as per details)` |
+| Why is `particulars` "(as per details)" instead of a list of names? | `src/const/ledger-report.const.ts` `particularsForCount` — Tally's own behaviour, and a `GROUP_CONCAT` (which is what the books used until P3b) truncates at `group_concat_max_len` **silently**, so a voucher with many contra ledgers came back looking like one and printed that name as the whole other side of the entry |
+| Which figures did the chart-of-accounts migration actually move? | exactly one thing — a party who both buys and sells has one ledger under one control head, so Sundry Debtors falls by ₹2,51,44,323.21 and Sundry Creditors rises by exactly that. ⚠️ The generator that wrote that list (`qa-coa-parity -- exceptions`) **retired at P3c‑1**: every path it emitted named a row of a flat statement, so it could only emit allowances matching nothing. It was applied and diffed at P2b‑2; the note where it stood records what it was |
+| How do I "open the ledger"? | `GET /reports/ledger/:ledgerId` → `ReportsService.ledgerReport` (monthly summary), `…/vouchers` → `.ledgerVouchers` (the drill). **`:ledgerId` is an `acc_ledgers` id**; `group-summary/:groupId` and `group-statement/:groupId` both take an **`acc_groups`** one. Two id spaces on one controller since P3c‑1 took the legacy chart's third — the Group Book took a `trx_groups` id until then, and both QA specs that picked "the busiest head" out of `journal_lines.trxGroupId` answered **404** the day it moved, which is the right answer and exactly how a silent id-space change would have looked had the route gone on answering. Passing the wrong one answers a 404, so the parameter names say which |
+| Where is the Ledger report's SCREEN? | `client-front` `components/admin/transaction/reports/ledger/` — P3d. Reached from the Reports sub-nav (the picker asks which account) or by drilling a ledger row on a statement, which arrives as `?ledgerId=&from=&to=` |
+| How does a report row open something else? | it emits a **`DrillTarget`** and `client-front/src/utils/drill-target.ts` resolves it — one union (`group` \| `ledger` \| `voucher`), one resolver, no `routerLink` per report (§7, P3d) |
+| Why did Esc take me back to the Balance Sheet? | `client-front/src/services/drill.service.ts` — the route **stack**, not browser history. ⚠️ A navigation nobody drilled clears it, by path |
+| Where does a report's period live? | its **URL** (`?from=&to=`, `?asOf=`) — `client-front/src/utils/report-period-url.ts`. That is what makes Esc restore the origin's own period, and every statement a link somebody can paste. ⚠️ `periodDebounce` is the timer that applies it, and it dies with the screen: one that outlives it navigates the reader back to a report they had left |
+| Why did deleting a ledger erase it instead of archiving it? | it no longer does — `acc_ledgers` and `acc_groups` carried a `deletedAt` column and **no `@DeletedAt` on the model**, so sequelize-typescript left them non-paranoid and `BaseCrudService.remove`'s first stage physically deleted the row (P3d‑2). Restore, bulk-restore and the archived view were all unreachable, and `carryTwin`'s `force: Boolean(ledger.deletedAt)` always read `false`. One decorator per entity, no migration — the column was always there. ⚠️ Found by a test that deleted something and **looked for the tombstone**; four refusal tests beside it were green throughout, and `qa:p2-ledgers` (17f) called the very method through `refuses(...)` — a check that only exercises the refusal path cannot see what the happy path does |
+| Why does a `/list` 500 with `SequelizeEagerLoadingError`? | it includes an alias the model never declared — `AccLedgerService.findAll` asked for `deletedByUser`, and `acc_ledgers`/`acc_groups` carry `deletedAt` and **no `deletedBy`** (who deleted a ledger is the audit trail's answer; the column would be a migration plus an edge in `company-hard-delete-order.const.ts`, since `users.deletedBy` is RESTRICT). It answered **every** call with a 500 from P2b‑3b to P3d, because nothing called it: **an endpoint nothing calls is an endpoint nobody has run**, and a `@SharedRead()` feed is the shape that acquires callers all at once |
+| Why is this voucher number not a link? | its posting has no voucher screen — seven of the ten `journal_entries.sourceType` values (both opening balances, payroll and its disbursement, an import, closing stock, an account seed). `drillRoute` answers `null` and the row says so, because a guessed URL is an NG04002 with no `**` route to catch it |
+| Why does a funds card open the group every bank account shares? | `TrxAccountService.getFundsSummary` answers `accGroupId` — the `acc_groups` row the instrument's **ledger** hangs under — because the Group Book takes a tree id since P3c‑1. It is deliberately **wider** than the `trxGroupId` it replaced, which named the per-instrument backing group `trx_accounts` auto-creates (F5, F16) and so opened one account's own statement. The per-account drill is P3a's Ledger report, whose **screen landed in P3d‑1** — the widening stays (a funds card is about the group), and the account's own history is one click further in, from the Group Book's or a statement's ledger row |
+| Why does a ledger's monthly summary show a month nothing happened in? | deliberately — `monthBucketsBetween` in `src/const/ledger-report.const.ts`. The balance a month closes at is a fact about that month whether or not anything moved, and dropping the empty rows turns a balance history into a list of events (Tally does the same). ⚠️ A **stated** period bound is honoured; an omitted one is clamped to the ledger's own first and last posting, because `ReportsService` answers an omitted `from` with `1900-01-01`. Past `MAX_MONTH_BUCKETS` the report **refuses naming the limit** rather than truncating |
+| Which side does a report print this balance on, and what does it call the voucher? | `src/const/ledger-report.const.ts` `presentFigures` and `voucherNoFor` — **one definition each**. Both were local to `ReportsService` (`asRow`, and a private `voucherNo`), which now delegates. `journal_entries` names a document by a `sourceType`/`sourceId` pair rather than a foreign key (§4.9 rule 2), so `voucherNoFor` **is** the number and every report that prints one has to agree about it |
+| What goes in a Ledger report's Particulars column? | `particularsForCount` — the contra ledger's name when there is exactly one, `(as per details)` when there are several. ⚠️ Driven by a `COUNT(DISTINCT …)`, **never a `GROUP_CONCAT`**: that truncates at `group_concat_max_len` silently, so a voucher with many contra ledgers comes back looking like one and prints that single name as the whole other side of the entry |
+| Where is the account-group subtree roll-up defined? | `src/const/ledger-report.const.ts` `rollUpByPath` — **one** definition, read by `groupedTrialBalance` and by `groupSummary`. It is where BUG-0023's trailing-slash argument is true (`/1/7/` must not collect `/1/70/`), so don't write `path + '%'` at a call site |
+| Where does a ledger the DATA IMPORT creates land? | `src/const/import/import-group-tree.const.ts` (the plan + `sourcePlacementApplies`) → `ImportCommitService.commitGroupTree` / `.placeLedgerForHead` → `ledger-resolution.ts` `provisionLedgerForHead` (P2b‑3c). Where the **source** filed it, for a plain account head only. ⚠️ A **party** ledger and an **instrument** ledger are deliberately not placed from the source: the four party-side reads match the control group *exactly* (`PARTY_SIDE_ACC_GROUP_KEY`), so a party parented one level down is invisible to all four, and an instrument's group comes from its `AccountType` and is a **system** ledger `describeLedgerMoveBlock` refuses to move. Widening those four reads to the subtree is P3d's |
+| Why does the import MOVE a ledger it just asked to create? | `TrxGroupService.create` posts the head's opening balance before it returns, and that posting provisions the ledger through `resolveOrCreateLedger` on the way — so a create-only placement is a silent no-op (P2b‑3c). The move is presentation-neutral by construction (`legacyTrxGroupId` is unchanged) and is put to `describeLedgerMoveBlock` anyway, and it is only correct because the head was created **in the same transaction**: a ledger somebody has since re-filed is a decision, and an import does not restate decisions already taken |
+| Why is a ledger sitting in Suspense A/c? | it should not be, unless its legacy head genuinely has no `AccountNature`. `Suspense A/c` is reachable only as `fallbackGroupForNature`'s `default` arm, and both callers used to ask for `trx_natures.name` (`'Assets'`) where the rule switches on the enum (`'Asset'`) — so all 33 fallback-placed ledgers went there. Fixed in `ledger-resolution.ts` and `acc-ledger-seed.ts`; repaired by `20260828500000-ledger-nature-fallback-repair`; censused by `qa-p2-ledgers` (4c) |
+| What happens when a party with no ledger is posted to for the first time? | `src/services/ledger-resolution.ts` `resolveOrCreateLedger` provisions one, **inside the posting transaction**, so it commits with the entry that needed it or rolls back with it. Its side comes from the **control head the posting is on** — not `derivePartySide`'s no-activity default, because at migration time there was a history to weigh and a human to review it (`party_ledger_plan`) and here there is neither, but there IS better information than a default. Refusing to post for want of a row the engine can create would be a regression, not a safety property |
+| Where is a Contra / Payment / Receipt / Journal typed? | `client-front` `components/admin/transaction/vouchers/voucher-entry/` — `/transaction/**voucher**/<type>/new` (singular; the plural is the lists). P4b; it replaced three components and deleted them |
+| Why did clicking another voucher type close the popup and jump to a full page? | it no longer does — `src/utils/voucher-dialog.util.ts` + `VoucherFormDialogService` (2026-09-01). A type switch inside a **dialog** closes with `{ switchTo }` and the service reopens the next type in its place; only the **routed** host still navigates, where each type is its own route config carrying its own permission key. ⚠️ The close is not a save, so `UnsavedChangesService` still asks about a dirty voucher — the dialog half of what `pendingChangesGuard` does routed. Gate `npm run qa:money` (`voucher-dialog-switch.ui.spec.ts`) |
+| Where is a Sales / Purchase / Debit Note / Credit Note typed? | the **same** surface since P4c — `/transaction/voucher/<type>/new` — but a different component: `vouchers/trx/trx-add-edit/`, re-hosted and otherwise untouched. `entrySurfaceFor()` in `utils/voucher-entry.util.ts` is the one answer to which surface a type is on; don't write `/transaction/voucher` at a call site |
+| Where is a Purchase Order / Sales Order / Delivery Note typed? | the same surface since **P4d**, on the same component as the item four — a Workflow Document IS the item grid, under a different invariant. Reached by `Ctrl+F8`/`Ctrl+F9`/`Alt+F8`/`Alt+F9`, or from the type bar's **overflow**. ⚠️ **Quotation and Purchase Requisition are gone from the UI** (2026-09-01) — neither is a Tally voucher type; their `PostingVoucherKind` members stay, so documents already raised still post and print |
+| Why is a Purchase Order not drawn as a Dr/Cr grid? | `loadFor` in `voucher-entry.routes.ts` asks `isAccountingEntry`, not `isItemEntry` — the Dr/Cr grid hosts a closed set of four and everything else on the surface is the item form. Asked the other way round, every Workflow Document renders two rows whose totals are both zero (F6) |
+| Why does this voucher's title bar say "→ Receipt Note"? | `TrxAddEditComponent.convertsIntoLabel` (P4d) — the Workflow Document mode's invariant made visible, since a document with the item grid and neither of its guarantees otherwise reads as an invoice that lost its totals. It reads `nextVisibleInFlow`, so it names the stage **this company** converts into rather than the one `DOCUMENT_FLOW_NEXT` names |
+| Why isn't Purchase Order a button on the voucher type bar? | it is, behind the **overflow** — twelve buttons is not a row of keys, so the row is the eight that post and the four Order Vouchers sit in one menu (P4d). The menu is filtered by `hiddenTransactionMenus` |
+| Why does the voucher type bar look identical on two different screens? | it IS one — `components/shared/voucher-type-bar/`, rendered by both entry components (P4c). Presentational: it emits the type and each host navigates, which is what keeps a switch a navigation through `pendingChangesGuard` |
+| Why does a brand-new voucher ask "Discard unsaved changes?" | it should not — `app-ledger-picker`'s `preselectDefault` restores pristine/untouched after applying the seeded head (P4c). ⚠️ Any programmatic write through a `ControlValueAccessor`'s `onChange` marks the control dirty **and** touched: Angular cannot tell it from a keystroke, so a component applying a default has to say so |
+| How do I type a service bill with no stock? | `Ctrl+H` on Sales, Purchase or either note — P4e. ⚠️ The old answer here said an Accounting Invoice is *not representable*; that was measured and is wrong. See the row below |
+| Why does an Accounting Invoice print "Sub Total 0.00"? | it no longer does — `PrintService.bodySubTotal` (P4e‑2). `trx.totalAmount` is the **item** net and is zero on such a voucher, whose money is in `chargesTotal`, so six templates printed an invoice that did not add up. `PrintService.allocationRows` / `.footerCharges` are the other half: the templates iterate `trxItem`, so the document printed **no body** at all, and a charge left in the footer as well would have printed twice |
+| What IS an Accounting Invoice in this schema? | **ledger allocation rows** — `trx_charges`, whose name is residue of the only job it used to have. `resolveLegs` expands them one journal line per row onto each row's own ledger, and nothing constrains a row's head to a charge head (`charges[].groupId` is checked for ownership only). `src/const/voucher-entry.const.ts` `InvoiceBodyMode` is the rule; `invoiceBodyOf` reads the ROWS, because a stored body mode is a second statement that can disagree with them |
+| Which mode is this voucher type entered in? | `client-back/src/const/voucher-entry.const.ts` → `ENTRY_MODE_BY_TYPE`, mirrored in `client-front/src/utils/voucher-entry.util.ts` and compared by `check-mirrors.js` check 11. Three: **accounting** (the Dr/Cr grid), **item** (`trx-add-edit`), **workflow-document** (the six upstream documents — F6, decided 2026-08-29, **built P4d**). ⚠️ The last one's invariant is the conversion chain, never a balance, and it is **not** a `Ctrl+H` destination; its spec asserts the set against `buildLegs` returning no legs rather than against a second list. ⚠️⚠️ It needed **no third component** — the mode is an invariant, not a screen |
+| Which rows does a voucher's Dr/Cr grid draw? | `accountingRowPlan` in the same file — **`buildLegs`, projected**, so the screen and the ledger cannot disagree. A leg role with no row kind mapped throws at first render |
+| Why is a Payment's head not on the grid? | it is not a leg — `postPaymentReceipt` reads `trxGroupId` only for a Journal, and the head appears in a line of its own voucher on 0 of 2,862 posted payments and receipts. It **classifies** the voucher (the register prints it as `groupName`) and sits beside the party (P4b) |
+| Which voucher does this function key mean? | `client-front/src/utils/voucher-entry.util.ts` `VOUCHER_SHORTCUTS` — §2.2's table, read by the entry screen AND `TransactionLayoutComponent`. ⚠️ Bare **F4 is Contra**, not "focus the head" |
+| Which ledgers may this voucher field offer? | `client-back/src/const/voucher-head-scope.const.ts` `postableNaturesFor` (P4a) — the group's **nature**, never `trx_groups.groupFor`, which is F4. ⚠️ It governs what is OFFERED and refuses nothing: a voucher already posted to a head outside its context's natures must still open and re-post |
+| Why did my head picker stop pre-filling? | `AccLedgerService.defaultHeadFor` found **two** heads for the context's `groupFor` and refused to guess. ⚠️ It filters `isSystem: false` because `createBackingHead` files every P3c‑2 twin under `groupFor: 'journal'` — without it, one ledger created on the Chart of Accounts screen killed the simple journal's default |
+| Why is a voucher picker's option id NOT the ledger's id? | `client-back/src/const/voucher-head-option.const.ts` — the picker shows the ledger and binds its `legacyTrxGroupId`, because every voucher DTO states a head and `ledgerId` is on none of them (D6). ⚠️ At D9 the two swap and every consumer moves in one commit. `legacyHeadOption` is the other half: a head with **no** ledger (two live `trx_payment_receipts` rows on a control head) still renders as the value a voucher holds — an offer-time rule applied to a hydration is a data-loss bug |
+| Why does `Ctrl+S` / `Alt+C` do nothing while a dropdown is open? | it no longer does — `app-select.onSearchKeydown` used to `stopPropagation()` on **every** key, and the two chords are document-level listeners. It now lets `Alt`/`Ctrl`/`Meta` combinations through, because mat-select's type-to-navigate only cares about unmodified printable keys (P4a). ⚠️ `app-ledger-picker` still needs a **second**, document-level listener: the panel is a `.cdk-overlay-pane` on `<body>`, so a host listener cannot see a key pressed in it |
+| Where does a person edit the chart of accounts on SCREEN? | `client-front` `components/admin/transaction/ledgers/` — `/transaction/ledgers`, the `acc_groups` tree with the selected group's `acc_ledgers` beside it (P3d‑2). ⚠️ **Not** `/transaction/chart-of-accounts`, which is the instrument master (`trx_accounts`) until D9. Masters ▸ Nature retired with this screen; Masters ▸ Transaction Group did **not**, because it is still the only door to a legacy head's opening balance and its `groupFor` |
+| Why does a refused menu item on that screen still click? | deliberately — Material renders **no tooltip on a disabled item**, so greying it out is the *"dead button"* P3d‑2's gate names, and the sentence is the deliverable. The click never leaves the browser, so nothing is offered that the server will refuse (§9). `client-front/src/utils/ledger-rules.util.ts` is the mirror; `check-mirrors.js` check 10 compares its **wording** against the server's |
+| Why does the Chart of Accounts screen let a move go that it knows might fail? | because it does **not** know: `describeLedgerMoveBlock`'s and `describeGroupReparentBlock`'s second arms turn on whether anything has **posted**, which is on no payload that screen reads. `hasPostings` is optional in the mirror and an absent one means *"not known here"* — the dialog states what will happen, the request goes, and the server refuses in the same words. A guessed refusal that is sometimes wrong teaches an operator to ignore refusals |
+| Where is the Tally-shaped chart of accounts edited? | `src/services/acc-group.service.ts` (the tree) and `acc-ledger.service.ts` (the leaf), both under the **one** permission key `acc-ledgers`. Creation landed at P3c‑2 (2026-08-29) — ⚠️ **`create` writes TWO rows**, see the row below. `openingBalance` is still absent: D2 copied each legacy head's figure onto its ledger and the *entry* is still posted from `trx_groups`, so accepting one here would post it twice with the trial balance balancing throughout |
+| Why does creating a ledger also create a `trx_groups` row? | because `journal_lines.trxGroupId` is `NOT NULL` behind a real FK until D9, and every voucher picker in the product still binds a `trx_groups` id (`app-ledger-picker` shows the LEDGER and submits its `legacyTrxGroupId` — P4a). A ledger with no legacy head renders on the Trial Balance at nil and there is **no way to post a rupee to it** — a master nobody can use. `AccLedgerService.createBackingHead` writes the twin, linked by `legacyTrxGroupId` (D5's third precedence rule, so a line on that head resolves back to this ledger), `isSystem` so neither half can be renamed or deleted on its own, and with no `systemKey` so it cannot impersonate a statutory head. Same shape `trx_accounts` has used per instrument since before this programme (F5, F16). ⚠️ **The rename, restore and delete all carry the twin** (`carryTwin`, and only when `origin === user`): an orphaned legacy head is still in every picker, and posting to one whose ledger is gone does not fail — `resolveOrCreateLedger` silently provisions a fresh ledger for it |
+| May a ledger be created under THIS group? | `src/const/ledger.const.ts` `describeLedgerPlacementBlock` (`groupAcceptsLedgers` is the same rule as a predicate, for the picker). Two refusals: the two **party control groups** — a debtor/creditor ledger IS a party here (D3), so a hand-made one carries no `partyUserId` and its balance appears in no receivables report at all — and a group with **no account nature**, which has no side of the books to report on and no `trx_natures` row for its twin. ⚠️ It asks what is being placed, not only where: a ledger that already is a party belongs under a control group, and moving a posted one across the two is refused by `describeLedgerMoveBlock`, whose message names the actual problem. Deliberately **not** folded into that rule — the import files a ledger where the customer's own Tally filed it (`placeLedgerForHead`) |
+| May this group be moved / deleted, and may this ledger be moved? | `src/const/ledger.const.ts` `describeGroupReparentBlock` · `describeGroupDeleteBlock` · `describeLedgerMoveBlock`. In each, read the **permissive** half first: a cross-nature move of an EMPTY subtree is allowed, and a posted ledger may be re-filed **within its own nature**. ⚠️ A ledger move also passes `describeLedgerPlacementBlock` (the row above), because `create` and `move` are the two doors a person comes in through and they must not answer differently about the same destination |
+| How does the posting engine find the CGST head? | `PostingService.resolveStatutoryLedger(key, tx)` → `{ trxGroupId, ledgerId }`, resolved by `acc_ledgers.systemKey` and **not** through D2's group correspondence — which, when broken, silently created a duplicate ledger and posted a company's output IGST into it. ⚠️ The two **control** heads are refused, not answered: after D3 they hold one ledger per party and have none of their own, so a party leg keeps `resolveSystemGroup` for the head and lets `persistLines` resolve the ledger from the party |
+| Which ledger does a VOUCHER's head name, and who stamps it? | `src/const/ledger.const.ts` `voucherHeadRefs` — D5's rule projected, not a second one — resolved by `src/services/ledger-resolution.ts` `resolveLedgersForHeads` and stamped in the **one writer of each of the four tables**. ⚠️ It is on **no DTO**: a declared field the server owns sails past `whitelist` (§12, BUG-0030), and these four columns are BUG-0025's own |
+| Why can't I post to Customer Dues / Supplier Dues? | `ledger.const.ts` `controlHeadNotPostable` — the two control heads became **groups** (D3 hangs one ledger per party under each), so a leg naming one without a party is a posting bug. Refused rather than provisioned, because provisioning resurrects the head as a leaf beside the ledgers that replaced it |
+| Is this `trx_groups` row one of the two that became a group? | `tally-chart.const.ts` `isControlHead` — extracted at D6 from the four places that had written the same three lines out |
+| Which ledger does an existing journal line belong to? | `src/const/ledger.const.ts` `resolveLedgerForLine` — §4.1 D5's precedence, in one place so the dry-run gate and the backfill cannot disagree. ⚠️ Step 1 requires the line to sit on a **control head**, not merely to carry a `partyUserId`: that column is a denormalised aid, and without the condition a sales line carrying the customer's id would post the **revenue** into the customer's ledger with the Trial Balance still balancing |
+| Why does `LedgerResolution` return `via` and `failure` instead of being a union? | this repo compiles with `strictNullChecks: false`, and under it a union discriminated on `ledgerId: number \| null` does **not** narrow — nor does one discriminated on an added `ok: true \| false`. Both were written, both failed to compile at the obvious call site. A result type whose callers need `'failure' in x` to satisfy the compiler is one that will be got wrong |
+| Which side of the books does a party's ledger hang under, and who decided? | `party_ledger_plan` — **the table is the decision, the rule is only a proposal** (§4.1 D3, R8). There is no declared role to parent a party by: `UserKind` is `staff \| party \| system`, `company_parties` has no such column, and `PartyDirection` is decided per voucher and stored nowhere. `derivePartySide` proposes from **gross** volume, `scripts/plan-party-ledgers.ts` writes it, and every row is overridable — deriving it silently was refused as BUG-0034's shape, where the first reader would have been a customer whose creditors figure dropped overnight |
+| How much does merging a party's two positions actually move? | `displacedBalance` in `ledger.const.ts` — the **signed** balance of the head the party is *not* parented to, which leaves it in full. ⚠️ **Not `min(\|debtorNet\|,\|creditorNet\|)`**, which is what the plan said until 2026-08-28 and which under-counts by ₹94 lakh: parentage is by **gross**, so the side that moves can be the one with the larger net, and 13 parties displace a balance while not being dual-role at all. `controlHeadDelta` returns the pair, and the two are exactly opposite — which is why the Balance Sheet still balances and why "does it still balance?" is not a substitute for a figure-for-figure diff |
+| Why did editing `chosenSide` in `party_ledger_plan` break a group total? | `displacedBalance` and `movesControlHead` are **derived from the side** and stored beside it — BUG-0034's shape a third time. Before D3 the row is a proposal and `plan-party-ledgers --apply` refreshes it; **after** D3 it is the record of a movement that happened and is deliberately frozen, so the decision lives in the ledger's `groupId` and `chosenSide` is only a description of it. `qa-p2-ledgers` checks (2b) and (2c) name both halves |
+| Why did a company with no parties fail the ledger seed? | it did not, after 2026-08-28 — but the first guard compared the plan row count against **zero** rather than against the population, and refused company 2, which has neither a roster nor a posting. "No plan" and "no parties" are different states |
+| Why did a `LIKE` on a group path collect a neighbour's balance? | the terminator was dropped — `'/1/7%'` matches `/1/70/`. Build with `buildPath` and match with `subtreePrefix` (`src/const/materialised-path.const.ts`); never concatenate `'%'` at a call site (BUG-0023's shape) |
+| What is a licence switch CALLED — `product` or `productEnabled`? | the column is `productEnabled`, the wire/API capability is `product`; `admin-back` `COMPANY_FEATURE_COLUMN` maps between them and `admin-front` `FEATURE_WIRE_KEY` is the console's half (BUG-0066, §5) |
+
+---
+
+## 15. Keeping this file current
+
+Update this file in the **same commit** as the change when you:
+
+- add or remove a service, port, or database;
+- change the guard chain, its order, or any error code in §4.7;
+- add a permission key, licensed module, or admin-only key;
+- change a cross-service contract (`/internal/*`, `/api/v1/*`, file categories,
+  the `ExtractedInvoice` schema);
+- change a UI/UX standard (breakpoints, date format, Material defaults);
+- add or remove a CI guard or a required env var;
+- close one of the gaps in §13 (delete the entry — don't leave it stale).
+
+Keep it accurate over exhaustive: this file is the map, and the doc comments in
+the source are the territory. When they disagree, **the source wins** — and the
+map should be fixed.

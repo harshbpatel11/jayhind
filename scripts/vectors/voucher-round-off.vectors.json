@@ -1,0 +1,53 @@
+{
+  "_comment": [
+    "Vectors for the whole-bill / per-line ROUND OFF rule and the four-decimal",
+    "voucher RATE, run against BOTH implementations by scripts/check-mirrors.js",
+    "check 13.",
+    "",
+    "The table lives in THIS repo rather than in either submodule for the reason",
+    "the voucher-lifecycle table does: two copies of a vector file in two",
+    "independent git repos is the same mirror problem one level up.",
+    "",
+    "Each row carries its own `want`, so a rule both sides forgot TOGETHER is",
+    "caught too — a two-way parity check passes that, which is why every",
+    "*-rules.ts module in qa-artifacts is a restatement rather than an import."
+  ],
+
+  "adjustment": [
+    { "base": 2762935.78, "mode": "none",     "want": 0,     "why": "no mode, no adjustment — the one that must never move a total" },
+    { "base": 2762935.78, "mode": "nearest1", "want": 0.22,  "why": "rounds UP" },
+    { "base": 2762935.21, "mode": "nearest1", "want": -0.21, "why": "rounds DOWN — the ordinary case, and why the charge amount is signed" },
+    { "base": 1234.4,     "mode": "nearest1", "want": -0.4,  "why": "down to the rupee" },
+    { "base": 1234.4,     "mode": "nearest5", "want": 0.6,   "why": "up to the five" },
+    { "base": 1234.4,     "mode": "nearest10","want": -4.4,  "why": "down to the ten" },
+    { "base": 1230,       "mode": "nearest10","want": 0,     "why": "already on the step" },
+    { "base": 0,          "mode": "nearest1", "want": 0,     "why": "an empty voucher rounds to nothing" },
+    { "base": -1234.4,    "mode": "nearest1", "want": 0.4,   "why": "a credit note rounds too" },
+    { "base": 99.995,     "mode": "nearest1", "want": 0,     "why": "a sub-paisa base. ⚠️ This row does NOT discriminate the paise-first rounding — float truncation puts both orderings on 0 — which is why the two below it exist; it is kept because it pins the answer at a base that LOOKS like it should move" },
+    { "base": 0.4996,     "mode": "nearest1", "want": 0.5,   "why": "⚠️ the base is rounded to PAISE FIRST, so 0.4996 is 0.50 and JS rounds that half UP to 1. Drop the round2 and the base rounds DOWN to 0 instead, flipping the adjustment to −0.5 — this row is what catches that ordering being lost on BOTH sides at once" },
+    { "base": 2.4996,     "mode": "nearest5", "want": 2.5,   "why": "the same ordering at a five-rupee step, where the sign flip is a whole 5 apart" },
+    { "base": 2.5,        "mode": "nearest5", "want": 2.5,   "why": "exactly half a step — both sides must break the tie the same way" }
+  ],
+
+  "step": [
+    { "mode": "none", "want": 0 },
+    { "mode": "nearest1", "want": 1 },
+    { "mode": "nearest5", "want": 5 },
+    { "mode": "nearest10", "want": 10 },
+    { "mode": "nearest100", "want": 0, "why": "an unrecognised mode rounds to nothing rather than throwing" }
+  ],
+
+  "lineAmount": [
+    { "net": 236488266.99, "want": 236488267, "why": "the operator's own line" },
+    { "net": 2341471.2,    "want": 2341471 },
+    { "net": 0.5,          "want": 1,         "why": "the .5 tie, which JS rounds toward +∞" },
+    { "net": 0,            "want": 0 }
+  ],
+
+  "rateFromAmount": [
+    { "amount": 236488267, "quantity": 101, "want": 2341467.9901, "why": "back-solving the operator's own line — note the rate is NOT the round figure it looks like it should be, which is exactly why two decimals could not express it" },
+    { "amount": 2762935.78, "quantity": 1,  "want": 2762935.78 },
+    { "amount": 2762935.78, "quantity": 3,  "want": 920978.5933, "why": "a rate that needs all four decimals" },
+    { "amount": 1000, "quantity": 0, "want": 0, "why": "no quantity to divide by — 0, never Infinity, which would reach the DTO as a number and be stored" }
+  ]
+}

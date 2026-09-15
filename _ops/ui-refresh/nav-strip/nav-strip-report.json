@@ -1,0 +1,1285 @@
+{
+  "startedAt": "2026-08-18T12:34:20.740Z",
+  "probes": {
+    "dashboard/480/light": {
+      "rail": {
+        "present": true,
+        "width": 0,
+        "itemCount": 11,
+        "labels": [
+          "Dashboard",
+          "Company",
+          "Users",
+          "Products",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export",
+          "Audit Log",
+          "People"
+        ],
+        "fullNames": [
+          "Dashboard",
+          "Company Configuration",
+          "Users & Roles",
+          "Product & Service",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export / Offboarding",
+          "Audit Log",
+          "Human Resources"
+        ],
+        "labelsClipped": 0,
+        "activeLabel": "Dashboard",
+        "activeIconAxes": "\"FILL\" 1, \"GRAD\" 0, \"opsz\" 24, \"wght\" 500",
+        "activeBg": "rgb(230, 238, 251)",
+        "idleColor": "rgb(68, 71, 78)"
+      },
+      "panel": {
+        "present": true,
+        "width": 0,
+        "visible": false,
+        "title": "Dashboard",
+        "titleClipped": false,
+        "subtitle": "Your day, in one place",
+        "groupLabels": [
+          "On this page"
+        ],
+        "linkCount": 5,
+        "linksClipped": 0,
+        "links": [
+          "Business overview",
+          "Needs your attention",
+          "Sales vs purchases",
+          "Top products & customers",
+          "System health"
+        ],
+        "activeLink": "Business overview",
+        "userPanel": true
+      },
+      "strip": {
+        "present": true,
+        "tracks": 1,
+        "cells": 8,
+        "labels": [
+          "Cash & Bank",
+          "Receivable",
+          "Payable",
+          "Approvals",
+          "Stock Value",
+          "Stock Alerts",
+          "Net Profit",
+          "GST Liability"
+        ],
+        "valueFont": "\"IBM Plex Mono\", ui-monospace,",
+        "valueNumeric": "tabular-nums",
+        "firstValue": "₹0",
+        "cellBg": "rgb(250, 249, 253)",
+        "labelsClipped": [],
+        "valuesClipped": [],
+        "dividerBg": "rgb(196, 198, 208)"
+      },
+      "stripContainerWidth": 416,
+      "sidenavWidth": "288px",
+      "contentMarginLeft": "0px",
+      "horizontalOverflow": false
+    },
+    "dashboard/480/dark": {
+      "rail": {
+        "present": true,
+        "width": 0,
+        "itemCount": 11,
+        "labels": [
+          "Dashboard",
+          "Company",
+          "Users",
+          "Products",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export",
+          "Audit Log",
+          "People"
+        ],
+        "fullNames": [
+          "Dashboard",
+          "Company Configuration",
+          "Users & Roles",
+          "Product & Service",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export / Offboarding",
+          "Audit Log",
+          "Human Resources"
+        ],
+        "labelsClipped": 0,
+        "activeLabel": "Dashboard",
+        "activeIconAxes": "\"FILL\" 1, \"GRAD\" 0, \"opsz\" 24, \"wght\" 500",
+        "activeBg": "rgb(15, 35, 64)",
+        "idleColor": "rgb(162, 163, 173)"
+      },
+      "panel": {
+        "present": true,
+        "width": 0,
+        "visible": false,
+        "title": "Dashboard",
+        "titleClipped": false,
+        "subtitle": "Your day, in one place",
+        "groupLabels": [
+          "On this page"
+        ],
+        "linkCount": 5,
+        "linksClipped": 0,
+        "links": [
+          "Business overview",
+          "Needs your attention",
+          "Sales vs purchases",
+          "Top products & customers",
+          "System health"
+        ],
+        "activeLink": "Business overview",
+        "userPanel": true
+      },
+      "strip": {
+        "present": true,
+        "tracks": 1,
+        "cells": 8,
+        "labels": [
+          "Cash & Bank",
+          "Receivable",
+          "Payable",
+          "Approvals",
+          "Stock Value",
+          "Stock Alerts",
+          "Net Profit",
+          "GST Liability"
+        ],
+        "valueFont": "\"IBM Plex Mono\", ui-monospace,",
+        "valueNumeric": "tabular-nums",
+        "firstValue": "₹0",
+        "cellBg": "rgb(18, 19, 22)",
+        "labelsClipped": [],
+        "valuesClipped": [],
+        "dividerBg": "rgb(68, 71, 78)"
+      },
+      "stripContainerWidth": 416,
+      "sidenavWidth": "288px",
+      "contentMarginLeft": "0px",
+      "horizontalOverflow": false
+    },
+    "dashboard/720/light": {
+      "rail": {
+        "present": true,
+        "width": 72,
+        "itemCount": 11,
+        "labels": [
+          "Dashboard",
+          "Company",
+          "Users",
+          "Products",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export",
+          "Audit Log",
+          "People"
+        ],
+        "fullNames": [
+          "Dashboard",
+          "Company Configuration",
+          "Users & Roles",
+          "Product & Service",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export / Offboarding",
+          "Audit Log",
+          "Human Resources"
+        ],
+        "labelsClipped": 0,
+        "activeLabel": "Dashboard",
+        "activeIconAxes": "\"FILL\" 1, \"GRAD\" 0, \"opsz\" 24, \"wght\" 500",
+        "activeBg": "rgb(230, 238, 251)",
+        "idleColor": "rgb(68, 71, 78)"
+      },
+      "panel": {
+        "present": true,
+        "width": 216,
+        "visible": true,
+        "title": "Dashboard",
+        "titleClipped": false,
+        "subtitle": "Your day, in one place",
+        "groupLabels": [
+          "On this page"
+        ],
+        "linkCount": 5,
+        "linksClipped": 0,
+        "links": [
+          "Business overview",
+          "Needs your attention",
+          "Sales vs purchases",
+          "Top products & customers",
+          "System health"
+        ],
+        "activeLink": "Business overview",
+        "userPanel": true
+      },
+      "strip": {
+        "present": true,
+        "tracks": 2,
+        "cells": 8,
+        "labels": [
+          "Cash & Bank",
+          "Receivable",
+          "Payable",
+          "Approvals",
+          "Stock Value",
+          "Stock Alerts",
+          "Net Profit",
+          "GST Liability"
+        ],
+        "valueFont": "\"IBM Plex Mono\", ui-monospace,",
+        "valueNumeric": "tabular-nums",
+        "firstValue": "₹0",
+        "cellBg": "rgb(250, 249, 253)",
+        "labelsClipped": [],
+        "valuesClipped": [],
+        "dividerBg": "rgb(196, 198, 208)"
+      },
+      "stripContainerWidth": 584,
+      "sidenavWidth": "72px",
+      "contentMarginLeft": "72px",
+      "horizontalOverflow": false
+    },
+    "dashboard/720/dark": {
+      "rail": {
+        "present": true,
+        "width": 72,
+        "itemCount": 11,
+        "labels": [
+          "Dashboard",
+          "Company",
+          "Users",
+          "Products",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export",
+          "Audit Log",
+          "People"
+        ],
+        "fullNames": [
+          "Dashboard",
+          "Company Configuration",
+          "Users & Roles",
+          "Product & Service",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export / Offboarding",
+          "Audit Log",
+          "Human Resources"
+        ],
+        "labelsClipped": 0,
+        "activeLabel": "Dashboard",
+        "activeIconAxes": "\"FILL\" 1, \"GRAD\" 0, \"opsz\" 24, \"wght\" 500",
+        "activeBg": "rgb(15, 35, 64)",
+        "idleColor": "rgb(162, 163, 173)"
+      },
+      "panel": {
+        "present": true,
+        "width": 216,
+        "visible": true,
+        "title": "Dashboard",
+        "titleClipped": false,
+        "subtitle": "Your day, in one place",
+        "groupLabels": [
+          "On this page"
+        ],
+        "linkCount": 5,
+        "linksClipped": 0,
+        "links": [
+          "Business overview",
+          "Needs your attention",
+          "Sales vs purchases",
+          "Top products & customers",
+          "System health"
+        ],
+        "activeLink": "Business overview",
+        "userPanel": true
+      },
+      "strip": {
+        "present": true,
+        "tracks": 2,
+        "cells": 8,
+        "labels": [
+          "Cash & Bank",
+          "Receivable",
+          "Payable",
+          "Approvals",
+          "Stock Value",
+          "Stock Alerts",
+          "Net Profit",
+          "GST Liability"
+        ],
+        "valueFont": "\"IBM Plex Mono\", ui-monospace,",
+        "valueNumeric": "tabular-nums",
+        "firstValue": "₹0",
+        "cellBg": "rgb(18, 19, 22)",
+        "labelsClipped": [],
+        "valuesClipped": [],
+        "dividerBg": "rgb(68, 71, 78)"
+      },
+      "stripContainerWidth": 584,
+      "sidenavWidth": "72px",
+      "contentMarginLeft": "72px",
+      "horizontalOverflow": false
+    },
+    "dashboard/1024/light": {
+      "rail": {
+        "present": true,
+        "width": 72,
+        "itemCount": 11,
+        "labels": [
+          "Dashboard",
+          "Company",
+          "Users",
+          "Products",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export",
+          "Audit Log",
+          "People"
+        ],
+        "fullNames": [
+          "Dashboard",
+          "Company Configuration",
+          "Users & Roles",
+          "Product & Service",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export / Offboarding",
+          "Audit Log",
+          "Human Resources"
+        ],
+        "labelsClipped": 0,
+        "activeLabel": "Dashboard",
+        "activeIconAxes": "\"FILL\" 1, \"GRAD\" 0, \"opsz\" 24, \"wght\" 500",
+        "activeBg": "rgb(230, 238, 251)",
+        "idleColor": "rgb(68, 71, 78)"
+      },
+      "panel": {
+        "present": true,
+        "width": 216,
+        "visible": true,
+        "title": "Dashboard",
+        "titleClipped": false,
+        "subtitle": "Your day, in one place",
+        "groupLabels": [
+          "On this page"
+        ],
+        "linkCount": 5,
+        "linksClipped": 0,
+        "links": [
+          "Business overview",
+          "Needs your attention",
+          "Sales vs purchases",
+          "Top products & customers",
+          "System health"
+        ],
+        "activeLink": "Business overview",
+        "userPanel": true
+      },
+      "strip": {
+        "present": true,
+        "tracks": 2,
+        "cells": 8,
+        "labels": [
+          "Cash & Bank",
+          "Receivable",
+          "Payable",
+          "Approvals",
+          "Stock Value",
+          "Stock Alerts",
+          "Net Profit",
+          "GST Liability"
+        ],
+        "valueFont": "\"IBM Plex Mono\", ui-monospace,",
+        "valueNumeric": "tabular-nums",
+        "firstValue": "₹0",
+        "cellBg": "rgb(250, 249, 253)",
+        "labelsClipped": [],
+        "valuesClipped": [],
+        "dividerBg": "rgb(196, 198, 208)"
+      },
+      "stripContainerWidth": 672,
+      "sidenavWidth": "288px",
+      "contentMarginLeft": "288px",
+      "horizontalOverflow": false
+    },
+    "dashboard/1024/dark": {
+      "rail": {
+        "present": true,
+        "width": 72,
+        "itemCount": 11,
+        "labels": [
+          "Dashboard",
+          "Company",
+          "Users",
+          "Products",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export",
+          "Audit Log",
+          "People"
+        ],
+        "fullNames": [
+          "Dashboard",
+          "Company Configuration",
+          "Users & Roles",
+          "Product & Service",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export / Offboarding",
+          "Audit Log",
+          "Human Resources"
+        ],
+        "labelsClipped": 0,
+        "activeLabel": "Dashboard",
+        "activeIconAxes": "\"FILL\" 1, \"GRAD\" 0, \"opsz\" 24, \"wght\" 500",
+        "activeBg": "rgb(15, 35, 64)",
+        "idleColor": "rgb(162, 163, 173)"
+      },
+      "panel": {
+        "present": true,
+        "width": 216,
+        "visible": true,
+        "title": "Dashboard",
+        "titleClipped": false,
+        "subtitle": "Your day, in one place",
+        "groupLabels": [
+          "On this page"
+        ],
+        "linkCount": 5,
+        "linksClipped": 0,
+        "links": [
+          "Business overview",
+          "Needs your attention",
+          "Sales vs purchases",
+          "Top products & customers",
+          "System health"
+        ],
+        "activeLink": "Business overview",
+        "userPanel": true
+      },
+      "strip": {
+        "present": true,
+        "tracks": 2,
+        "cells": 8,
+        "labels": [
+          "Cash & Bank",
+          "Receivable",
+          "Payable",
+          "Approvals",
+          "Stock Value",
+          "Stock Alerts",
+          "Net Profit",
+          "GST Liability"
+        ],
+        "valueFont": "\"IBM Plex Mono\", ui-monospace,",
+        "valueNumeric": "tabular-nums",
+        "firstValue": "₹0",
+        "cellBg": "rgb(18, 19, 22)",
+        "labelsClipped": [],
+        "valuesClipped": [],
+        "dividerBg": "rgb(68, 71, 78)"
+      },
+      "stripContainerWidth": 672,
+      "sidenavWidth": "288px",
+      "contentMarginLeft": "288px",
+      "horizontalOverflow": false
+    },
+    "dashboard/1440/light": {
+      "rail": {
+        "present": true,
+        "width": 72,
+        "itemCount": 11,
+        "labels": [
+          "Dashboard",
+          "Company",
+          "Users",
+          "Products",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export",
+          "Audit Log",
+          "People"
+        ],
+        "fullNames": [
+          "Dashboard",
+          "Company Configuration",
+          "Users & Roles",
+          "Product & Service",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export / Offboarding",
+          "Audit Log",
+          "Human Resources"
+        ],
+        "labelsClipped": 0,
+        "activeLabel": "Dashboard",
+        "activeIconAxes": "\"FILL\" 1, \"GRAD\" 0, \"opsz\" 24, \"wght\" 500",
+        "activeBg": "rgb(230, 238, 251)",
+        "idleColor": "rgb(68, 71, 78)"
+      },
+      "panel": {
+        "present": true,
+        "width": 216,
+        "visible": true,
+        "title": "Dashboard",
+        "titleClipped": false,
+        "subtitle": "Your day, in one place",
+        "groupLabels": [
+          "On this page"
+        ],
+        "linkCount": 5,
+        "linksClipped": 0,
+        "links": [
+          "Business overview",
+          "Needs your attention",
+          "Sales vs purchases",
+          "Top products & customers",
+          "System health"
+        ],
+        "activeLink": "Business overview",
+        "userPanel": true
+      },
+      "strip": {
+        "present": true,
+        "tracks": 8,
+        "cells": 8,
+        "labels": [
+          "Cash & Bank",
+          "Receivable",
+          "Payable",
+          "Approvals",
+          "Stock Value",
+          "Stock Alerts",
+          "Net Profit",
+          "GST Liability"
+        ],
+        "valueFont": "\"IBM Plex Mono\", ui-monospace,",
+        "valueNumeric": "tabular-nums",
+        "firstValue": "₹0",
+        "cellBg": "rgb(250, 249, 253)",
+        "labelsClipped": [],
+        "valuesClipped": [],
+        "dividerBg": "rgb(196, 198, 208)"
+      },
+      "stripContainerWidth": 1088,
+      "sidenavWidth": "288px",
+      "contentMarginLeft": "288px",
+      "horizontalOverflow": false
+    },
+    "dashboard/1440/dark": {
+      "rail": {
+        "present": true,
+        "width": 72,
+        "itemCount": 11,
+        "labels": [
+          "Dashboard",
+          "Company",
+          "Users",
+          "Products",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export",
+          "Audit Log",
+          "People"
+        ],
+        "fullNames": [
+          "Dashboard",
+          "Company Configuration",
+          "Users & Roles",
+          "Product & Service",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export / Offboarding",
+          "Audit Log",
+          "Human Resources"
+        ],
+        "labelsClipped": 0,
+        "activeLabel": "Dashboard",
+        "activeIconAxes": "\"FILL\" 1, \"GRAD\" 0, \"opsz\" 24, \"wght\" 500",
+        "activeBg": "rgb(15, 35, 64)",
+        "idleColor": "rgb(162, 163, 173)"
+      },
+      "panel": {
+        "present": true,
+        "width": 216,
+        "visible": true,
+        "title": "Dashboard",
+        "titleClipped": false,
+        "subtitle": "Your day, in one place",
+        "groupLabels": [
+          "On this page"
+        ],
+        "linkCount": 5,
+        "linksClipped": 0,
+        "links": [
+          "Business overview",
+          "Needs your attention",
+          "Sales vs purchases",
+          "Top products & customers",
+          "System health"
+        ],
+        "activeLink": "Business overview",
+        "userPanel": true
+      },
+      "strip": {
+        "present": true,
+        "tracks": 8,
+        "cells": 8,
+        "labels": [
+          "Cash & Bank",
+          "Receivable",
+          "Payable",
+          "Approvals",
+          "Stock Value",
+          "Stock Alerts",
+          "Net Profit",
+          "GST Liability"
+        ],
+        "valueFont": "\"IBM Plex Mono\", ui-monospace,",
+        "valueNumeric": "tabular-nums",
+        "firstValue": "₹0",
+        "cellBg": "rgb(18, 19, 22)",
+        "labelsClipped": [],
+        "valuesClipped": [],
+        "dividerBg": "rgb(68, 71, 78)"
+      },
+      "stripContainerWidth": 1088,
+      "sidenavWidth": "288px",
+      "contentMarginLeft": "288px",
+      "horizontalOverflow": false
+    },
+    "module-product/1440/light": {
+      "rail": {
+        "present": true,
+        "width": 72,
+        "itemCount": 11,
+        "labels": [
+          "Dashboard",
+          "Company",
+          "Users",
+          "Products",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export",
+          "Audit Log",
+          "People"
+        ],
+        "fullNames": [
+          "Dashboard",
+          "Company Configuration",
+          "Users & Roles",
+          "Product & Service",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export / Offboarding",
+          "Audit Log",
+          "Human Resources"
+        ],
+        "labelsClipped": 0,
+        "activeLabel": "Products",
+        "activeIconAxes": "\"FILL\" 1, \"GRAD\" 0, \"opsz\" 24, \"wght\" 500",
+        "activeBg": "rgb(230, 238, 251)",
+        "idleColor": "rgb(68, 71, 78)"
+      },
+      "panel": {
+        "present": true,
+        "width": 216,
+        "visible": true,
+        "title": "Product & Service",
+        "titleClipped": false,
+        "subtitle": "Catalogue, stock, pricing & masters",
+        "groupLabels": [
+          "Overview",
+          "Masters",
+          "Product Management",
+          "Stock Conversion",
+          "Product Configuration"
+        ],
+        "linkCount": 16,
+        "linksClipped": 0,
+        "links": [
+          "Dashboard",
+          "Product List",
+          "Service List",
+          "Manufacturer",
+          "Measurement Unit",
+          "Return Policy",
+          "Product Condition",
+          "Product Warranty"
+        ],
+        "activeLink": "Product List",
+        "userPanel": true
+      },
+      "strip": {
+        "present": false
+      },
+      "stripContainerWidth": null,
+      "sidenavWidth": "288px",
+      "contentMarginLeft": "288px",
+      "horizontalOverflow": false
+    },
+    "module-product/1440/dark": {
+      "rail": {
+        "present": true,
+        "width": 72,
+        "itemCount": 11,
+        "labels": [
+          "Dashboard",
+          "Company",
+          "Users",
+          "Products",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export",
+          "Audit Log",
+          "People"
+        ],
+        "fullNames": [
+          "Dashboard",
+          "Company Configuration",
+          "Users & Roles",
+          "Product & Service",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export / Offboarding",
+          "Audit Log",
+          "Human Resources"
+        ],
+        "labelsClipped": 0,
+        "activeLabel": "Products",
+        "activeIconAxes": "\"FILL\" 1, \"GRAD\" 0, \"opsz\" 24, \"wght\" 500",
+        "activeBg": "rgb(15, 35, 64)",
+        "idleColor": "rgb(162, 163, 173)"
+      },
+      "panel": {
+        "present": true,
+        "width": 216,
+        "visible": true,
+        "title": "Product & Service",
+        "titleClipped": false,
+        "subtitle": "Catalogue, stock, pricing & masters",
+        "groupLabels": [
+          "Overview",
+          "Masters",
+          "Product Management",
+          "Stock Conversion",
+          "Product Configuration"
+        ],
+        "linkCount": 16,
+        "linksClipped": 0,
+        "links": [
+          "Dashboard",
+          "Product List",
+          "Service List",
+          "Manufacturer",
+          "Measurement Unit",
+          "Return Policy",
+          "Product Condition",
+          "Product Warranty"
+        ],
+        "activeLink": "Product List",
+        "userPanel": true
+      },
+      "strip": {
+        "present": false
+      },
+      "stripContainerWidth": null,
+      "sidenavWidth": "288px",
+      "contentMarginLeft": "288px",
+      "horizontalOverflow": false
+    },
+    "module-transaction/1440/light": {
+      "rail": {
+        "present": true,
+        "width": 72,
+        "itemCount": 11,
+        "labels": [
+          "Dashboard",
+          "Company",
+          "Users",
+          "Products",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export",
+          "Audit Log",
+          "People"
+        ],
+        "fullNames": [
+          "Dashboard",
+          "Company Configuration",
+          "Users & Roles",
+          "Product & Service",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export / Offboarding",
+          "Audit Log",
+          "Human Resources"
+        ],
+        "labelsClipped": 0,
+        "activeLabel": "Transaction",
+        "activeIconAxes": "\"FILL\" 1, \"GRAD\" 0, \"opsz\" 24, \"wght\" 500",
+        "activeBg": "rgb(230, 238, 251)",
+        "idleColor": "rgb(68, 71, 78)"
+      },
+      "panel": {
+        "present": true,
+        "width": 216,
+        "visible": true,
+        "title": "Transaction",
+        "titleClipped": false,
+        "subtitle": "Vouchers, ledgers, GST & reports",
+        "groupLabels": [
+          "Overview",
+          "Reports",
+          "Masters"
+        ],
+        "linkCount": 26,
+        "linksClipped": 0,
+        "links": [
+          "Dashboard",
+          "Pending Approvals",
+          "Outstanding",
+          "Party Statement",
+          "Dues",
+          "GST Returns",
+          "Chart of Accounts",
+          "Trial Balance"
+        ],
+        "activeLink": "Dashboard",
+        "userPanel": true
+      },
+      "strip": {
+        "present": false
+      },
+      "stripContainerWidth": null,
+      "sidenavWidth": "288px",
+      "contentMarginLeft": "288px",
+      "horizontalOverflow": false
+    },
+    "module-transaction/1440/dark": {
+      "rail": {
+        "present": true,
+        "width": 72,
+        "itemCount": 11,
+        "labels": [
+          "Dashboard",
+          "Company",
+          "Users",
+          "Products",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export",
+          "Audit Log",
+          "People"
+        ],
+        "fullNames": [
+          "Dashboard",
+          "Company Configuration",
+          "Users & Roles",
+          "Product & Service",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export / Offboarding",
+          "Audit Log",
+          "Human Resources"
+        ],
+        "labelsClipped": 0,
+        "activeLabel": "Transaction",
+        "activeIconAxes": "\"FILL\" 1, \"GRAD\" 0, \"opsz\" 24, \"wght\" 500",
+        "activeBg": "rgb(15, 35, 64)",
+        "idleColor": "rgb(162, 163, 173)"
+      },
+      "panel": {
+        "present": true,
+        "width": 216,
+        "visible": true,
+        "title": "Transaction",
+        "titleClipped": false,
+        "subtitle": "Vouchers, ledgers, GST & reports",
+        "groupLabels": [
+          "Overview",
+          "Reports",
+          "Masters"
+        ],
+        "linkCount": 26,
+        "linksClipped": 0,
+        "links": [
+          "Dashboard",
+          "Pending Approvals",
+          "Outstanding",
+          "Party Statement",
+          "Dues",
+          "GST Returns",
+          "Chart of Accounts",
+          "Trial Balance"
+        ],
+        "activeLink": "Dashboard",
+        "userPanel": true
+      },
+      "strip": {
+        "present": false
+      },
+      "stripContainerWidth": null,
+      "sidenavWidth": "288px",
+      "contentMarginLeft": "288px",
+      "horizontalOverflow": false
+    },
+    "module-site-config/1440/light": {
+      "rail": {
+        "present": true,
+        "width": 72,
+        "itemCount": 11,
+        "labels": [
+          "Dashboard",
+          "Company",
+          "Users",
+          "Products",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export",
+          "Audit Log",
+          "People"
+        ],
+        "fullNames": [
+          "Dashboard",
+          "Company Configuration",
+          "Users & Roles",
+          "Product & Service",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export / Offboarding",
+          "Audit Log",
+          "Human Resources"
+        ],
+        "labelsClipped": 0,
+        "activeLabel": "Company",
+        "activeIconAxes": "\"FILL\" 1, \"GRAD\" 0, \"opsz\" 24, \"wght\" 500",
+        "activeBg": "rgb(230, 238, 251)",
+        "idleColor": "rgb(68, 71, 78)"
+      },
+      "panel": {
+        "present": true,
+        "width": 216,
+        "visible": true,
+        "title": "Company Configuration",
+        "titleClipped": false,
+        "subtitle": "Identity, branding & GST gateways",
+        "groupLabels": [
+          "On this page"
+        ],
+        "linkCount": 4,
+        "linksClipped": 0,
+        "links": [
+          "Company & GST",
+          "Logo & favicon",
+          "e-Way Bill",
+          "e-Invoice (IRN)"
+        ],
+        "activeLink": "Company & GST",
+        "userPanel": true
+      },
+      "strip": {
+        "present": false
+      },
+      "stripContainerWidth": null,
+      "sidenavWidth": "288px",
+      "contentMarginLeft": "288px",
+      "horizontalOverflow": false
+    },
+    "module-site-config/1440/dark": {
+      "rail": {
+        "present": true,
+        "width": 72,
+        "itemCount": 11,
+        "labels": [
+          "Dashboard",
+          "Company",
+          "Users",
+          "Products",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export",
+          "Audit Log",
+          "People"
+        ],
+        "fullNames": [
+          "Dashboard",
+          "Company Configuration",
+          "Users & Roles",
+          "Product & Service",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export / Offboarding",
+          "Audit Log",
+          "Human Resources"
+        ],
+        "labelsClipped": 0,
+        "activeLabel": "Company",
+        "activeIconAxes": "\"FILL\" 1, \"GRAD\" 0, \"opsz\" 24, \"wght\" 500",
+        "activeBg": "rgb(15, 35, 64)",
+        "idleColor": "rgb(162, 163, 173)"
+      },
+      "panel": {
+        "present": true,
+        "width": 216,
+        "visible": true,
+        "title": "Company Configuration",
+        "titleClipped": false,
+        "subtitle": "Identity, branding & GST gateways",
+        "groupLabels": [
+          "On this page"
+        ],
+        "linkCount": 4,
+        "linksClipped": 0,
+        "links": [
+          "Company & GST",
+          "Logo & favicon",
+          "e-Way Bill",
+          "e-Invoice (IRN)"
+        ],
+        "activeLink": "Company & GST",
+        "userPanel": true
+      },
+      "strip": {
+        "present": false
+      },
+      "stripContainerWidth": null,
+      "sidenavWidth": "288px",
+      "contentMarginLeft": "288px",
+      "horizontalOverflow": false
+    },
+    "module-chat/1440/light": {
+      "rail": {
+        "present": true,
+        "width": 72,
+        "itemCount": 11,
+        "labels": [
+          "Dashboard",
+          "Company",
+          "Users",
+          "Products",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export",
+          "Audit Log",
+          "People"
+        ],
+        "fullNames": [
+          "Dashboard",
+          "Company Configuration",
+          "Users & Roles",
+          "Product & Service",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export / Offboarding",
+          "Audit Log",
+          "Human Resources"
+        ],
+        "labelsClipped": 0,
+        "activeLabel": "Chat",
+        "activeIconAxes": "\"FILL\" 1, \"GRAD\" 0, \"opsz\" 24, \"wght\" 500",
+        "activeBg": "rgb(230, 238, 251)",
+        "idleColor": "rgb(68, 71, 78)"
+      },
+      "panel": {
+        "present": true,
+        "width": 216,
+        "visible": true,
+        "title": "Chat",
+        "titleClipped": false,
+        "subtitle": "Messaging between your own staff",
+        "groupLabels": [],
+        "linkCount": 1,
+        "linksClipped": 0,
+        "links": [
+          "Chat"
+        ],
+        "activeLink": "Chat",
+        "userPanel": true
+      },
+      "strip": {
+        "present": false
+      },
+      "stripContainerWidth": null,
+      "sidenavWidth": "288px",
+      "contentMarginLeft": "288px",
+      "horizontalOverflow": false
+    },
+    "module-chat/1440/dark": {
+      "rail": {
+        "present": true,
+        "width": 72,
+        "itemCount": 11,
+        "labels": [
+          "Dashboard",
+          "Company",
+          "Users",
+          "Products",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export",
+          "Audit Log",
+          "People"
+        ],
+        "fullNames": [
+          "Dashboard",
+          "Company Configuration",
+          "Users & Roles",
+          "Product & Service",
+          "Transaction",
+          "Job Work",
+          "Chat",
+          "Files",
+          "Export / Offboarding",
+          "Audit Log",
+          "Human Resources"
+        ],
+        "labelsClipped": 0,
+        "activeLabel": "Chat",
+        "activeIconAxes": "\"FILL\" 1, \"GRAD\" 0, \"opsz\" 24, \"wght\" 500",
+        "activeBg": "rgb(15, 35, 64)",
+        "idleColor": "rgb(162, 163, 173)"
+      },
+      "panel": {
+        "present": true,
+        "width": 216,
+        "visible": true,
+        "title": "Chat",
+        "titleClipped": false,
+        "subtitle": "Messaging between your own staff",
+        "groupLabels": [],
+        "linkCount": 1,
+        "linksClipped": 0,
+        "links": [
+          "Chat"
+        ],
+        "activeLink": "Chat",
+        "userPanel": true
+      },
+      "strip": {
+        "present": false
+      },
+      "stripContainerWidth": null,
+      "sidenavWidth": "288px",
+      "contentMarginLeft": "288px",
+      "horizontalOverflow": false
+    },
+    "behaviour/collapse": {
+      "beforeSidenavWidth": "288px",
+      "beforePanelVisible": true,
+      "collapsedSidenavWidth": "72px",
+      "collapsedContentMargin": "72px",
+      "collapsedRailPresent": true,
+      "collapsedRailItems": 11,
+      "expandedSidenavWidth": "288px",
+      "railClickTitle": "Human Resources",
+      "railClickGroups": [
+        "Overview",
+        "Attendance",
+        "Leave",
+        "Payroll",
+        "Masters"
+      ],
+      "railClickActiveRail": "People"
+    },
+    "behaviour/section-scroll": {
+      "scrollBefore": 0,
+      "scrollAfter": 645,
+      "moved": true,
+      "activeSectionLabel": "Sales vs purchases"
+    }
+  },
+  "shots": [
+    "dashboard__480__light.png",
+    "dashboard__480__dark.png",
+    "dashboard__720__light.png",
+    "dashboard__720__dark.png",
+    "dashboard__1024__light.png",
+    "dashboard__1024__dark.png",
+    "dashboard__1440__light.png",
+    "dashboard__1440__dark.png",
+    "module-product__1440__light.png",
+    "module-product__1440__dark.png",
+    "module-transaction__1440__light.png",
+    "module-transaction__1440__dark.png",
+    "module-site-config__1440__light.png",
+    "module-site-config__1440__dark.png",
+    "module-chat__1440__light.png",
+    "module-chat__1440__dark.png",
+    "behaviour__collapsed__1440__light.png",
+    "behaviour__rail-hr__1440__light.png"
+  ],
+  "console": [],
+  "landedOn": "http://localhost:4300/dashboard"
+}

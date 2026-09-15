@@ -1,0 +1,1067 @@
+[
+  {
+    "name": "manufacturer/light usage-count column present",
+    "pass": true,
+    "detail": "\"Products\" at index 9 of [Id, Name, Address Line 1, Address Line 2, Pincode, City, State, Country, Products, Operation]"
+  },
+  {
+    "name": "manufacturer/light usage count cell read",
+    "pass": true,
+    "detail": "\"3\""
+  },
+  {
+    "name": "manufacturer/light usage count is a number",
+    "pass": true,
+    "detail": "\"3\""
+  },
+  {
+    "name": "manufacturer/light usage count right-aligned",
+    "pass": true,
+    "detail": "right"
+  },
+  {
+    "name": "manufacturer/light no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "manufacturer/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "manufacturer/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "manufacturer/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "manufacturer/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "manufacturer/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "measurement-unit/light usage-count column present",
+    "pass": true,
+    "detail": "\"Used By\" at index 4 of [Id, Name, Abbreviation, Used By, Operation]"
+  },
+  {
+    "name": "measurement-unit/light usage count cell read",
+    "pass": true,
+    "detail": "\"3\""
+  },
+  {
+    "name": "measurement-unit/light usage count is a number",
+    "pass": true,
+    "detail": "\"3\""
+  },
+  {
+    "name": "measurement-unit/light usage count right-aligned",
+    "pass": true,
+    "detail": "right"
+  },
+  {
+    "name": "measurement-unit/light no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "measurement-unit/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "measurement-unit/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "measurement-unit/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "measurement-unit/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "measurement-unit/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "return-policy/light usage-count column present",
+    "pass": true,
+    "detail": "\"Applies To\" at index 4 of [Id, Name, Description, Applies To, Operation]"
+  },
+  {
+    "name": "return-policy/light usage count cell read",
+    "pass": true,
+    "detail": "\"3\""
+  },
+  {
+    "name": "return-policy/light usage count is a number",
+    "pass": true,
+    "detail": "\"3\""
+  },
+  {
+    "name": "return-policy/light usage count right-aligned",
+    "pass": true,
+    "detail": "right"
+  },
+  {
+    "name": "return-policy/light no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "return-policy/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "return-policy/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "return-policy/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "return-policy/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "return-policy/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "product-condition/light usage-count column present",
+    "pass": true,
+    "detail": "\"Items\" at index 4 of [Id, Name, Description, Items, Operation]"
+  },
+  {
+    "name": "product-condition/light usage count cell read",
+    "pass": true,
+    "detail": "\"6\""
+  },
+  {
+    "name": "product-condition/light usage count is a number",
+    "pass": true,
+    "detail": "\"6\""
+  },
+  {
+    "name": "product-condition/light usage count right-aligned",
+    "pass": true,
+    "detail": "right"
+  },
+  {
+    "name": "product-condition/light no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "product-condition/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "product-condition/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "product-condition/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "product-condition/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "product-condition/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "product-warranty/light usage-count column present",
+    "pass": true,
+    "detail": "\"Products\" at index 4 of [Id, Name, Description, Products, Operation]"
+  },
+  {
+    "name": "product-warranty/light usage count cell read",
+    "pass": true,
+    "detail": "\"3\""
+  },
+  {
+    "name": "product-warranty/light usage count is a number",
+    "pass": true,
+    "detail": "\"3\""
+  },
+  {
+    "name": "product-warranty/light usage count right-aligned",
+    "pass": true,
+    "detail": "right"
+  },
+  {
+    "name": "product-warranty/light no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "product-warranty/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "product-warranty/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "product-warranty/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "product-warranty/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "product-warranty/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "categorys-tags/light dead header-only table gone",
+    "pass": true,
+    "detail": "0 found"
+  },
+  {
+    "name": "categorys-tags/light tree renders with ds chips",
+    "pass": true,
+    "detail": "3 node(s), 6 chip(s)"
+  },
+  {
+    "name": "categorys-tags/light no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "categorys-tags/light chips themed (opaque bg)",
+    "pass": true,
+    "detail": "rgb(7, 89, 133) on rgb(226, 241, 251)"
+  },
+  {
+    "name": "categorys-tags/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "categorys-tags/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "categorys-tags/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "categorys-tags/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "quantity/light reorder level column present",
+    "pass": true,
+    "detail": "Id, Product Name, Total Quantity, Reserved Quantity, Available Quantity, Reorder Level, Status, Operation"
+  },
+  {
+    "name": "quantity/light stock-health chip rendered",
+    "pass": true,
+    "detail": "check_circleIn Stock | check_circleIn Stock | check_circleIn Stock | check_circleIn Stock | check_circleIn Stock | check_circleIn Stock"
+  },
+  {
+    "name": "quantity/light no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "quantity/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "quantity/light chips themed (opaque bg)",
+    "pass": true,
+    "detail": "rgb(13, 107, 48) on rgb(227, 244, 233)"
+  },
+  {
+    "name": "quantity/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "quantity/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "quantity/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "quantity/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "product-price/light no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "product-price/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "product-price/light money reads en-IN",
+    "pass": true,
+    "detail": "₹1,26,200.00 , ₹1,26,200.00"
+  },
+  {
+    "name": "product-price/light chips themed (opaque bg)",
+    "pass": true,
+    "detail": "rgb(68, 71, 78) on rgb(239, 237, 240)"
+  },
+  {
+    "name": "product-price/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "product-price/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "product-price/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "product-price/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "product-media/light gallery shape rendered",
+    "pass": true,
+    "detail": "0 tile(s), empty-state=true"
+  },
+  {
+    "name": "product-media/light view toggle present",
+    "pass": true,
+    "detail": "true"
+  },
+  {
+    "name": "product-media/light no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "product-media/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "product-media/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "product-media/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "product-media/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "conversions/light no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "conversions/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "conversions/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "conversions/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "conversions/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "bom-templates/light no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "bom-templates/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "bom-templates/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "bom-templates/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "bom-templates/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "general-settings/light settings groups rendered",
+    "pass": true,
+    "detail": "2 group(s)"
+  },
+  {
+    "name": "general-settings/light setting rows rendered",
+    "pass": true,
+    "detail": "3 row(s)"
+  },
+  {
+    "name": "general-settings/light no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "general-settings/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "general-settings/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "general-settings/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "general-settings/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "dynamic-fields/light field chips are ds-status-chip",
+    "pass": true,
+    "detail": "0 legacy pill(s), 0 ds chip(s)"
+  },
+  {
+    "name": "dynamic-fields/light no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "dynamic-fields/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "dynamic-fields/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "dynamic-fields/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "dynamic-fields/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "manufacturer/dark usage-count column present",
+    "pass": true,
+    "detail": "\"Products\" at index 9 of [Id, Name, Address Line 1, Address Line 2, Pincode, City, State, Country, Products, Operation]"
+  },
+  {
+    "name": "manufacturer/dark usage count cell read",
+    "pass": true,
+    "detail": "\"3\""
+  },
+  {
+    "name": "manufacturer/dark usage count is a number",
+    "pass": true,
+    "detail": "\"3\""
+  },
+  {
+    "name": "manufacturer/dark usage count right-aligned",
+    "pass": true,
+    "detail": "right"
+  },
+  {
+    "name": "manufacturer/dark no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "manufacturer/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "manufacturer/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "manufacturer/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "manufacturer/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "manufacturer/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "measurement-unit/dark usage-count column present",
+    "pass": true,
+    "detail": "\"Used By\" at index 4 of [Id, Name, Abbreviation, Used By, Operation]"
+  },
+  {
+    "name": "measurement-unit/dark usage count cell read",
+    "pass": true,
+    "detail": "\"3\""
+  },
+  {
+    "name": "measurement-unit/dark usage count is a number",
+    "pass": true,
+    "detail": "\"3\""
+  },
+  {
+    "name": "measurement-unit/dark usage count right-aligned",
+    "pass": true,
+    "detail": "right"
+  },
+  {
+    "name": "measurement-unit/dark no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "measurement-unit/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "measurement-unit/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "measurement-unit/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "measurement-unit/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "measurement-unit/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "return-policy/dark usage-count column present",
+    "pass": true,
+    "detail": "\"Applies To\" at index 4 of [Id, Name, Description, Applies To, Operation]"
+  },
+  {
+    "name": "return-policy/dark usage count cell read",
+    "pass": true,
+    "detail": "\"3\""
+  },
+  {
+    "name": "return-policy/dark usage count is a number",
+    "pass": true,
+    "detail": "\"3\""
+  },
+  {
+    "name": "return-policy/dark usage count right-aligned",
+    "pass": true,
+    "detail": "right"
+  },
+  {
+    "name": "return-policy/dark no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "return-policy/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "return-policy/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "return-policy/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "return-policy/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "return-policy/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "product-condition/dark usage-count column present",
+    "pass": true,
+    "detail": "\"Items\" at index 4 of [Id, Name, Description, Items, Operation]"
+  },
+  {
+    "name": "product-condition/dark usage count cell read",
+    "pass": true,
+    "detail": "\"6\""
+  },
+  {
+    "name": "product-condition/dark usage count is a number",
+    "pass": true,
+    "detail": "\"6\""
+  },
+  {
+    "name": "product-condition/dark usage count right-aligned",
+    "pass": true,
+    "detail": "right"
+  },
+  {
+    "name": "product-condition/dark no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "product-condition/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "product-condition/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "product-condition/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "product-condition/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "product-condition/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "product-warranty/dark usage-count column present",
+    "pass": true,
+    "detail": "\"Products\" at index 4 of [Id, Name, Description, Products, Operation]"
+  },
+  {
+    "name": "product-warranty/dark usage count cell read",
+    "pass": true,
+    "detail": "\"3\""
+  },
+  {
+    "name": "product-warranty/dark usage count is a number",
+    "pass": true,
+    "detail": "\"3\""
+  },
+  {
+    "name": "product-warranty/dark usage count right-aligned",
+    "pass": true,
+    "detail": "right"
+  },
+  {
+    "name": "product-warranty/dark no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "product-warranty/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "product-warranty/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "product-warranty/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "product-warranty/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "product-warranty/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "categorys-tags/dark dead header-only table gone",
+    "pass": true,
+    "detail": "0 found"
+  },
+  {
+    "name": "categorys-tags/dark tree renders with ds chips",
+    "pass": true,
+    "detail": "3 node(s), 6 chip(s)"
+  },
+  {
+    "name": "categorys-tags/dark no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "categorys-tags/dark chips themed (opaque bg)",
+    "pass": true,
+    "detail": "rgb(111, 195, 240) on rgb(14, 40, 54)"
+  },
+  {
+    "name": "categorys-tags/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "categorys-tags/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "categorys-tags/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "categorys-tags/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "quantity/dark reorder level column present",
+    "pass": true,
+    "detail": "Id, Product Name, Total Quantity, Reserved Quantity, Available Quantity, Reorder Level, Status, Operation"
+  },
+  {
+    "name": "quantity/dark stock-health chip rendered",
+    "pass": true,
+    "detail": "check_circleIn Stock | check_circleIn Stock | check_circleIn Stock | check_circleIn Stock | check_circleIn Stock | check_circleIn Stock"
+  },
+  {
+    "name": "quantity/dark no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "quantity/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "quantity/dark chips themed (opaque bg)",
+    "pass": true,
+    "detail": "rgb(95, 209, 139) on rgb(18, 48, 31)"
+  },
+  {
+    "name": "quantity/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "quantity/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "quantity/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "quantity/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "product-price/dark no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "product-price/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "product-price/dark money reads en-IN",
+    "pass": true,
+    "detail": "₹1,26,200.00 , ₹1,26,200.00"
+  },
+  {
+    "name": "product-price/dark chips themed (opaque bg)",
+    "pass": true,
+    "detail": "rgb(162, 163, 173) on rgb(31, 32, 34)"
+  },
+  {
+    "name": "product-price/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "product-price/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "product-price/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "product-price/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "product-media/dark gallery shape rendered",
+    "pass": true,
+    "detail": "0 tile(s), empty-state=true"
+  },
+  {
+    "name": "product-media/dark view toggle present",
+    "pass": true,
+    "detail": "true"
+  },
+  {
+    "name": "product-media/dark no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "product-media/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "product-media/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "product-media/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "product-media/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "conversions/dark no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "conversions/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "conversions/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "conversions/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "conversions/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "bom-templates/dark no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "bom-templates/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "bom-templates/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "bom-templates/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "bom-templates/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "general-settings/dark settings groups rendered",
+    "pass": true,
+    "detail": "2 group(s)"
+  },
+  {
+    "name": "general-settings/dark setting rows rendered",
+    "pass": true,
+    "detail": "3 row(s)"
+  },
+  {
+    "name": "general-settings/dark no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "general-settings/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "general-settings/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "general-settings/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "general-settings/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "dynamic-fields/dark field chips are ds-status-chip",
+    "pass": true,
+    "detail": "0 legacy pill(s), 0 ds chip(s)"
+  },
+  {
+    "name": "dynamic-fields/dark no legacy hand-rolled pills",
+    "pass": true,
+    "detail": "0"
+  },
+  {
+    "name": "dynamic-fields/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "dynamic-fields/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "dynamic-fields/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "dynamic-fields/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "en-IN grouping actually exercised",
+    "pass": true,
+    "detail": "4 decisive amount(s), e.g. ₹1,26,200.00"
+  },
+  {
+    "name": "no console errors",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "no failed requests",
+    "pass": true,
+    "detail": ""
+  }
+]

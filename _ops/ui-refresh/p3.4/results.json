@@ -1,0 +1,527 @@
+[
+  {
+    "name": "trx-nature/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "4 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "trx-nature/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "trx-nature/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "trx-nature/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "trx-nature/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "trx-nature/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "trx-group/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "30 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "trx-group/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "trx-group/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "trx-group/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "trx-group/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "trx-group/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "financial-year/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "1 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "financial-year/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 1 ds-status-chip"
+  },
+  {
+    "name": "financial-year/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "financial-year/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "financial-year/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "financial-year/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "tax-rates/light numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "9 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "tax-rates/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 18 ds-status-chip"
+  },
+  {
+    "name": "tax-rates/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "tax-rates/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "tax-rates/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "tax-rates/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "transaction-config/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 34 ds-status-chip"
+  },
+  {
+    "name": "transaction-config/light configuration cards rendered",
+    "pass": true,
+    "detail": "15 card(s)"
+  },
+  {
+    "name": "transaction-config/light config pills are ds-status-chip",
+    "pass": true,
+    "detail": "0 legacy, 34 ds-status-chip"
+  },
+  {
+    "name": "transaction-config/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "transaction-config/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "transaction-config/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "transaction-config/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "data-import/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "data-import/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "data-import/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "data-import/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "data-import/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "data-import-detail/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "data-import-detail/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "data-import-detail/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "data-import-detail/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "data-import-detail/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "invoice-scanning/light no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "invoice-scanning/light no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "invoice-scanning/light no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "invoice-scanning/light no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "invoice-scanning/light no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "trx-nature/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "4 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "trx-nature/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "trx-nature/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "trx-nature/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "trx-nature/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "trx-nature/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "trx-group/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "30 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "trx-group/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "trx-group/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "trx-group/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "trx-group/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "trx-group/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "financial-year/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "1 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "financial-year/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 1 ds-status-chip"
+  },
+  {
+    "name": "financial-year/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "financial-year/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "financial-year/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "financial-year/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "tax-rates/dark numeric cells right/mono/tabular",
+    "pass": true,
+    "detail": "9 cells — right / \"IBM Plex Mono\" / tabular-nums"
+  },
+  {
+    "name": "tax-rates/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 18 ds-status-chip"
+  },
+  {
+    "name": "tax-rates/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "tax-rates/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "tax-rates/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "tax-rates/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "transaction-config/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 34 ds-status-chip"
+  },
+  {
+    "name": "transaction-config/dark configuration cards rendered",
+    "pass": true,
+    "detail": "15 card(s)"
+  },
+  {
+    "name": "transaction-config/dark config pills are ds-status-chip",
+    "pass": true,
+    "detail": "0 legacy, 34 ds-status-chip"
+  },
+  {
+    "name": "transaction-config/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "transaction-config/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "transaction-config/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "transaction-config/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "data-import/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "data-import/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "data-import/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "data-import/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "data-import/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "data-import-detail/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "data-import-detail/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "data-import-detail/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "data-import-detail/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "data-import-detail/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "invoice-scanning/dark no hand-rolled report pills",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "invoice-scanning/dark no h-overflow @480",
+    "pass": true,
+    "detail": "480 vs 480"
+  },
+  {
+    "name": "invoice-scanning/dark no h-overflow @720",
+    "pass": true,
+    "detail": "720 vs 720"
+  },
+  {
+    "name": "invoice-scanning/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "1024 vs 1024"
+  },
+  {
+    "name": "invoice-scanning/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "1440 vs 1440"
+  },
+  {
+    "name": "trx-nature card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "trx-group card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "financial-year card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "financial-year chip surface follows the theme",
+    "pass": true,
+    "detail": "light rgb(239, 237, 240)|rgb(68, 71, 78) / dark rgb(31, 32, 34)|rgb(162, 163, 173)"
+  },
+  {
+    "name": "tax-rates card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "tax-rates chip surface follows the theme",
+    "pass": true,
+    "detail": "light rgb(239, 237, 240)|rgb(68, 71, 78) / dark rgb(31, 32, 34)|rgb(162, 163, 173)"
+  },
+  {
+    "name": "transaction-config card surface follows the theme",
+    "pass": true,
+    "detail": "light rgb(244, 243, 246)|rgb(196, 198, 208)|rgb(26, 27, 31) / dark rgb(26, 27, 31)|rgb(68, 71, 78)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "transaction-config chip surface follows the theme",
+    "pass": true,
+    "detail": "light rgb(227, 244, 233)|rgb(13, 107, 48) / dark rgb(18, 48, 31)|rgb(95, 209, 139)"
+  },
+  {
+    "name": "data-import card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "data-import-detail card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "invoice-scanning card surface follows the theme",
+    "pass": true,
+    "detail": "light rgba(0, 0, 0, 0)|rgb(26, 27, 31)|rgb(26, 27, 31) / dark rgba(0, 0, 0, 0)|rgb(227, 226, 230)|rgb(227, 226, 230)"
+  },
+  {
+    "name": "no console errors",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "no failed requests",
+    "pass": true,
+    "detail": ""
+  }
+]

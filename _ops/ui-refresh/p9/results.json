@@ -1,0 +1,1087 @@
+[
+  {
+    "name": "dlg-people-user/light [People & access] dialog opened",
+    "pass": true,
+    "detail": "rendered"
+  },
+  {
+    "name": "dlg-people-user/light panel has a themed surface",
+    "pass": true,
+    "detail": "rgb(250, 249, 253)"
+  },
+  {
+    "name": "dlg-people-user/light dialog text passes AA (4.5:1)",
+    "pass": true,
+    "detail": "16.41:1 — rgb(26, 27, 31) on rgb(250, 249, 253)"
+  },
+  {
+    "name": "dlg-people-user/light no hand-rolled pills inside",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "dlg-people-user/light no h-overflow @480",
+    "pass": true,
+    "detail": "doc 480 vs win 480"
+  },
+  {
+    "name": "dlg-people-user/light panel fits the viewport @480",
+    "pass": true,
+    "detail": "panel 442 vs 480"
+  },
+  {
+    "name": "dlg-people-user/light no h-overflow @720",
+    "pass": true,
+    "detail": "doc 720 vs win 720"
+  },
+  {
+    "name": "dlg-people-user/light panel fits the viewport @720",
+    "pass": true,
+    "detail": "panel 662 vs 720"
+  },
+  {
+    "name": "dlg-people-user/light no h-overflow @1024",
+    "pass": true,
+    "detail": "doc 1024 vs win 1024"
+  },
+  {
+    "name": "dlg-people-user/light panel fits the viewport @1024",
+    "pass": true,
+    "detail": "panel 760 vs 1024"
+  },
+  {
+    "name": "dlg-people-user/light no h-overflow @1440",
+    "pass": true,
+    "detail": "doc 1440 vs win 1440"
+  },
+  {
+    "name": "dlg-people-user/light panel fits the viewport @1440",
+    "pass": true,
+    "detail": "panel 760 vs 1440"
+  },
+  {
+    "name": "dlg-people-perms/light [People & access] dialog opened",
+    "pass": true,
+    "detail": "rendered"
+  },
+  {
+    "name": "dlg-people-perms/light panel has a themed surface",
+    "pass": true,
+    "detail": "rgb(250, 249, 253)"
+  },
+  {
+    "name": "dlg-people-perms/light dialog text passes AA (4.5:1)",
+    "pass": true,
+    "detail": "16.41:1 — rgb(26, 27, 31) on rgb(250, 249, 253)"
+  },
+  {
+    "name": "dlg-people-perms/light no hand-rolled pills inside",
+    "pass": true,
+    "detail": "0 legacy, 1 ds-status-chip"
+  },
+  {
+    "name": "dlg-people-perms/light no h-overflow @480",
+    "pass": true,
+    "detail": "doc 480 vs win 480"
+  },
+  {
+    "name": "dlg-people-perms/light panel fits the viewport @480",
+    "pass": true,
+    "detail": "panel 432 vs 480"
+  },
+  {
+    "name": "dlg-people-perms/light no h-overflow @720",
+    "pass": true,
+    "detail": "doc 720 vs win 720"
+  },
+  {
+    "name": "dlg-people-perms/light panel fits the viewport @720",
+    "pass": true,
+    "detail": "panel 648 vs 720"
+  },
+  {
+    "name": "dlg-people-perms/light no h-overflow @1024",
+    "pass": true,
+    "detail": "doc 1024 vs win 1024"
+  },
+  {
+    "name": "dlg-people-perms/light panel fits the viewport @1024",
+    "pass": true,
+    "detail": "panel 820 vs 1024"
+  },
+  {
+    "name": "dlg-people-perms/light no h-overflow @1440",
+    "pass": true,
+    "detail": "doc 1440 vs win 1440"
+  },
+  {
+    "name": "dlg-people-perms/light panel fits the viewport @1440",
+    "pass": true,
+    "detail": "panel 820 vs 1440"
+  },
+  {
+    "name": "dlg-picker-product/light [Pickers] dialog opened",
+    "pass": true,
+    "detail": "rendered"
+  },
+  {
+    "name": "dlg-picker-product/light panel has a themed surface",
+    "pass": true,
+    "detail": "rgb(250, 249, 253)"
+  },
+  {
+    "name": "dlg-picker-product/light dialog text passes AA (4.5:1)",
+    "pass": true,
+    "detail": "16.41:1 — rgb(26, 27, 31) on rgb(250, 249, 253)"
+  },
+  {
+    "name": "dlg-picker-product/light no hand-rolled pills inside",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "dlg-picker-product/light no h-overflow @480",
+    "pass": true,
+    "detail": "doc 480 vs win 480"
+  },
+  {
+    "name": "dlg-picker-product/light panel fits the viewport @480",
+    "pass": true,
+    "detail": "panel 480 vs 480"
+  },
+  {
+    "name": "dlg-picker-product/light no h-overflow @720",
+    "pass": true,
+    "detail": "doc 720 vs win 720"
+  },
+  {
+    "name": "dlg-picker-product/light panel fits the viewport @720",
+    "pass": true,
+    "detail": "panel 720 vs 720"
+  },
+  {
+    "name": "dlg-picker-product/light no h-overflow @1024",
+    "pass": true,
+    "detail": "doc 1024 vs win 1024"
+  },
+  {
+    "name": "dlg-picker-product/light panel fits the viewport @1024",
+    "pass": true,
+    "detail": "panel 1024 vs 1024"
+  },
+  {
+    "name": "dlg-picker-product/light no h-overflow @1440",
+    "pass": true,
+    "detail": "doc 1440 vs win 1440"
+  },
+  {
+    "name": "dlg-picker-product/light panel fits the viewport @1440",
+    "pass": true,
+    "detail": "panel 1416 vs 1440"
+  },
+  {
+    "name": "dlg-grid-filter/light [Data & grid] dialog opened",
+    "pass": true,
+    "detail": "rendered"
+  },
+  {
+    "name": "dlg-grid-filter/light panel has a themed surface",
+    "pass": true,
+    "detail": "rgb(250, 249, 253)"
+  },
+  {
+    "name": "dlg-grid-filter/light dialog text passes AA (4.5:1)",
+    "pass": true,
+    "detail": "16.41:1 — rgb(26, 27, 31) on rgb(250, 249, 253)"
+  },
+  {
+    "name": "dlg-grid-filter/light no hand-rolled pills inside",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "dlg-grid-filter/light no h-overflow @480",
+    "pass": true,
+    "detail": "doc 480 vs win 480"
+  },
+  {
+    "name": "dlg-grid-filter/light panel fits the viewport @480",
+    "pass": true,
+    "detail": "panel 360 vs 480"
+  },
+  {
+    "name": "dlg-grid-filter/light no h-overflow @720",
+    "pass": true,
+    "detail": "doc 720 vs win 720"
+  },
+  {
+    "name": "dlg-grid-filter/light panel fits the viewport @720",
+    "pass": true,
+    "detail": "panel 540 vs 720"
+  },
+  {
+    "name": "dlg-grid-filter/light no h-overflow @1024",
+    "pass": true,
+    "detail": "doc 1024 vs win 1024"
+  },
+  {
+    "name": "dlg-grid-filter/light panel fits the viewport @1024",
+    "pass": true,
+    "detail": "panel 768 vs 1024"
+  },
+  {
+    "name": "dlg-grid-filter/light no h-overflow @1440",
+    "pass": true,
+    "detail": "doc 1440 vs win 1440"
+  },
+  {
+    "name": "dlg-grid-filter/light panel fits the viewport @1440",
+    "pass": true,
+    "detail": "panel 1080 vs 1440"
+  },
+  {
+    "name": "dlg-stock-quantity/light [Stock & shop floor] dialog opened",
+    "pass": true,
+    "detail": "rendered"
+  },
+  {
+    "name": "dlg-stock-quantity/light panel has a themed surface",
+    "pass": true,
+    "detail": "rgb(250, 249, 253)"
+  },
+  {
+    "name": "dlg-stock-quantity/light dialog text passes AA (4.5:1)",
+    "pass": true,
+    "detail": "16.41:1 — rgb(26, 27, 31) on rgb(250, 249, 253)"
+  },
+  {
+    "name": "dlg-stock-quantity/light no hand-rolled pills inside",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "dlg-stock-quantity/light no h-overflow @480",
+    "pass": true,
+    "detail": "doc 480 vs win 480"
+  },
+  {
+    "name": "dlg-stock-quantity/light panel fits the viewport @480",
+    "pass": true,
+    "detail": "panel 384 vs 480"
+  },
+  {
+    "name": "dlg-stock-quantity/light no h-overflow @720",
+    "pass": true,
+    "detail": "doc 720 vs win 720"
+  },
+  {
+    "name": "dlg-stock-quantity/light panel fits the viewport @720",
+    "pass": true,
+    "detail": "panel 576 vs 720"
+  },
+  {
+    "name": "dlg-stock-quantity/light no h-overflow @1024",
+    "pass": true,
+    "detail": "doc 1024 vs win 1024"
+  },
+  {
+    "name": "dlg-stock-quantity/light panel fits the viewport @1024",
+    "pass": true,
+    "detail": "panel 819 vs 1024"
+  },
+  {
+    "name": "dlg-stock-quantity/light no h-overflow @1440",
+    "pass": true,
+    "detail": "doc 1440 vs win 1440"
+  },
+  {
+    "name": "dlg-stock-quantity/light panel fits the viewport @1440",
+    "pass": true,
+    "detail": "panel 938 vs 1440"
+  },
+  {
+    "name": "dlg-pricing/light [Stock & shop floor] dialog opened",
+    "pass": true,
+    "detail": "rendered"
+  },
+  {
+    "name": "dlg-pricing/light panel has a themed surface",
+    "pass": true,
+    "detail": "rgb(250, 249, 253)"
+  },
+  {
+    "name": "dlg-pricing/light dialog text passes AA (4.5:1)",
+    "pass": true,
+    "detail": "16.41:1 — rgb(26, 27, 31) on rgb(250, 249, 253)"
+  },
+  {
+    "name": "dlg-pricing/light no hand-rolled pills inside",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "dlg-pricing/light no h-overflow @480",
+    "pass": true,
+    "detail": "doc 480 vs win 480"
+  },
+  {
+    "name": "dlg-pricing/light panel fits the viewport @480",
+    "pass": true,
+    "detail": "panel 456 vs 480"
+  },
+  {
+    "name": "dlg-pricing/light no h-overflow @720",
+    "pass": true,
+    "detail": "doc 720 vs win 720"
+  },
+  {
+    "name": "dlg-pricing/light panel fits the viewport @720",
+    "pass": true,
+    "detail": "panel 684 vs 720"
+  },
+  {
+    "name": "dlg-pricing/light no h-overflow @1024",
+    "pass": true,
+    "detail": "doc 1024 vs win 1024"
+  },
+  {
+    "name": "dlg-pricing/light panel fits the viewport @1024",
+    "pass": true,
+    "detail": "panel 973 vs 1024"
+  },
+  {
+    "name": "dlg-pricing/light no h-overflow @1440",
+    "pass": true,
+    "detail": "doc 1440 vs win 1440"
+  },
+  {
+    "name": "dlg-pricing/light panel fits the viewport @1440",
+    "pass": true,
+    "detail": "panel 1080 vs 1440"
+  },
+  {
+    "name": "dlg-voucher-submit/light [Voucher actions] dialog opened",
+    "pass": true,
+    "detail": "rendered"
+  },
+  {
+    "name": "dlg-voucher-submit/light panel has a themed surface",
+    "pass": true,
+    "detail": "rgb(250, 249, 253)"
+  },
+  {
+    "name": "dlg-voucher-submit/light dialog text passes AA (4.5:1)",
+    "pass": true,
+    "detail": "16.41:1 — rgb(26, 27, 31) on rgb(250, 249, 253)"
+  },
+  {
+    "name": "dlg-voucher-submit/light no hand-rolled pills inside",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "dlg-voucher-submit/light no h-overflow @480",
+    "pass": true,
+    "detail": "doc 480 vs win 480"
+  },
+  {
+    "name": "dlg-voucher-submit/light panel fits the viewport @480",
+    "pass": true,
+    "detail": "panel 360 vs 480"
+  },
+  {
+    "name": "dlg-voucher-submit/light no h-overflow @720",
+    "pass": true,
+    "detail": "doc 720 vs win 720"
+  },
+  {
+    "name": "dlg-voucher-submit/light panel fits the viewport @720",
+    "pass": true,
+    "detail": "panel 360 vs 720"
+  },
+  {
+    "name": "dlg-voucher-submit/light no h-overflow @1024",
+    "pass": true,
+    "detail": "doc 1024 vs win 1024"
+  },
+  {
+    "name": "dlg-voucher-submit/light panel fits the viewport @1024",
+    "pass": true,
+    "detail": "panel 360 vs 1024"
+  },
+  {
+    "name": "dlg-voucher-submit/light no h-overflow @1440",
+    "pass": true,
+    "detail": "doc 1440 vs win 1440"
+  },
+  {
+    "name": "dlg-voucher-submit/light panel fits the viewport @1440",
+    "pass": true,
+    "detail": "panel 360 vs 1440"
+  },
+  {
+    "name": "dlg-share/light [Print & share] dialog opened",
+    "pass": true,
+    "detail": "rendered"
+  },
+  {
+    "name": "dlg-share/light panel has a themed surface",
+    "pass": true,
+    "detail": "rgb(240, 240, 240)"
+  },
+  {
+    "name": "dlg-share/light dialog text passes AA (4.5:1)",
+    "pass": true,
+    "detail": "18.43:1 — rgb(0, 0, 0) on rgb(240, 240, 240)"
+  },
+  {
+    "name": "dlg-share/light no hand-rolled pills inside",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "dlg-share/light no h-overflow @480",
+    "pass": true,
+    "detail": "doc 480 vs win 480"
+  },
+  {
+    "name": "dlg-share/light panel fits the viewport @480",
+    "pass": true,
+    "detail": "panel 480 vs 480"
+  },
+  {
+    "name": "dlg-share/light no h-overflow @720",
+    "pass": true,
+    "detail": "doc 720 vs win 720"
+  },
+  {
+    "name": "dlg-share/light panel fits the viewport @720",
+    "pass": true,
+    "detail": "panel 720 vs 720"
+  },
+  {
+    "name": "dlg-share/light no h-overflow @1024",
+    "pass": true,
+    "detail": "doc 1024 vs win 1024"
+  },
+  {
+    "name": "dlg-share/light panel fits the viewport @1024",
+    "pass": true,
+    "detail": "panel 1024 vs 1024"
+  },
+  {
+    "name": "dlg-share/light no h-overflow @1440",
+    "pass": true,
+    "detail": "doc 1440 vs win 1440"
+  },
+  {
+    "name": "dlg-share/light panel fits the viewport @1440",
+    "pass": true,
+    "detail": "panel 1440 vs 1440"
+  },
+  {
+    "name": "dlg-system-master/light [System] dialog opened",
+    "pass": true,
+    "detail": "rendered"
+  },
+  {
+    "name": "dlg-system-master/light panel has a themed surface",
+    "pass": true,
+    "detail": "rgb(250, 249, 253)"
+  },
+  {
+    "name": "dlg-system-master/light dialog text passes AA (4.5:1)",
+    "pass": true,
+    "detail": "16.41:1 — rgb(26, 27, 31) on rgb(250, 249, 253)"
+  },
+  {
+    "name": "dlg-system-master/light no hand-rolled pills inside",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "dlg-system-master/light no h-overflow @480",
+    "pass": true,
+    "detail": "doc 480 vs win 480"
+  },
+  {
+    "name": "dlg-system-master/light panel fits the viewport @480",
+    "pass": true,
+    "detail": "panel 384 vs 480"
+  },
+  {
+    "name": "dlg-system-master/light no h-overflow @720",
+    "pass": true,
+    "detail": "doc 720 vs win 720"
+  },
+  {
+    "name": "dlg-system-master/light panel fits the viewport @720",
+    "pass": true,
+    "detail": "panel 576 vs 720"
+  },
+  {
+    "name": "dlg-system-master/light no h-overflow @1024",
+    "pass": true,
+    "detail": "doc 1024 vs win 1024"
+  },
+  {
+    "name": "dlg-system-master/light panel fits the viewport @1024",
+    "pass": true,
+    "detail": "panel 819 vs 1024"
+  },
+  {
+    "name": "dlg-system-master/light no h-overflow @1440",
+    "pass": true,
+    "detail": "doc 1440 vs win 1440"
+  },
+  {
+    "name": "dlg-system-master/light panel fits the viewport @1440",
+    "pass": true,
+    "detail": "panel 1152 vs 1440"
+  },
+  {
+    "name": "dlg-people-user/dark [People & access] dialog opened",
+    "pass": true,
+    "detail": "rendered"
+  },
+  {
+    "name": "dlg-people-user/dark panel has a themed surface",
+    "pass": true,
+    "detail": "rgb(18, 19, 22)"
+  },
+  {
+    "name": "dlg-people-user/dark dialog text passes AA (4.5:1)",
+    "pass": true,
+    "detail": "14.41:1 — rgb(227, 226, 230) on rgb(18, 19, 22)"
+  },
+  {
+    "name": "dlg-people-user/dark no hand-rolled pills inside",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "dlg-people-user/dark no h-overflow @480",
+    "pass": true,
+    "detail": "doc 480 vs win 480"
+  },
+  {
+    "name": "dlg-people-user/dark panel fits the viewport @480",
+    "pass": true,
+    "detail": "panel 442 vs 480"
+  },
+  {
+    "name": "dlg-people-user/dark no h-overflow @720",
+    "pass": true,
+    "detail": "doc 720 vs win 720"
+  },
+  {
+    "name": "dlg-people-user/dark panel fits the viewport @720",
+    "pass": true,
+    "detail": "panel 662 vs 720"
+  },
+  {
+    "name": "dlg-people-user/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "doc 1024 vs win 1024"
+  },
+  {
+    "name": "dlg-people-user/dark panel fits the viewport @1024",
+    "pass": true,
+    "detail": "panel 760 vs 1024"
+  },
+  {
+    "name": "dlg-people-user/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "doc 1440 vs win 1440"
+  },
+  {
+    "name": "dlg-people-user/dark panel fits the viewport @1440",
+    "pass": true,
+    "detail": "panel 760 vs 1440"
+  },
+  {
+    "name": "dlg-people-perms/dark [People & access] dialog opened",
+    "pass": true,
+    "detail": "rendered"
+  },
+  {
+    "name": "dlg-people-perms/dark panel has a themed surface",
+    "pass": true,
+    "detail": "rgb(18, 19, 22)"
+  },
+  {
+    "name": "dlg-people-perms/dark dialog text passes AA (4.5:1)",
+    "pass": true,
+    "detail": "14.41:1 — rgb(227, 226, 230) on rgb(18, 19, 22)"
+  },
+  {
+    "name": "dlg-people-perms/dark no hand-rolled pills inside",
+    "pass": true,
+    "detail": "0 legacy, 1 ds-status-chip"
+  },
+  {
+    "name": "dlg-people-perms/dark no h-overflow @480",
+    "pass": true,
+    "detail": "doc 480 vs win 480"
+  },
+  {
+    "name": "dlg-people-perms/dark panel fits the viewport @480",
+    "pass": true,
+    "detail": "panel 432 vs 480"
+  },
+  {
+    "name": "dlg-people-perms/dark no h-overflow @720",
+    "pass": true,
+    "detail": "doc 720 vs win 720"
+  },
+  {
+    "name": "dlg-people-perms/dark panel fits the viewport @720",
+    "pass": true,
+    "detail": "panel 648 vs 720"
+  },
+  {
+    "name": "dlg-people-perms/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "doc 1024 vs win 1024"
+  },
+  {
+    "name": "dlg-people-perms/dark panel fits the viewport @1024",
+    "pass": true,
+    "detail": "panel 820 vs 1024"
+  },
+  {
+    "name": "dlg-people-perms/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "doc 1440 vs win 1440"
+  },
+  {
+    "name": "dlg-people-perms/dark panel fits the viewport @1440",
+    "pass": true,
+    "detail": "panel 820 vs 1440"
+  },
+  {
+    "name": "dlg-picker-product/dark [Pickers] dialog opened",
+    "pass": true,
+    "detail": "rendered"
+  },
+  {
+    "name": "dlg-picker-product/dark panel has a themed surface",
+    "pass": true,
+    "detail": "rgb(18, 19, 22)"
+  },
+  {
+    "name": "dlg-picker-product/dark dialog text passes AA (4.5:1)",
+    "pass": true,
+    "detail": "14.41:1 — rgb(227, 226, 230) on rgb(18, 19, 22)"
+  },
+  {
+    "name": "dlg-picker-product/dark no hand-rolled pills inside",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "dlg-picker-product/dark no h-overflow @480",
+    "pass": true,
+    "detail": "doc 480 vs win 480"
+  },
+  {
+    "name": "dlg-picker-product/dark panel fits the viewport @480",
+    "pass": true,
+    "detail": "panel 480 vs 480"
+  },
+  {
+    "name": "dlg-picker-product/dark no h-overflow @720",
+    "pass": true,
+    "detail": "doc 720 vs win 720"
+  },
+  {
+    "name": "dlg-picker-product/dark panel fits the viewport @720",
+    "pass": true,
+    "detail": "panel 720 vs 720"
+  },
+  {
+    "name": "dlg-picker-product/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "doc 1024 vs win 1024"
+  },
+  {
+    "name": "dlg-picker-product/dark panel fits the viewport @1024",
+    "pass": true,
+    "detail": "panel 1024 vs 1024"
+  },
+  {
+    "name": "dlg-picker-product/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "doc 1440 vs win 1440"
+  },
+  {
+    "name": "dlg-picker-product/dark panel fits the viewport @1440",
+    "pass": true,
+    "detail": "panel 1416 vs 1440"
+  },
+  {
+    "name": "dlg-grid-filter/dark [Data & grid] dialog opened",
+    "pass": true,
+    "detail": "rendered"
+  },
+  {
+    "name": "dlg-grid-filter/dark panel has a themed surface",
+    "pass": true,
+    "detail": "rgb(18, 19, 22)"
+  },
+  {
+    "name": "dlg-grid-filter/dark dialog text passes AA (4.5:1)",
+    "pass": true,
+    "detail": "14.41:1 — rgb(227, 226, 230) on rgb(18, 19, 22)"
+  },
+  {
+    "name": "dlg-grid-filter/dark no hand-rolled pills inside",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "dlg-grid-filter/dark no h-overflow @480",
+    "pass": true,
+    "detail": "doc 480 vs win 480"
+  },
+  {
+    "name": "dlg-grid-filter/dark panel fits the viewport @480",
+    "pass": true,
+    "detail": "panel 360 vs 480"
+  },
+  {
+    "name": "dlg-grid-filter/dark no h-overflow @720",
+    "pass": true,
+    "detail": "doc 720 vs win 720"
+  },
+  {
+    "name": "dlg-grid-filter/dark panel fits the viewport @720",
+    "pass": true,
+    "detail": "panel 540 vs 720"
+  },
+  {
+    "name": "dlg-grid-filter/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "doc 1024 vs win 1024"
+  },
+  {
+    "name": "dlg-grid-filter/dark panel fits the viewport @1024",
+    "pass": true,
+    "detail": "panel 768 vs 1024"
+  },
+  {
+    "name": "dlg-grid-filter/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "doc 1440 vs win 1440"
+  },
+  {
+    "name": "dlg-grid-filter/dark panel fits the viewport @1440",
+    "pass": true,
+    "detail": "panel 1080 vs 1440"
+  },
+  {
+    "name": "dlg-stock-quantity/dark [Stock & shop floor] dialog opened",
+    "pass": true,
+    "detail": "rendered"
+  },
+  {
+    "name": "dlg-stock-quantity/dark panel has a themed surface",
+    "pass": true,
+    "detail": "rgb(18, 19, 22)"
+  },
+  {
+    "name": "dlg-stock-quantity/dark dialog text passes AA (4.5:1)",
+    "pass": true,
+    "detail": "14.41:1 — rgb(227, 226, 230) on rgb(18, 19, 22)"
+  },
+  {
+    "name": "dlg-stock-quantity/dark no hand-rolled pills inside",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "dlg-stock-quantity/dark no h-overflow @480",
+    "pass": true,
+    "detail": "doc 480 vs win 480"
+  },
+  {
+    "name": "dlg-stock-quantity/dark panel fits the viewport @480",
+    "pass": true,
+    "detail": "panel 384 vs 480"
+  },
+  {
+    "name": "dlg-stock-quantity/dark no h-overflow @720",
+    "pass": true,
+    "detail": "doc 720 vs win 720"
+  },
+  {
+    "name": "dlg-stock-quantity/dark panel fits the viewport @720",
+    "pass": true,
+    "detail": "panel 576 vs 720"
+  },
+  {
+    "name": "dlg-stock-quantity/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "doc 1024 vs win 1024"
+  },
+  {
+    "name": "dlg-stock-quantity/dark panel fits the viewport @1024",
+    "pass": true,
+    "detail": "panel 819 vs 1024"
+  },
+  {
+    "name": "dlg-stock-quantity/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "doc 1440 vs win 1440"
+  },
+  {
+    "name": "dlg-stock-quantity/dark panel fits the viewport @1440",
+    "pass": true,
+    "detail": "panel 938 vs 1440"
+  },
+  {
+    "name": "dlg-pricing/dark [Stock & shop floor] dialog opened",
+    "pass": true,
+    "detail": "rendered"
+  },
+  {
+    "name": "dlg-pricing/dark panel has a themed surface",
+    "pass": true,
+    "detail": "rgb(18, 19, 22)"
+  },
+  {
+    "name": "dlg-pricing/dark dialog text passes AA (4.5:1)",
+    "pass": true,
+    "detail": "14.41:1 — rgb(227, 226, 230) on rgb(18, 19, 22)"
+  },
+  {
+    "name": "dlg-pricing/dark no hand-rolled pills inside",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "dlg-pricing/dark no h-overflow @480",
+    "pass": true,
+    "detail": "doc 480 vs win 480"
+  },
+  {
+    "name": "dlg-pricing/dark panel fits the viewport @480",
+    "pass": true,
+    "detail": "panel 456 vs 480"
+  },
+  {
+    "name": "dlg-pricing/dark no h-overflow @720",
+    "pass": true,
+    "detail": "doc 720 vs win 720"
+  },
+  {
+    "name": "dlg-pricing/dark panel fits the viewport @720",
+    "pass": true,
+    "detail": "panel 684 vs 720"
+  },
+  {
+    "name": "dlg-pricing/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "doc 1024 vs win 1024"
+  },
+  {
+    "name": "dlg-pricing/dark panel fits the viewport @1024",
+    "pass": true,
+    "detail": "panel 973 vs 1024"
+  },
+  {
+    "name": "dlg-pricing/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "doc 1440 vs win 1440"
+  },
+  {
+    "name": "dlg-pricing/dark panel fits the viewport @1440",
+    "pass": true,
+    "detail": "panel 1080 vs 1440"
+  },
+  {
+    "name": "dlg-voucher-submit/dark [Voucher actions] dialog opened",
+    "pass": true,
+    "detail": "rendered"
+  },
+  {
+    "name": "dlg-voucher-submit/dark panel has a themed surface",
+    "pass": true,
+    "detail": "rgb(18, 19, 22)"
+  },
+  {
+    "name": "dlg-voucher-submit/dark dialog text passes AA (4.5:1)",
+    "pass": true,
+    "detail": "14.41:1 — rgb(227, 226, 230) on rgb(18, 19, 22)"
+  },
+  {
+    "name": "dlg-voucher-submit/dark no hand-rolled pills inside",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "dlg-voucher-submit/dark no h-overflow @480",
+    "pass": true,
+    "detail": "doc 480 vs win 480"
+  },
+  {
+    "name": "dlg-voucher-submit/dark panel fits the viewport @480",
+    "pass": true,
+    "detail": "panel 360 vs 480"
+  },
+  {
+    "name": "dlg-voucher-submit/dark no h-overflow @720",
+    "pass": true,
+    "detail": "doc 720 vs win 720"
+  },
+  {
+    "name": "dlg-voucher-submit/dark panel fits the viewport @720",
+    "pass": true,
+    "detail": "panel 360 vs 720"
+  },
+  {
+    "name": "dlg-voucher-submit/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "doc 1024 vs win 1024"
+  },
+  {
+    "name": "dlg-voucher-submit/dark panel fits the viewport @1024",
+    "pass": true,
+    "detail": "panel 360 vs 1024"
+  },
+  {
+    "name": "dlg-voucher-submit/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "doc 1440 vs win 1440"
+  },
+  {
+    "name": "dlg-voucher-submit/dark panel fits the viewport @1440",
+    "pass": true,
+    "detail": "panel 360 vs 1440"
+  },
+  {
+    "name": "dlg-share/dark [Print & share] dialog opened",
+    "pass": true,
+    "detail": "rendered"
+  },
+  {
+    "name": "dlg-share/dark panel has a themed surface",
+    "pass": true,
+    "detail": "rgb(240, 240, 240)"
+  },
+  {
+    "name": "dlg-share/dark dialog text passes AA (4.5:1)",
+    "pass": true,
+    "detail": "18.43:1 — rgb(0, 0, 0) on rgb(240, 240, 240)"
+  },
+  {
+    "name": "dlg-share/dark no hand-rolled pills inside",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "dlg-share/dark no h-overflow @480",
+    "pass": true,
+    "detail": "doc 480 vs win 480"
+  },
+  {
+    "name": "dlg-share/dark panel fits the viewport @480",
+    "pass": true,
+    "detail": "panel 480 vs 480"
+  },
+  {
+    "name": "dlg-share/dark no h-overflow @720",
+    "pass": true,
+    "detail": "doc 720 vs win 720"
+  },
+  {
+    "name": "dlg-share/dark panel fits the viewport @720",
+    "pass": true,
+    "detail": "panel 720 vs 720"
+  },
+  {
+    "name": "dlg-share/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "doc 1024 vs win 1024"
+  },
+  {
+    "name": "dlg-share/dark panel fits the viewport @1024",
+    "pass": true,
+    "detail": "panel 1024 vs 1024"
+  },
+  {
+    "name": "dlg-share/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "doc 1440 vs win 1440"
+  },
+  {
+    "name": "dlg-share/dark panel fits the viewport @1440",
+    "pass": true,
+    "detail": "panel 1440 vs 1440"
+  },
+  {
+    "name": "dlg-system-master/dark [System] dialog opened",
+    "pass": true,
+    "detail": "rendered"
+  },
+  {
+    "name": "dlg-system-master/dark panel has a themed surface",
+    "pass": true,
+    "detail": "rgb(18, 19, 22)"
+  },
+  {
+    "name": "dlg-system-master/dark dialog text passes AA (4.5:1)",
+    "pass": true,
+    "detail": "14.41:1 — rgb(227, 226, 230) on rgb(18, 19, 22)"
+  },
+  {
+    "name": "dlg-system-master/dark no hand-rolled pills inside",
+    "pass": true,
+    "detail": "0 legacy, 0 ds-status-chip"
+  },
+  {
+    "name": "dlg-system-master/dark no h-overflow @480",
+    "pass": true,
+    "detail": "doc 480 vs win 480"
+  },
+  {
+    "name": "dlg-system-master/dark panel fits the viewport @480",
+    "pass": true,
+    "detail": "panel 384 vs 480"
+  },
+  {
+    "name": "dlg-system-master/dark no h-overflow @720",
+    "pass": true,
+    "detail": "doc 720 vs win 720"
+  },
+  {
+    "name": "dlg-system-master/dark panel fits the viewport @720",
+    "pass": true,
+    "detail": "panel 576 vs 720"
+  },
+  {
+    "name": "dlg-system-master/dark no h-overflow @1024",
+    "pass": true,
+    "detail": "doc 1024 vs win 1024"
+  },
+  {
+    "name": "dlg-system-master/dark panel fits the viewport @1024",
+    "pass": true,
+    "detail": "panel 819 vs 1024"
+  },
+  {
+    "name": "dlg-system-master/dark no h-overflow @1440",
+    "pass": true,
+    "detail": "doc 1440 vs win 1440"
+  },
+  {
+    "name": "dlg-system-master/dark panel fits the viewport @1440",
+    "pass": true,
+    "detail": "panel 1152 vs 1440"
+  },
+  {
+    "name": "no console errors",
+    "pass": true,
+    "detail": ""
+  }
+]
