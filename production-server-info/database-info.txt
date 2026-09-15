@@ -1,4 +1,0 @@
-host -> 10.0.1.12
-port -> 3306
-Username -> jayhind
-Password -> Jayhind@123

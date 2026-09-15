@@ -122,6 +122,22 @@ cannot fail reads as coverage.
 Once the backends are up, their OpenAPI is at `http://localhost:3000/api/docs`
 and `http://localhost:3100/api/docs` (schema JSON at `…/api/docs-json`).
 
+### Production
+
+**A push to `production` in a service repo deploys that service** —
+`.github/workflows/deploy-production.yml` in each of the four app repos (OCR is
+not deployed). The runner builds (the host has ~1 GB RAM; an Angular build does
+not fit on it), rsyncs to `/srv/jayhind/<service>/releases/<id>`, and the host's
+`jayhind-deploy` runs migrations, restarts pm2, health-checks and rolls back.
+nginx behind Cloudflare: `aakhaja.com` → 4300, `api.aakhaja.com` → 3000,
+`hub.aakhaja.com` → 4500, `apihub.aakhaja.com` → 3100. Runbook, host layout,
+secrets and the nginx/pm2 config: [`_ops/deploy/`](_ops/deploy/README.md).
+
+> ⚠️ **The deploy script, nginx and pm2 config are installed copies.** Editing
+> `_ops/deploy/` changes nothing on the host until `server-bootstrap.sh` is
+> re-run there. And migrations run **before** the switch and are not rolled back
+> on a failed health check, so the previous release must tolerate them.
+
 ---
 
 ## 3. `.env` and the shared secret
@@ -153,6 +169,7 @@ Notable keys:
 | `OCR_SERVICE_URL` / `_KEY` / `_TIMEOUT_MS` | admin-back | the OCR sidecar |
 | `AUDIT_QUEUE_ENABLED`, `INVOICE_SCAN_QUEUE_ENABLED` | client-back | BullMQ/Redis; both degrade gracefully — **and the degradation is a 2s deadline, not a rejection** (§4.10, BUG-0062): ioredis buffers a command issued while Redis is down and retries it for ever, so an unbounded `await queue.add(...)` is a hang rather than a fallback |
 | `RATE_LIMIT_IP_PER_MIN`, `RATE_LIMIT_COMPANY_PER_MIN` | client-back | ThrottlerModule's two dimensions, **defaulting to the production literals** (100 and 600) — unset behaves exactly as before they were tunable. ⚠️ The per-IP one is a protection against a single bad actor; the only environment with any business raising it is one whose traffic is known to come from one machine, i.e. a test harness (`qa-artifacts`' browser lanes are ~112 serial tests from one IP and sit 2–3× over 100/min) |
+| `TRUST_PROXY` | both backs | Express `trust proxy`; unset by default, **`loopback` in production** behind nginx. Without it `req.ip` is `127.0.0.1` for every client, so the per-IP throttle is one bucket for the whole installation and every audit row records the proxy |
 | `STORAGE_DRIVER`, `UPLOAD_ROOT` | both backs | file storage |
 | `API_DOCS_ENABLED`, `API_DOCS_PATH` | both backs | OpenAPI/Swagger; **off by default under `NODE_ENV=production`** |
 

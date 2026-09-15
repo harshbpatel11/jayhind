@@ -40,3 +40,7 @@
 # dev.sh runtime state
 /.dev-logs/
 /.dev-pids/
+
+# Production host credentials (SSH keys, DB password, generated passwords) —
+# kept locally for operators, never in git. See _ops/deploy/README.md.
+/production-server-info/
